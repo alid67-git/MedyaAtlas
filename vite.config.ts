@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages proje adresi: /MedyaAtlas/
+  base: process.env.GITHUB_ACTIONS ? '/MedyaAtlas/' : '/',
   plugins: [react()],
   define: {
     global: 'globalThis',
