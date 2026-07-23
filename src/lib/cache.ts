@@ -28,6 +28,8 @@ export interface SourceRecord {
   label: string
   addedAt: number
   handle: FileSystemDirectoryHandle
+  /** Yerel arka plan hizmetinin doğrudan tarayacağı klasör yolu. */
+  localPath?: string
   /** Bağlı olduğu sürücü kökü (çapa) kaynağının kimliği. */
   parentId?: string
   /** Çapaya göre alt yol, ör. "DCIM/100GOPRO". */

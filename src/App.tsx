@@ -432,8 +432,9 @@ export default function App() {
             label: s.label,
             addedAt: s.addedAt,
             parentId: s.parentId,
-            subPath: s.subPath,
-            isAnchor: s.isAnchor,
+             subPath: s.subPath,
+             localPath: s.localPath,
+             isAnchor: s.isAnchor,
             directOnly: s.directOnly,
           }))
           .sort((a, b) => a.addedAt - b.addedAt),
@@ -850,8 +851,32 @@ export default function App() {
       }))
       setSources((prev) => [
         ...prev.filter((source) => source.id !== sourceId),
-        { id: sourceId, label, localPath: path, addedAt: Date.now() },
+        {
+          ...(sourcesRef.current.find((source) => source.id === sourceId) ?? {}),
+          id: sourceId,
+          label,
+          localPath: path,
+          addedAt: Date.now(),
+        },
       ])
+      // Eski tarayici kaynagini bir kez yerel yola bagladigimizda bu bilgiyi
+      // IndexedDB'ye de yaz. Sonraki "Tara" tiklamalari Chrome taramasina
+      // donmez; arka plandaki yerel hizmet kullanilir.
+      const existingSource = sourcesRef.current.find((source) => source.id === sourceId)
+      const existingHandle = handlesRef.current.get(sourceId)
+      if (existingSource && existingHandle) {
+        await putSource({
+          id: sourceId,
+          label,
+          addedAt: existingSource.addedAt,
+          handle: existingHandle,
+          localPath: path,
+          parentId: existingSource.parentId,
+          subPath: existingSource.subPath,
+          isAnchor: existingSource.isAnchor,
+          directOnly: existingSource.directOnly,
+        })
+      }
       setItems((prev) => [...prev.filter((item) => item.sourceId !== sourceId), ...next])
       setGrantedIds((prev) => new Set(prev).add(sourceId))
       setSkipped(Math.max(0, (data.items?.length ?? 0)))
@@ -1168,6 +1193,17 @@ export default function App() {
 
   const reconnectSource = useCallback(
     async (id: string) => {
+      const source = sourcesRef.current.find((item) => item.id === id)
+      if (source) {
+        const drive = /\(([A-Za-z]):\)/.exec(source.label)
+        const path = source.localPath ?? window.prompt(
+          `"${source.label}" icin klasor ya da surucu yolu:`,
+          drive ? `${drive[1]}:\\` : '',
+        )
+        if (!path?.trim()) return
+        await scanLocalPath(path, id)
+        return
+      }
       const handle = handlesRef.current.get(id)
       if (!handle) return
       try {
@@ -1190,14 +1226,20 @@ export default function App() {
         setError(friendlyError(e, 'Kaynağa bağlanılamadı.'))
       }
     },
-    [ingest, loadSourceFiles],
+    [ingest, loadSourceFiles, scanLocalPath],
   )
 
   const rescanSource = useCallback(
     async (id: string) => {
-      const localSource = sourcesRef.current.find((source) => source.id === id)
-      if (localSource?.localPath) {
-        await scanLocalPath(localSource.localPath, id)
+      const source = sourcesRef.current.find((item) => item.id === id)
+      if (source) {
+        const drive = /\(([A-Za-z]):\)/.exec(source.label)
+        const path = source.localPath ?? window.prompt(
+          `"${source.label}" icin klasor ya da surucu yolu:`,
+          drive ? `${drive[1]}:\\` : '',
+        )
+        if (!path?.trim()) return
+        await scanLocalPath(path, id)
         return
       }
       const handle = handlesRef.current.get(id)
@@ -1643,7 +1685,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.30-beta</span>
+            MedyaAtlas <span className="brand__version">v0.1.31-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
