@@ -234,6 +234,7 @@ export default function App() {
   const [items, setItems] = useState<MediaItem[]>([])
   const [showLocationMissing, setShowLocationMissing] = useState(false)
   const [localOnlineIds, setLocalOnlineIds] = useState<Set<string>>(new Set())
+  const [localAvailabilityReady, setLocalAvailabilityReady] = useState(false)
   const [enabledKinds, setEnabledKinds] = useState<Set<MediaKind>>(loadFilters)
   const [sources, setSources] = useState<SourceUi[]>([])
   const [grantedIds, setGrantedIds] = useState<Set<string>>(new Set())
@@ -284,7 +285,10 @@ export default function App() {
         .map((source) => ({ id: source.id, path: localPathForSource(source, sources) }))
         .filter((source): source is { id: string; path: string } => Boolean(source.path))
       if (localSources.length === 0) {
-        if (alive) setLocalOnlineIds(new Set())
+        if (alive) {
+          setLocalOnlineIds(new Set())
+          setLocalAvailabilityReady(false)
+        }
         return
       }
       try {
@@ -294,9 +298,14 @@ export default function App() {
           body: JSON.stringify({ sources: localSources }),
         })
         const data = await response.json() as { available?: string[] }
-        if (alive && response.ok) setLocalOnlineIds(new Set(data.available ?? []))
+        if (alive && response.ok) {
+          setLocalOnlineIds(new Set(data.available ?? []))
+          setLocalAvailabilityReady(true)
+        }
       } catch {
-        if (alive) setLocalOnlineIds(new Set())
+        // Eski yerel hizmet çalışıyorsa medyayı gizleme; tarayıcının mevcut
+        // bağlantı bilgisini kullanmaya devam et.
+        if (alive) setLocalAvailabilityReady(false)
       }
     }
     void check()
@@ -315,7 +324,7 @@ export default function App() {
             (() => {
               const source = sources.find((candidate) => candidate.id === it.sourceId)
               return localPathForSource(source ?? { id: '', label: '', addedAt: 0 }, sources)
-                ? localOnlineIds.has(it.sourceId)
+                ? !localAvailabilityReady || localOnlineIds.has(it.sourceId)
                 : grantedIds.has(it.sourceId)
             })(),
         )
@@ -1844,7 +1853,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.45-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.46-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
