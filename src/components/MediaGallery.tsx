@@ -30,6 +30,7 @@ function loadThumbSize(): ThumbSize {
 
 interface MediaGalleryProps {
   items: MediaItem[]
+  locationMode: 'located' | 'missing'
   resolveThumb: (item: MediaItem) => Promise<ThumbInfo | null>
   pathForItem: (item: MediaItem) => string
   onOpen: (item: MediaItem) => void
@@ -151,7 +152,7 @@ function Thumb({
           ⛁
         </span>
         <span className={`gallery-card__badge kind-${item.kind}`}>
-          {KIND_LABEL[item.kind]}
+          {KIND_LABEL[item.kind]} · {item.locationMissing ? 'Konum yok' : 'GPS'}
         </span>
         <span className="gallery-card__label">
           {item.takenAt && (
@@ -206,7 +207,7 @@ function Thumb({
         <span className="gallery-card__loading" aria-hidden />
       )}
       <span className={`gallery-card__badge kind-${item.kind}`}>
-        {KIND_LABEL[item.kind]}
+        {KIND_LABEL[item.kind]} · {item.locationMissing ? 'Konum yok' : 'GPS'}
       </span>
       <span className="gallery-card__label">
         {item.takenAt && (
@@ -279,6 +280,7 @@ function PathMenu({
 
 export function MediaGallery({
   items,
+  locationMode,
   resolveThumb,
   pathForItem,
   onOpen,
@@ -301,7 +303,7 @@ export function MediaGallery({
       <header className="gallery__header">
         <div>
           <h2>
-            {items.length} medya
+            {items.length} medya {locationMode === 'missing' ? '· Konumu bulunamayanlar' : '· GPS konumlu'}
             <span className="gallery__coords">bu alanda · en yeni üstte</span>
           </h2>
         </div>

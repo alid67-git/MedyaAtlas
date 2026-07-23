@@ -331,7 +331,10 @@ export default function App() {
         .map((it) => ({ ...it, available: grantedIds.has(it.sourceId) })),
     [items, grantedIds, enabledKinds, hiddenSourceIds, sources, localOnlineIds, localAvailabilityReady],
   )
-  const clusters = useMemo(() => groupByLocation(availableItems.filter((item) => !item.locationMissing)), [availableItems])
+  const clusters = useMemo(
+    () => showLocationMissing ? [] : groupByLocation(availableItems.filter((item) => !item.locationMissing)),
+    [availableItems, showLocationMissing],
+  )
 
   // O anki harita alanındaki öğeler (tür/kaynak filtresi uygulanmadan);
   // menülerdeki sayılar görünen alanı yansıtır.
@@ -1879,7 +1882,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.50-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.51-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -2192,6 +2195,7 @@ export default function App() {
 
         <MediaGallery
           items={visibleItems}
+          locationMode={showLocationMissing ? 'missing' : 'located'}
           resolveThumb={resolveThumb}
           pathForItem={pathForItem}
           onOpen={setViewer}
