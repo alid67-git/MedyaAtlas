@@ -94,6 +94,11 @@ function localPathForSource(source: SourceUi, allSources: readonly SourceUi[]): 
   return subPath ? `${root.localPath.replace(/[\\/]+$/, '')}\\${subPath}` : root.localPath
 }
 
+function mediaStemKey(item: MediaItem): string {
+  const path = item.relativePath || item.name
+  return `${item.sourceId}|${path.replace(/\.[^.]+$/, '').toLowerCase()}`
+}
+
 interface SourceTreeNode {
   /** Çapa göreli yol; kök için ''. */
   path: string
@@ -315,11 +320,17 @@ export default function App() {
 
   // Kaynak erişimi + seçili tür ve kaynak filtreleri
   const availableItems = useMemo(
-    () =>
-      items
+    () => {
+      const originalVideoStems = new Set(
+        items
+          .filter((item) => !/\.lrv$/i.test(item.name))
+          .map(mediaStemKey),
+      )
+      return items
         .filter(
           (it) =>
             enabledKinds.has(it.kind) &&
+            (!/\.lrv$/i.test(it.name) || !originalVideoStems.has(mediaStemKey(it))) &&
             !hiddenSourceIds.has(it.sourceId) &&
             (() => {
               const source = sources.find((candidate) => candidate.id === it.sourceId)
@@ -329,6 +340,7 @@ export default function App() {
             })(),
         )
         .map((it) => ({ ...it, available: grantedIds.has(it.sourceId) })),
+    },
     [items, grantedIds, enabledKinds, hiddenSourceIds, sources, localOnlineIds, localAvailabilityReady],
   )
   const clusters = useMemo(
@@ -1882,7 +1894,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.51-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.52-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin

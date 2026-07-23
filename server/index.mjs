@@ -91,18 +91,29 @@ async function walk(dir, files) {
 async function scan(root, sourceId, job) {
   root = resolve(root)
   const files = []; await walk(root, files)
+  // LRV, GoPro'nun aynı videoya ait düşük çözünürlüklü yardımcı kopyasıdır.
+  // Asıl video varsa çift kayıt yaratma; tek başına kalan LRV yine bulunur.
+  const originalStems = new Set(
+    files
+      .filter((path) => extname(path).slice(1).toLowerCase() !== 'lrv')
+      .map((path) => basename(path, extname(path)).toLowerCase()),
+  )
+  const scanFiles = files.filter((path) => {
+    const ext = extname(path).slice(1).toLowerCase()
+    return ext !== 'lrv' || !originalStems.has(basename(path, extname(path)).toLowerCase())
+  })
   // Asıl amaç GoPro konumları: onları ve drone videolarını önce işle.
   const priority = (path) => {
     const kind = kindFor(basename(path))
     return kind === 'gopro' ? 0 : kind === 'drone' ? 1 : kind === 'photo' ? 2 : 3
   }
-  files.sort((a, b) => priority(a) - priority(b))
-  job.total = files.length
+  scanFiles.sort((a, b) => priority(a) - priority(b))
+  job.total = scanFiles.length
   job.phase = 'scanning'
   let next = 0
-  await Promise.all(Array.from({ length: Math.min(5, files.length) }, async () => {
-    while (next < files.length) {
-      const path = files[next++], kind = kindFor(basename(path))
+  await Promise.all(Array.from({ length: Math.min(5, scanFiles.length) }, async () => {
+    while (next < scanFiles.length) {
+      const path = scanFiles[next++], kind = kindFor(basename(path))
       const point = await readGps(path, kind)
       job.processed += 1
       if (point) job.located += 1
