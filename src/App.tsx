@@ -905,7 +905,17 @@ export default function App() {
           directOnly: existingSource.directOnly,
         })
       }
-      setItems((prev) => [...prev.filter((item) => item.sourceId !== sourceId), ...next])
+      // Yerel tarama eksik GPS/HEIC desteği yüzünden daha az sonuç döndürse bile
+      // daha önce bulunmuş kütüphane kayıtlarını kaybetme. Yeni tarama yalnızca
+      // aynı kimlikteki kaydı günceller veya yeni kayıt ekler.
+      setItems((prev) => {
+        const nextIds = new Set(next.map((item) => item.id))
+        return [
+          ...prev.filter((item) => item.sourceId !== sourceId || !nextIds.has(item.id)),
+          ...next,
+        ]
+      })
+      await putLibraryItems(next.map(toLibraryItem))
       setGrantedIds((prev) => new Set(prev).add(sourceId))
       setSkipped(Math.max(0, received.length))
       setViewer(null)
@@ -1782,7 +1792,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.39-beta</span>
+            MedyaAtlas <span className="brand__version">v0.1.40-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
