@@ -22,6 +22,7 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
   const [url, setUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const [duration, setDuration] = useState<number | null>(null)
+  const [openedOnComputer, setOpenedOnComputer] = useState(false)
 
   useEffect(() => {
     if (!item) return
@@ -37,6 +38,7 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
     setUrl(null)
     setFailed(false)
     setDuration(null)
+    setOpenedOnComputer(false)
     if (!item) return
     void resolveUrl(item).then((u) => {
       if (!alive) return
@@ -54,6 +56,8 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
     item.kind === 'video' || item.kind === 'gopro' || item.kind === 'drone'
 
   const openOnComputer = async () => {
+    if (openedOnComputer) return
+    setOpenedOnComputer(true)
     try {
       const response = await fetch('/api/open', {
         method: 'POST',
@@ -80,14 +84,9 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
             <p className="lightbox__kind">{KIND_LABEL[item.kind]}</p>
             <h3>{item.name}</h3>
           </div>
-          <div className="lightbox__actions">
-            <button type="button" className="btn btn--ghost" onClick={() => void openOnComputer()}>
-              Bilgisayarda aç
-            </button>
-            <button type="button" className="btn btn--ghost" onClick={onClose}>
-              Kapat
-            </button>
-          </div>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>
+            Kapat
+          </button>
         </header>
         <div className="lightbox__stage">
           {failed ? (
@@ -113,9 +112,16 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
                 const seconds = event.currentTarget.duration
                 if (Number.isFinite(seconds)) setDuration(seconds)
               }}
+              onError={() => void openOnComputer()}
+              onLoadStart={(event) => {
+                const video = event.currentTarget
+                window.setTimeout(() => {
+                  if (video.readyState < 2) void openOnComputer()
+                }, 6000)
+              }}
             />
           ) : (
-            <img src={url} alt={item.name} className="lightbox__media" onError={() => setFailed(true)} />
+            <img src={url} alt={item.name} className="lightbox__media" onError={() => void openOnComputer()} />
           )}
         </div>
         <p className="lightbox__meta">
