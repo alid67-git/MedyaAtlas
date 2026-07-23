@@ -1903,7 +1903,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.57-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.58-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -1913,6 +1913,7 @@ export default function App() {
         <div className="topbar__actions">
           <button
             type="button"
+            hidden
             className="btn btn--primary"
             onClick={() => void addFolder()}
           >
@@ -1928,6 +1929,7 @@ export default function App() {
           </button>
           <button
             type="button"
+            hidden
             className="btn"
             onClick={() => fileInputRef.current?.click()}
           >
@@ -2048,34 +2050,26 @@ export default function App() {
               <div className="sources-panel__actions">
                 <button
                   type="button"
-                  className="sources-menu__drive-btn"
-                  onClick={() => void scanLocalPath()}
-                >
-                  + Yerel yol tara
-                </button>
-                <button
-                  type="button"
                   className="sources-menu__action-btn"
-                  onClick={() => void rescanAll()}
-                  title="Bağlı tüm klasörleri yeniden tara"
-                  disabled={
-                    !sources.some((s) => !s.isAnchor && grantedIds.has(s.id))
-                  }
-                >
-                  Tümünü tara / güncelle
-                </button>
-                <button
-                  type="button"
-                  className="sources-menu__drive-btn"
-                  onClick={() => void registerDrive()}
-                  title="Sürücü ekle; medyalı klasörler otomatik dal olur"
+                  onClick={() => void scanLocalPath()}
                 >
                   + Sürücü ekle
                 </button>
+                <button
+                  type="button"
+                  className="sources-menu__drive-btn"
+                  onClick={() => void addFolder()}
+                >
+                  + Klasör ekle
+                </button>
+                <button
+                  type="button"
+                  className="sources-menu__drive-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  + Dosya seç
+                </button>
               </div>
-              <p className="sources-menu__hint">
-                ▸ dalı açar · kutu haritada gösterir. Eski tek klasörde “Dallar”.
-              </p>
             </div>
           )}
         </div>
