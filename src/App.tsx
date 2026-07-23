@@ -261,11 +261,6 @@ export default function App() {
   const [cachedCount, setCachedCount] = useState(0)
 
   const busy = scans.size > 0
-  const selectableSourceIds = sources.filter((s) => !s.isAnchor).map((s) => s.id)
-  const allSourcesVisible =
-    selectableSourceIds.length > 0 &&
-    selectableSourceIds.every((id) => !hiddenSourceIds.has(id))
-
   const folderInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sourcesMenuRef = useRef<HTMLDivElement>(null)
@@ -1908,7 +1903,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.59-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.60-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -2011,21 +2006,6 @@ export default function App() {
 
           {sourcesOpen && (
             <div className="sources-panel__body">
-              <div className="sources-panel__selection">
-                <button
-                  type="button"
-                  className="sources-panel__selection-btn"
-                  onClick={() =>
-                    toggleNodeSourcesVisible(
-                      selectableSourceIds,
-                      !allSourcesVisible,
-                    )
-                  }
-                  disabled={selectableSourceIds.length === 0}
-                >
-                  {allSourcesVisible ? 'Tümünü bırak' : 'Tümünü seç'}
-                </button>
-              </div>
               {sources.length === 0 ? (
                 <p className="sources-menu__hint">
                   Henüz kaynak yok. Sürücü veya klasör ekle.

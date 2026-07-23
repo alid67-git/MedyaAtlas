@@ -1067,36 +1067,6 @@ input {
   border-top: 1px solid var(--line);
 }
 
-.sources-panel__selection {
-  display: none;
-  display: flex;
-  gap: 0.35rem;
-  margin: 0.1rem 0.1rem 0.35rem;
-}
-
-.sources-panel__selection-btn {
-  flex: 1;
-  padding: 0.32rem 0.45rem;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.sources-panel__selection-btn:hover:not(:disabled) {
-  border-color: rgba(46, 196, 182, 0.5);
-  background: rgba(46, 196, 182, 0.14);
-}
-
-.sources-panel__selection-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
 .sources-panel__actions {
   display: flex;
   flex-direction: column;
