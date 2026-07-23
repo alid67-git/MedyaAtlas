@@ -196,6 +196,7 @@ function Thumb({
           src={thumb.url}
           alt={item.name}
           loading="lazy"
+          onError={() => setFailed(true)}
         />
       ) : failed ? (
         <span className="gallery-card__fallback" aria-hidden>

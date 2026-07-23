@@ -22,7 +22,6 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
   const [url, setUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const [duration, setDuration] = useState<number | null>(null)
-  const [openedOnComputer, setOpenedOnComputer] = useState(false)
 
   useEffect(() => {
     if (!item) return
@@ -38,7 +37,6 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
     setUrl(null)
     setFailed(false)
     setDuration(null)
-    setOpenedOnComputer(false)
     if (!item) return
     void resolveUrl(item).then((u) => {
       if (!alive) return
@@ -54,21 +52,6 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
 
   const isVideo =
     item.kind === 'video' || item.kind === 'gopro' || item.kind === 'drone'
-
-  const openOnComputer = async () => {
-    if (openedOnComputer) return
-    setOpenedOnComputer(true)
-    try {
-      const response = await fetch('/api/open', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id }),
-      })
-      if (!response.ok) throw new Error('open failed')
-    } catch {
-      setFailed(true)
-    }
-  }
 
   return (
     <div className="lightbox" role="dialog" aria-modal="true">
@@ -112,16 +95,10 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
                 const seconds = event.currentTarget.duration
                 if (Number.isFinite(seconds)) setDuration(seconds)
               }}
-              onError={() => void openOnComputer()}
-              onLoadStart={(event) => {
-                const video = event.currentTarget
-                window.setTimeout(() => {
-                  if (video.readyState < 2) void openOnComputer()
-                }, 6000)
-              }}
+              onError={() => setFailed(true)}
             />
           ) : (
-            <img src={url} alt={item.name} className="lightbox__media" onError={() => void openOnComputer()} />
+            <img src={url} alt={item.name} className="lightbox__media" onError={() => setFailed(true)} />
           )}
         </div>
         <p className="lightbox__meta">
