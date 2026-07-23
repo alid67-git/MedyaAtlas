@@ -41,6 +41,26 @@ export function Lightbox({ item, resolveUrl, resolveCompatibleVideoUrl, onClose 
     setConverting(false)
     setDuration(null)
     if (!item) return
+    // GoPro'nun HEVC videoları aynı Chrome sürümünde dahi siyah görüntü
+    // verebiliyor. Bu nedenle doğrudan akıtmak yerine önbellekli H.264
+    // sürümünü tercih et; dönüştürme olmazsa normal akışa geri dön.
+    if (item.kind === 'gopro') {
+      setConverting(true)
+      void resolveCompatibleVideoUrl(item).then(async (compatibleUrl) => {
+        if (!alive) return
+        if (compatibleUrl) {
+          setUrl(compatibleUrl)
+          setConverting(false)
+          return
+        }
+        const originalUrl = await resolveUrl(item)
+        if (!alive) return
+        if (originalUrl) setUrl(originalUrl)
+        else setFailed(true)
+        setConverting(false)
+      })
+      return () => { alive = false }
+    }
     void resolveUrl(item).then((u) => {
       if (!alive) return
       if (u) setUrl(u)
@@ -49,7 +69,7 @@ export function Lightbox({ item, resolveUrl, resolveCompatibleVideoUrl, onClose 
     return () => {
       alive = false
     }
-  }, [item, resolveUrl])
+  }, [item, resolveUrl, resolveCompatibleVideoUrl])
 
   if (!item) return null
 
