@@ -81,11 +81,9 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
             <h3>{item.name}</h3>
           </div>
           <div className="lightbox__actions">
-            {isVideo && (
-              <button type="button" className="btn btn--ghost" onClick={() => void openOnComputer()}>
-                Bilgisayarda aç
-              </button>
-            )}
+            <button type="button" className="btn btn--ghost" onClick={() => void openOnComputer()}>
+              Bilgisayarda aç
+            </button>
             <button type="button" className="btn btn--ghost" onClick={onClose}>
               Kapat
             </button>
@@ -117,7 +115,7 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
               }}
             />
           ) : (
-            <img src={url} alt={item.name} className="lightbox__media" />
+            <img src={url} alt={item.name} className="lightbox__media" onError={() => setFailed(true)} />
           )}
         </div>
         <p className="lightbox__meta">
