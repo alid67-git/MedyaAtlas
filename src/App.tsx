@@ -1464,9 +1464,6 @@ export default function App() {
   const scanAnchorSource = useCallback(async (anchorId: string) => {
     const anchor = sourcesRef.current.find((source) => source.id === anchorId)
     if (!anchor) return
-    // Kullanici taramayi baslatir baslatmaz kok dalini ve ilerleme satirini gorur.
-    setExpandedTree((prev) => new Set(prev).add(`${anchorId}::`))
-
     const existingRoot = sourcesRef.current.find(
       (source) => source.parentId === anchorId && source.subPath === '',
     )
@@ -1945,7 +1942,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.65-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.66-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
