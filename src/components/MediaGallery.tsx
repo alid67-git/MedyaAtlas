@@ -331,15 +331,19 @@ export function MediaGallery({
         style={{ '--thumb-size': `${THUMB_PX[size]}px` } as CSSProperties}
       >
         {shown.map((item, index) => {
-          const key = dayKey(item.takenAt)
-          const previousKey = index > 0 ? dayKey(shown[index - 1].takenAt) : null
+          const key = locationMode === 'missing' ? item.kind : dayKey(item.takenAt)
+          const previousKey = index > 0
+            ? (locationMode === 'missing' ? shown[index - 1].kind : dayKey(shown[index - 1].takenAt))
+            : null
           return (
             <Fragment key={item.id}>
               {key !== previousKey && (
                 <h3 className="gallery__day">
-                  {item.takenAt
-                    ? formatDayHeading(item.takenAt)
-                    : 'Tarihi bilinmeyenler'}
+                  {locationMode === 'missing'
+                    ? KIND_LABEL[item.kind]
+                    : item.takenAt
+                      ? formatDayHeading(item.takenAt)
+                      : 'Tarihi bilinmeyenler'}
                 </h3>
               )}
               <Thumb

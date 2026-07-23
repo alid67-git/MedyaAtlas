@@ -423,6 +423,15 @@ export default function App() {
     return () => document.removeEventListener('mousedown', onDown)
   }, [typesOpen])
 
+  useEffect(() => {
+    if (!sourcesOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (!sourcesMenuRef.current?.contains(e.target as Node)) setSourcesOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [sourcesOpen])
+
   // Açılışta kalıcı kütüphaneyi ve kaynakları yükle (tarama yok)
   useEffect(() => {
     void (async () => {
@@ -1894,7 +1903,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.54-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.55-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
