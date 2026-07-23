@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import { createReadStream } from 'node:fs'
-import { open, readdir, stat } from 'node:fs/promises'
+import { access, open, readdir, stat } from 'node:fs/promises'
 import { basename, extname, relative, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
 import exifr from 'exifr'
@@ -122,6 +122,18 @@ createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`)
     if (req.method === 'GET' && url.pathname === '/api/health') return send(res, 200, { ok: true })
+    if (req.method === 'POST' && url.pathname === '/api/availability') {
+      const { sources } = await readBody(req)
+      const available = []
+      for (const source of Array.isArray(sources) ? sources : []) {
+        try {
+          if (!source?.id || !source?.path) continue
+          await access(source.path)
+          available.push(source.id)
+        } catch { /* disk çıkarılmış veya yol artık yok */ }
+      }
+      return send(res, 200, { available })
+    }
     if (req.method === 'POST' && url.pathname === '/api/scan') {
       const { path, sourceId } = await readBody(req)
       if (!path || !sourceId) return send(res, 400, { error: 'Klasör yolu gerekli.' })

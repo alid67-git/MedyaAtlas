@@ -233,6 +233,7 @@ function toLibraryItem(item: MediaItem): LibraryItem {
 export default function App() {
   const [items, setItems] = useState<MediaItem[]>([])
   const [showLocationMissing, setShowLocationMissing] = useState(false)
+  const [localOnlineIds, setLocalOnlineIds] = useState<Set<string>>(new Set())
   const [enabledKinds, setEnabledKinds] = useState<Set<MediaKind>>(loadFilters)
   const [sources, setSources] = useState<SourceUi[]>([])
   const [grantedIds, setGrantedIds] = useState<Set<string>>(new Set())
@@ -276,16 +277,50 @@ export default function App() {
   enabledKindsRef.current = enabledKinds
   sourcesRef.current = sources
 
+  useEffect(() => {
+    let alive = true
+    const check = async () => {
+      const localSources = sources
+        .map((source) => ({ id: source.id, path: localPathForSource(source, sources) }))
+        .filter((source): source is { id: string; path: string } => Boolean(source.path))
+      if (localSources.length === 0) {
+        if (alive) setLocalOnlineIds(new Set())
+        return
+      }
+      try {
+        const response = await fetch('/api/availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sources: localSources }),
+        })
+        const data = await response.json() as { available?: string[] }
+        if (alive && response.ok) setLocalOnlineIds(new Set(data.available ?? []))
+      } catch {
+        if (alive) setLocalOnlineIds(new Set())
+      }
+    }
+    void check()
+    const timer = window.setInterval(() => void check(), 5000)
+    return () => { alive = false; window.clearInterval(timer) }
+  }, [sources])
+
   // Kaynak erişimi + seçili tür ve kaynak filtreleri
   const availableItems = useMemo(
     () =>
       items
         .filter(
           (it) =>
-            enabledKinds.has(it.kind) && !hiddenSourceIds.has(it.sourceId),
+            enabledKinds.has(it.kind) &&
+            !hiddenSourceIds.has(it.sourceId) &&
+            (() => {
+              const source = sources.find((candidate) => candidate.id === it.sourceId)
+              return localPathForSource(source ?? { id: '', label: '', addedAt: 0 }, sources)
+                ? localOnlineIds.has(it.sourceId)
+                : grantedIds.has(it.sourceId)
+            })(),
         )
         .map((it) => ({ ...it, available: grantedIds.has(it.sourceId) })),
-    [items, grantedIds, enabledKinds, hiddenSourceIds],
+    [items, grantedIds, enabledKinds, hiddenSourceIds, sources, localOnlineIds],
   )
   const clusters = useMemo(() => groupByLocation(availableItems.filter((item) => !item.locationMissing)), [availableItems])
 
@@ -1807,7 +1842,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.43-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.44-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
