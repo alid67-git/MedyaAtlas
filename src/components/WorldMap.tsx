@@ -79,6 +79,8 @@ function AreaSelector({
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 || (!active && !e.shiftKey)) return
       e.preventDefault()
+      // Leaflet'in sürükleme dinleyicisi devreye girmeden olayı yakala.
+      e.stopPropagation()
       if (!active && e.shiftKey) {
         shiftSelecting = true
         map.dragging.disable()
@@ -130,15 +132,17 @@ function AreaSelector({
       }
     }
 
-    container.addEventListener('pointerdown', onDown)
-    container.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
+    // Capture fazı, Shift+sürükle davranışının Leaflet harita gezintisiyle
+    // yarışmasını önler.
+    container.addEventListener('pointerdown', onDown, true)
+    container.addEventListener('pointermove', onMove, true)
+    window.addEventListener('pointerup', onUp, true)
     window.addEventListener('keydown', onKey)
 
     return () => {
-      container.removeEventListener('pointerdown', onDown)
-      container.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
+      container.removeEventListener('pointerdown', onDown, true)
+      container.removeEventListener('pointermove', onMove, true)
+      window.removeEventListener('pointerup', onUp, true)
       window.removeEventListener('keydown', onKey)
       clearRect()
       map.dragging.enable()
@@ -385,6 +389,9 @@ export function WorldMap({ clusters, onBoundsChange }: WorldMapProps) {
     >
       <span aria-hidden>⬚</span> {selecting ? 'Alan çiz…' : 'Alan seç'}
     </button>
+    <div className="map-area-hint" title="Shift basılıyken sol fare tuşuyla sürükleyip bırak">
+      <kbd>Shift</kbd> + sürükle: alan seç
+    </div>
     </>
   )
 }

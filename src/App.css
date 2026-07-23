@@ -857,6 +857,29 @@ input {
   color: #bff7f0;
 }
 
+.map-area-hint {
+  position: absolute;
+  z-index: 800;
+  bottom: 0.95rem;
+  left: 3.75rem;
+  padding: 0.42rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  background: rgba(4, 18, 28, 0.9);
+  font-size: 0.74rem;
+  font-weight: 650;
+  pointer-events: none;
+}
+
+.map-area-hint kbd {
+  padding: 0.08rem 0.27rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  font: inherit;
+}
+
 .map-dot {
   background: transparent;
   border: none;
