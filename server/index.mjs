@@ -1,7 +1,7 @@
 import { createServer } from 'node:http'
 import { createReadStream } from 'node:fs'
 import { access, open, readdir, stat } from 'node:fs/promises'
-import { basename, extname, relative, resolve } from 'node:path'
+import { basename, extname, relative, resolve, sep } from 'node:path'
 import { spawn } from 'node:child_process'
 import exifr from 'exifr'
 
@@ -172,6 +172,18 @@ createServer(async (req, res) => {
       const child = spawn('cmd.exe', ['/c', 'start', '', path], { detached: true, stdio: 'ignore' })
       child.unref()
       return send(res, 200, { ok: true })
+    }
+    if (req.method === 'POST' && url.pathname === '/api/resolve') {
+      const { id, rootPath, relativePath } = await readBody(req)
+      const root = resolve(rootPath || '')
+      const path = resolve(root, relativePath || '')
+      if (!id || !rootPath || !relativePath || !(path === root || path.startsWith(`${root}${sep}`))) {
+        return send(res, 400, { error: 'Invalid media path.' })
+      }
+      const info = await stat(path)
+      if (!info.isFile()) return send(res, 404, { error: 'Media not found.' })
+      media.set(id, path)
+      return send(res, 200, { url: `/api/media/${encodeURIComponent(id)}` })
     }
     if (req.method === 'GET' && url.pathname.startsWith('/api/media/')) {
       const path = media.get(decodeURIComponent(url.pathname.slice(11)))

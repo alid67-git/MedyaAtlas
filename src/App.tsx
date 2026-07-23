@@ -560,6 +560,23 @@ export default function App() {
       const cached = urlCacheRef.current.get(item.id)
       if (cached) return cached
 
+      const source = sourcesRef.current.find((candidate) => candidate.id === item.sourceId)
+      const rootPath = source ? localPathForSource(source, sourcesRef.current) : undefined
+      if (rootPath) {
+        try {
+          const response = await fetch('/api/resolve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: item.id, rootPath, relativePath: item.relativePath }),
+          })
+          const data = await response.json() as { url?: string }
+          if (response.ok && data.url) {
+            urlCacheRef.current.set(item.id, data.url)
+            return data.url
+          }
+        } catch { /* tarayıcı dosya yolu çözümüne düş */ }
+      }
+
       const file = await resolveFile(item)
       if (!file) return null
       const url = URL.createObjectURL(file)
@@ -650,6 +667,12 @@ export default function App() {
           return info
         }
 
+        const directUrl = item.kind === 'photo' ? await resolveUrl(item) : null
+        if (directUrl) {
+          const info = { url: directUrl }
+          thumbCacheRef.current.set(item.id, info)
+          return info
+        }
         const file = await resolveFile(item)
         if (!file) return null
 
@@ -678,7 +701,7 @@ export default function App() {
         thumbPendingRef.current.delete(item.id)
       }
     },
-    [resolveFile],
+    [resolveFile, resolveUrl],
   )
 
   const ingest = useCallback(
@@ -1853,7 +1876,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.47-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.48-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
