@@ -1274,6 +1274,56 @@ export default function App() {
     await Promise.all(targets.map((s) => rescanSource(s.id)))
   }, [grantedIds, rescanSource])
 
+  // Surucu satiri bir grup basligidir. Buna da bagla/tara eylemi veriyoruz;
+  // tarama sonucu basligin altindaki "(kok)" dali olarak gorunur.
+  const scanAnchorSource = useCallback(async (anchorId: string) => {
+    const anchor = sourcesRef.current.find((source) => source.id === anchorId)
+    if (!anchor) return
+
+    const existingRoot = sourcesRef.current.find(
+      (source) => source.parentId === anchorId && source.subPath === '',
+    )
+    const drive = /\(([A-Za-z]):\)/.exec(anchor.label)
+    const path = existingRoot?.localPath ?? window.prompt(
+      `"${anchor.label}" icin klasor ya da surucu yolu:`,
+      drive ? `${drive[1]}:\\` : '',
+    )
+    if (!path?.trim()) return
+
+    if (existingRoot) {
+      await scanLocalPath(path, existingRoot.id)
+      return
+    }
+
+    const handle = handlesRef.current.get(anchorId)
+    if (!handle) {
+      setError('Surucu kaydi bulunamadi. Lutfen kaynak listesinden yeniden ekle.')
+      return
+    }
+    const rootId = `src-root-${anchorId}`
+    const root: SourceUi = {
+      id: rootId,
+      label: '(kok)',
+      addedAt: Date.now(),
+      localPath: path,
+      parentId: anchorId,
+      subPath: '',
+    }
+    handlesRef.current.set(rootId, handle)
+    sourcesRef.current = [...sourcesRef.current, root]
+    setSources((prev) => [...prev, root])
+    await putSource({
+      id: rootId,
+      label: root.label,
+      addedAt: root.addedAt,
+      handle,
+      localPath: path,
+      parentId: anchorId,
+      subPath: '',
+    })
+    await scanLocalPath(path, rootId)
+  }, [scanLocalPath])
+
   const removeSource = useCallback(async (id: string) => {
     const target = sourcesRef.current.find((s) => s.id === id)
     const toRemove = target?.isAnchor
@@ -1549,6 +1599,15 @@ export default function App() {
             <button
               type="button"
               className="source-row__btn source-row__btn--icon"
+              onClick={() => void scanAnchorSource(s.id)}
+              title="Surucuyu bagla ve tara"
+              aria-label="Surucuyu bagla ve tara"
+            >
+              ↪
+            </button>
+            <button
+              type="button"
+              className="source-row__btn source-row__btn--icon"
               onClick={() => renameSource(s)}
               title="Adı değiştir"
               aria-label="Adı değiştir"
@@ -1685,7 +1744,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.31-beta</span>
+            MedyaAtlas <span className="brand__version">v0.1.32-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
