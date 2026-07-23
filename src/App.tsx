@@ -336,10 +336,10 @@ export default function App() {
               const source = sources.find((candidate) => candidate.id === it.sourceId)
               return localPathForSource(source ?? { id: '', label: '', addedAt: 0 }, sources)
                 ? !localAvailabilityReady || localOnlineIds.has(it.sourceId)
-                : grantedIds.has(it.sourceId)
+                : true
             })(),
         )
-        .map((it) => ({ ...it, available: grantedIds.has(it.sourceId) }))
+        .map((it) => ({ ...it, available: true }))
     },
     [items, grantedIds, enabledKinds, hiddenSourceIds, sources, localOnlineIds, localAvailabilityReady],
   )
@@ -1903,7 +1903,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.55-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.56-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -2084,7 +2084,10 @@ export default function App() {
           <button
             type="button"
             className={`types-menu__toggle ${typesOpen ? 'is-open' : ''}`}
-            onClick={() => setTypesOpen((open) => !open)}
+            onClick={() => {
+              setShowLocationMissing(false)
+              setTypesOpen((open) => !open)
+            }}
             aria-expanded={typesOpen}
           >
             Medya türleri
