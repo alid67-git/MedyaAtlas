@@ -1593,6 +1593,9 @@ export default function App() {
       const rootKey = `${s.id}::`
       const expanded = expandedTree.has(rootKey)
       const hasKids = tree.length > 0
+      const rootSource = kids.find((child) => child.subPath === '')
+      const rootIsScanning = rootSource ? scans.has(rootSource.id) : false
+      const rootIsLocallyLinked = Boolean(rootSource?.localPath) || rootIsScanning
 
       return (
         <div key={s.id} className="source-tree">
@@ -1632,10 +1635,11 @@ export default function App() {
               type="button"
               className="source-row__btn source-row__btn--icon"
               onClick={() => void scanAnchorSource(s.id)}
-              title="Surucuyu bagla ve tara"
-              aria-label="Surucuyu bagla ve tara"
+              title={rootIsLocallyLinked ? 'Yeniden tara' : 'Surucuyu bagla ve tara'}
+              aria-label={rootIsLocallyLinked ? 'Yeniden tara' : 'Surucuyu bagla ve tara'}
+              disabled={rootIsScanning}
             >
-              ↪
+              {rootIsLocallyLinked ? '↻' : '↪'}
             </button>
             <button
               type="button"
@@ -1778,7 +1782,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.38-beta</span>
+            MedyaAtlas <span className="brand__version">v0.1.39-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
