@@ -840,12 +840,30 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, sourceId }),
       })
-      const data = await response.json() as {
-        error?: string
-        items?: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }>
+      const data = await response.json() as { error?: string; jobId?: string }
+      if (!response.ok || !data.jobId) throw new Error(data.error || 'Yerel tarama başlatılamadı.')
+      const received: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }> = []
+      let after = 0
+      for (;;) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 400))
+        const statusResponse = await fetch(`/api/scan/${encodeURIComponent(data.jobId)}?after=${after}`)
+        const status = await statusResponse.json() as {
+          error?: string; total?: number; processed?: number; itemCount?: number; done?: boolean
+          items?: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }>
+        }
+        if (!statusResponse.ok) throw new Error(status.error || 'Tarama durumu okunamadı.')
+        if (status.items?.length) received.push(...status.items)
+        after = status.itemCount ?? after
+        setScans((prev) => new Map(prev).set(sourceId, {
+          done: status.processed ?? 0,
+          total: status.total ?? 0,
+        }))
+        if (status.done) {
+          if (status.error) throw new Error(status.error)
+          break
+        }
       }
-      if (!response.ok || !data.items) throw new Error(data.error || 'Yerel tarama başlatılamadı.')
-      const next = data.items.map((item) => ({
+      const next = received.map((item) => ({
         ...item,
         takenAt: item.takenAt ? new Date(item.takenAt) : undefined,
       }))
@@ -879,7 +897,7 @@ export default function App() {
       }
       setItems((prev) => [...prev.filter((item) => item.sourceId !== sourceId), ...next])
       setGrantedIds((prev) => new Set(prev).add(sourceId))
-      setSkipped(Math.max(0, (data.items?.length ?? 0)))
+      setSkipped(Math.max(0, received.length))
       setViewer(null)
     } catch (e) {
       setError(friendlyError(e, 'Yerel klasör taranamadı.'))
@@ -1504,7 +1522,9 @@ export default function App() {
 
           {isScanning && (
             <span className="source-row__scanning">
-              {scanProgress ? `${scanProgress.done}/${scanProgress.total}` : 'Okunuyor…'}
+              {scanProgress && scanProgress.total > 0
+                ? `${scanProgress.done}/${scanProgress.total}`
+                : 'Dosyalar aranıyor…'}
             </span>
           )}
 
@@ -1663,7 +1683,9 @@ export default function App() {
         </span>
         {isScanning ? (
           <span className="source-row__scanning">
-            {scanProgress ? `${scanProgress.done}/${scanProgress.total}` : 'Okunuyor…'}
+            {scanProgress && scanProgress.total > 0
+              ? `${scanProgress.done}/${scanProgress.total}`
+              : 'Dosyalar aranıyor…'}
           </span>
         ) : connected ? (
           <>
@@ -1746,7 +1768,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.33-beta</span>
+            MedyaAtlas <span className="brand__version">v0.1.34-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin

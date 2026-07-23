@@ -5,6 +5,7 @@ import { basename, extname, relative, resolve } from 'node:path'
 import exifr from 'exifr'
 
 const media = new Map()
+const jobs = new Map()
 const photoExt = new Set('jpg jpeg png webp heic heif tif tiff dng gpr arw cr2 nef orf raf rw2'.split(' '))
 const videoExt = new Set('mp4 mov m4v avi mkv webm 360 insv ts mts m2ts'.split(' '))
 const skipDirs = new Set(['$recycle.bin', 'system volume information', 'windows', 'program files', 'programdata', '.git', 'node_modules'])
@@ -67,21 +68,26 @@ async function walk(dir, files) {
   }
 }
 
-async function scan(root, sourceId) {
+async function scan(root, sourceId, job) {
   root = resolve(root)
   const files = []; await walk(root, files)
-  const items = []; let next = 0
+  job.total = files.length
+  job.phase = 'scanning'
+  let next = 0
   await Promise.all(Array.from({ length: Math.min(3, files.length) }, async () => {
     while (next < files.length) {
-      const path = files[next++], kind = kindFor(basename(path)), point = await readGps(path, kind)
+      const path = files[next++], kind = kindFor(basename(path))
+      const point = await readGps(path, kind)
+      job.processed += 1
       if (!point) continue
       const info = await stat(path), rel = relative(root, path).replaceAll('\\', '/')
       const id = `${sourceId}|${rel}|${info.size}|${info.mtimeMs}`
       media.set(id, path)
-      items.push({ id, name: basename(path), relativePath: rel, sourceId, kind, available: true, ...point, takenAt: point.takenAt ? new Date(point.takenAt).toISOString() : new Date(info.mtimeMs).toISOString(), url: `/api/media/${encodeURIComponent(id)}` })
+      job.items.push({ id, name: basename(path), relativePath: rel, sourceId, kind, available: true, ...point, takenAt: point.takenAt ? new Date(point.takenAt).toISOString() : new Date(info.mtimeMs).toISOString(), url: `/api/media/${encodeURIComponent(id)}` })
     }
   }))
-  return { items, mediaCount: files.length }
+  job.phase = 'done'
+  job.done = true
 }
 
 function send(res, code, value) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': 'http://localhost:5173' }); res.end(JSON.stringify(value)) }
@@ -94,7 +100,29 @@ createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/scan') {
       const { path, sourceId } = await readBody(req)
       if (!path || !sourceId) return send(res, 400, { error: 'Klasör yolu gerekli.' })
-      return send(res, 200, await scan(path, sourceId))
+      const jobId = `${sourceId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const job = { phase: 'discovering', total: 0, processed: 0, items: [], done: false, error: null }
+      jobs.set(jobId, job)
+      scan(path, sourceId, job).catch((error) => {
+        job.error = error instanceof Error ? error.message : 'Scan failed.'
+        job.done = true
+        job.phase = 'error'
+      })
+      return send(res, 202, { jobId })
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/api/scan/')) {
+      const job = jobs.get(decodeURIComponent(url.pathname.slice(10)))
+      if (!job) return send(res, 404, { error: 'Scan job not found.' })
+      const after = Math.max(0, Number(url.searchParams.get('after') ?? '0') || 0)
+      return send(res, 200, {
+        phase: job.phase,
+        total: job.total,
+        processed: job.processed,
+        items: job.items.slice(after),
+        itemCount: job.items.length,
+        done: job.done,
+        error: job.error,
+      })
     }
     if (req.method === 'GET' && url.pathname.startsWith('/api/media/')) {
       const path = media.get(decodeURIComponent(url.pathname.slice(11)))
