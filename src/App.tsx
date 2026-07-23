@@ -83,6 +83,17 @@ interface SourceUi {
   directOnly?: boolean
 }
 
+function localPathForSource(source: SourceUi, allSources: readonly SourceUi[]): string | undefined {
+  if (source.localPath) return source.localPath
+  if (!source.parentId) return undefined
+  const root = allSources.find(
+    (item) => item.parentId === source.parentId && item.subPath === '' && item.localPath,
+  )
+  if (!root?.localPath) return undefined
+  const subPath = source.subPath?.replaceAll('/', '\\').replace(/^\\+|\\+$/g, '')
+  return subPath ? `${root.localPath.replace(/[\\/]+$/, '')}\\${subPath}` : root.localPath
+}
+
 interface SourceTreeNode {
   /** Çapa göreli yol; kök için ''. */
   path: string
@@ -1234,7 +1245,7 @@ export default function App() {
       const source = sourcesRef.current.find((item) => item.id === id)
       if (source) {
         const drive = /\(([A-Za-z]):\)/.exec(source.label)
-        const path = source.localPath ?? window.prompt(
+        const path = localPathForSource(source, sourcesRef.current) ?? window.prompt(
           `"${source.label}" icin klasor ya da surucu yolu:`,
           drive ? `${drive[1]}:\\` : '',
         )
@@ -1272,7 +1283,7 @@ export default function App() {
       const source = sourcesRef.current.find((item) => item.id === id)
       if (source) {
         const drive = /\(([A-Za-z]):\)/.exec(source.label)
-        const path = source.localPath ?? window.prompt(
+        const path = localPathForSource(source, sourcesRef.current) ?? window.prompt(
           `"${source.label}" icin klasor ya da surucu yolu:`,
           drive ? `${drive[1]}:\\` : '',
         )
@@ -1676,6 +1687,7 @@ export default function App() {
     }
 
     const connected = grantedIds.has(s.id)
+    const hasLocalPath = Boolean(localPathForSource(s, sources))
     const visible = !hiddenSourceIds.has(s.id)
     const count = sourceCounts.get(s.id) ?? 0
     const label = isChild && s.subPath ? s.subPath : s.label
@@ -1711,7 +1723,7 @@ export default function App() {
               ? `${scanProgress.done}/${scanProgress.total}`
               : 'Dosyalar aranıyor…'}
           </span>
-        ) : connected ? (
+        ) : connected && hasLocalPath ? (
           <>
             {!s.directOnly && (
               <button
@@ -1792,7 +1804,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.40-beta</span>
+            MedyaAtlas <span className="brand__version">v0.1.41-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
