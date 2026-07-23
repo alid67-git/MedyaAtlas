@@ -251,7 +251,7 @@ export default function App() {
   const [hiddenSourceIds, setHiddenSourceIds] =
     useState<Set<string>>(loadHiddenSources)
   const [sourcesOpen, setSourcesOpen] = useState(false)
-  const [typesOpen, setTypesOpen] = useState(false)
+  const [typeMenuLocation, setTypeMenuLocation] = useState<'located' | 'missing' | null>(null)
   /** Açık ağaç düğümleri: `${anchorId}::${path}` */
   const [expandedTree, setExpandedTree] = useState<Set<string>>(() => new Set())
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null)
@@ -345,8 +345,20 @@ export default function App() {
     [items, grantedIds, enabledKinds, hiddenSourceIds, sources, localOnlineIds, localAvailabilityReady],
   )
   const clusters = useMemo(
-    () => showLocationMissing ? [] : groupByLocation(availableItems.filter((item) => !item.locationMissing)),
+    () => showLocationMissing ? [] : groupByLocation(availableItems.filter((item) => !item.locationMissing), 24),
     [availableItems, showLocationMissing],
+  )
+  const locationCount = useMemo(
+    () => new Set(
+      availableItems
+        .filter((item) => !item.locationMissing)
+        .map((item) => `${item.latitude.toFixed(5)},${item.longitude.toFixed(5)}`),
+    ).size,
+    [availableItems],
+  )
+  const inProgressMissingCount = useMemo(
+    () => [...scans.values()].reduce((sum, scan) => sum + (scan.missing ?? 0), 0),
+    [scans],
   )
 
   // O anki harita alanındaki öğeler (tür/kaynak filtresi uygulanmadan);
@@ -357,14 +369,6 @@ export default function App() {
   }, [items, mapBounds])
 
   // Tür başına, haritada görünen alandaki görüntü sayısı
-  const kindCounts = useMemo(() => {
-    const counts = new Map<MediaKind, number>()
-    for (const it of boundedItems) {
-      counts.set(it.kind, (counts.get(it.kind) ?? 0) + 1)
-    }
-    return counts
-  }, [boundedItems])
-
   // Kaynak başına, haritada görünen alandaki görüntü sayısı
   const sourceCounts = useMemo(() => {
     const counts = new Map<string, number>()
@@ -414,15 +418,15 @@ export default function App() {
 
   // Tür menüsü: dışarı tıklayınca kapan
   useEffect(() => {
-    if (!typesOpen) return
+    if (!typeMenuLocation) return
     const onDown = (e: MouseEvent) => {
       if (!typesMenuRef.current?.contains(e.target as Node)) {
-        setTypesOpen(false)
+        setTypeMenuLocation(null)
       }
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
-  }, [typesOpen])
+  }, [typeMenuLocation])
 
   useEffect(() => {
     if (!sourcesOpen) return
@@ -1915,7 +1919,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.63-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.64-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -2081,8 +2085,11 @@ export default function App() {
 
         <button
           type="button"
-          className={`types-menu__toggle ${!showLocationMissing ? 'is-open' : ''}`}
-          onClick={() => setShowLocationMissing(false)}
+          className={`types-menu__toggle ${typeMenuLocation === 'located' ? 'is-open' : ''}`}
+          onClick={() => {
+            setShowLocationMissing(false)
+            setTypeMenuLocation((current) => current === 'located' ? null : 'located')
+          }}
           title="Haritadaki GPS konumlu medyalar"
         >
           {language === 'en' ? 'GPS located' : 'GPS konumlu'}
@@ -2092,24 +2099,28 @@ export default function App() {
         </button>
         <button
           type="button"
-          className={`types-menu__toggle ${showLocationMissing ? 'is-open' : ''}`}
-          onClick={() => setShowLocationMissing(true)}
+          className={`types-menu__toggle ${typeMenuLocation === 'missing' ? 'is-open' : ''}`}
+          onClick={() => {
+            setShowLocationMissing(true)
+            setTypeMenuLocation((current) => current === 'missing' ? null : 'missing')
+          }}
           title="GPS konumu bulunamayan medyalarÄ± gÃ¶ster"
         >
           {language === 'en' ? 'Location missing' : 'Konum bulunamayan'}
           <span className="sources-menu__count">
-            {availableItems.filter((item) => item.locationMissing).length}
+            {availableItems.filter((item) => item.locationMissing).length + inProgressMissingCount}
           </span>
         </button>
 
         <div className="types-menu" ref={typesMenuRef}>
           <button
             type="button"
-            className={`types-menu__toggle ${typesOpen ? 'is-open' : ''}`}
+            hidden
+            className={`types-menu__toggle ${typeMenuLocation ? 'is-open' : ''}`}
             onClick={() => {
-              setTypesOpen((open) => !open)
+              setTypeMenuLocation((current) => current ? null : 'located')
             }}
-            aria-expanded={typesOpen}
+            aria-expanded={Boolean(typeMenuLocation)}
           >
             Medya türleri
             <span className="sources-menu__count">
@@ -2120,7 +2131,7 @@ export default function App() {
             </span>
           </button>
 
-          {typesOpen && (
+          {typeMenuLocation && (
             <div className="types-menu__panel">
               {(
                 [
@@ -2146,7 +2157,10 @@ export default function App() {
                     className="types-menu__count"
                     title="Haritadaki alanda görünen sayı"
                   >
-                    {kindCounts.get(kind) ?? 0}
+                      {availableItems.filter((item) =>
+                        item.kind === kind &&
+                        (typeMenuLocation === 'missing' ? item.locationMissing : !item.locationMissing),
+                      ).length}
                   </span>
                 </label>
               ))}
@@ -2190,7 +2204,7 @@ export default function App() {
               {availableItems.length !== items.length
                 ? `Gösterilen ${availableItems.length} / `
                 : ''}
-              Toplam {items.length} medya · {clusters.length} konum
+              Toplam {items.length} medya · {locationCount} GPS noktası
               {skipped > 0 ? ` · ${skipped} dosyada GPS yok` : ''}
               {cachedCount > 0 ? ` · ${cachedCount} hafızadan` : ''}
             </p>
