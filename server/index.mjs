@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import { createReadStream } from 'node:fs'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { open, readdir, readFile, stat } from 'node:fs/promises'
 import { basename, extname, relative, resolve } from 'node:path'
 import exifr from 'exifr'
 
@@ -39,9 +39,21 @@ async function readGps(path, kind) {
       const point = gps(tags?.latitude, tags?.longitude)
       return point ? { ...point, takenAt: tags?.DateTimeOriginal ?? tags?.CreateDate } : null
     }
-    const bytes = await readFile(path), part = 256 * 1024
-    const head = bytes.subarray(0, part).toString('latin1')
-    return gpsFromText(head) ?? gpsFromText(bytes.subarray(Math.max(part, bytes.length - part)).toString('latin1'))
+    const info = await stat(path), part = 256 * 1024
+    const file = await open(path, 'r')
+    try {
+      const headBytes = Math.min(part, info.size)
+      const headBuffer = Buffer.alloc(headBytes)
+      await file.read(headBuffer, 0, headBytes, 0)
+      const fromHead = gpsFromText(headBuffer.toString('latin1'))
+      if (fromHead || info.size <= part) return fromHead
+      const tailBytes = Math.min(part, info.size - headBytes)
+      const tailBuffer = Buffer.alloc(tailBytes)
+      await file.read(tailBuffer, 0, tailBytes, info.size - tailBytes)
+      return gpsFromText(tailBuffer.toString('latin1'))
+    } finally {
+      await file.close()
+    }
   } catch { return null }
 }
 
