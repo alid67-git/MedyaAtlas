@@ -105,11 +105,10 @@ async function scan(root, sourceId, job) {
       const path = files[next++], kind = kindFor(basename(path))
       const point = await readGps(path, kind)
       job.processed += 1
-      if (!point) continue
       const info = await stat(path), rel = relative(root, path).replaceAll('\\', '/')
       const id = `${sourceId}|${rel}|${info.size}|${info.mtimeMs}`
       media.set(id, path)
-      job.items.push({ id, name: basename(path), relativePath: rel, sourceId, kind, available: true, ...point, takenAt: point.takenAt ? new Date(point.takenAt).toISOString() : new Date(info.mtimeMs).toISOString(), url: `/api/media/${encodeURIComponent(id)}` })
+      job.items.push({ id, name: basename(path), relativePath: rel, sourceId, kind, available: true, latitude: point?.latitude ?? 0, longitude: point?.longitude ?? 0, locationMissing: !point, takenAt: point?.takenAt ? new Date(point.takenAt).toISOString() : new Date(info.mtimeMs).toISOString(), url: `/api/media/${encodeURIComponent(id)}` })
     }
   }))
   job.phase = 'done'

@@ -17,6 +17,8 @@ export interface MediaItem {
   takenAt?: Date
   width?: number
   height?: number
+  /** GPS etiketi bulunamadı; haritada değil ayrı galeride gösterilir. */
+  locationMissing?: boolean
 }
 
 export interface LocationCluster {

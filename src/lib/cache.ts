@@ -20,6 +20,7 @@ export interface CachedGps {
   kind?: MediaKind
   width?: number
   height?: number
+  locationMissing?: boolean
 }
 
 /** Kalıcı kaynak (disk/klasör). Handle IndexedDB'de saklanır. */

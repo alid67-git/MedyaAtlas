@@ -226,11 +226,13 @@ function toLibraryItem(item: MediaItem): LibraryItem {
     takenAt: item.takenAt ? item.takenAt.getTime() : undefined,
     width: item.width,
     height: item.height,
+    locationMissing: item.locationMissing,
   }
 }
 
 export default function App() {
   const [items, setItems] = useState<MediaItem[]>([])
+  const [showLocationMissing, setShowLocationMissing] = useState(false)
   const [enabledKinds, setEnabledKinds] = useState<Set<MediaKind>>(loadFilters)
   const [sources, setSources] = useState<SourceUi[]>([])
   const [grantedIds, setGrantedIds] = useState<Set<string>>(new Set())
@@ -285,13 +287,13 @@ export default function App() {
         .map((it) => ({ ...it, available: grantedIds.has(it.sourceId) })),
     [items, grantedIds, enabledKinds, hiddenSourceIds],
   )
-  const clusters = useMemo(() => groupByLocation(availableItems), [availableItems])
+  const clusters = useMemo(() => groupByLocation(availableItems.filter((item) => !item.locationMissing)), [availableItems])
 
   // O anki harita alanındaki öğeler (tür/kaynak filtresi uygulanmadan);
   // menülerdeki sayılar görünen alanı yansıtır.
   const boundedItems = useMemo(() => {
     if (!mapBounds) return items
-    return items.filter((i) => inBounds(i.latitude, i.longitude, mapBounds))
+    return items.filter((i) => !i.locationMissing && inBounds(i.latitude, i.longitude, mapBounds))
   }, [items, mapBounds])
 
   // Tür başına, haritada görünen alandaki görüntü sayısı
@@ -314,16 +316,17 @@ export default function App() {
 
   // Haritada o an görünen alandaki medya, en yeni tarih üstte
   const visibleItems = useMemo(() => {
+    if (showLocationMissing) return availableItems.filter((item) => item.locationMissing)
     if (!mapBounds) return []
     return availableItems
-      .filter((i) => inBounds(i.latitude, i.longitude, mapBounds))
+      .filter((i) => !i.locationMissing && inBounds(i.latitude, i.longitude, mapBounds))
       .sort((a, b) => {
         if (a.takenAt && b.takenAt) return b.takenAt.getTime() - a.takenAt.getTime()
         if (a.takenAt) return -1
         if (b.takenAt) return 1
         return a.name.localeCompare(b.name)
       })
-  }, [availableItems, mapBounds])
+  }, [availableItems, mapBounds, showLocationMissing])
 
   useEffect(() => {
     const cache = urlCacheRef.current
@@ -1804,7 +1807,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.42-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.43-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -2033,6 +2036,17 @@ export default function App() {
             </div>
           )}
         </div>
+        <button
+          type="button"
+          className={`types-menu__toggle ${showLocationMissing ? 'is-open' : ''}`}
+          onClick={() => setShowLocationMissing((value) => !value)}
+          title="GPS konumu bulunamayan medyaları göster"
+        >
+          Konumu bulunamayan
+          <span className="sources-menu__count">
+            {availableItems.filter((item) => item.locationMissing).length}
+          </span>
+        </button>
         <span className="media-filters__hint">
           Geliştiren Ali Dinçer
         </span>
