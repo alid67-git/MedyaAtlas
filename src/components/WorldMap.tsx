@@ -57,10 +57,12 @@ function AreaSelector({
   const map = useMap()
 
   useEffect(() => {
-    if (!active) return
     const container = map.getContainer()
-    map.dragging.disable()
-    container.style.cursor = 'crosshair'
+    let shiftSelecting = false
+    if (active) {
+      map.dragging.disable()
+      container.style.cursor = 'crosshair'
+    }
 
     let start: L.LatLng | null = null
     let rect: L.Rectangle | null = null
@@ -75,8 +77,13 @@ function AreaSelector({
     }
 
     const onDown = (e: PointerEvent) => {
-      if (e.button !== 0) return
+      if (e.button !== 0 || (!active && !e.shiftKey)) return
       e.preventDefault()
+      if (!active && e.shiftKey) {
+        shiftSelecting = true
+        map.dragging.disable()
+        container.style.cursor = 'crosshair'
+      }
       start = toLatLng(e)
       rect = L.rectangle(L.latLngBounds(start, start), {
         color: '#2ec4b6',
@@ -103,13 +110,23 @@ function AreaSelector({
       if (Math.abs(p1.x - p2.x) > 10 && Math.abs(p1.y - p2.y) > 10) {
         map.fitBounds(bounds, { animate: true })
       }
-      onDone()
+      if (shiftSelecting) {
+        shiftSelecting = false
+        map.dragging.enable()
+        container.style.cursor = ''
+      }
+      if (active) onDone()
     }
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         clearRect()
-        onDone()
+      if (shiftSelecting) {
+        shiftSelecting = false
+        map.dragging.enable()
+        container.style.cursor = ''
+      }
+      if (active) onDone()
       }
     }
 
@@ -361,6 +378,7 @@ export function WorldMap({ clusters, onBoundsChange }: WorldMapProps) {
     </MapContainer>
     <button
       type="button"
+      hidden
       className={`map-select-btn ${selecting ? 'is-active' : ''}`}
       onClick={() => setSelecting((v) => !v)}
       title="Haritada bir alan çiz, o alana yakınlaş (Esc iptal)"
