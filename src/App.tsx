@@ -246,7 +246,7 @@ export default function App() {
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null)
   const [viewer, setViewer] = useState<MediaItem | null>(null)
   // Kaynak başına eşzamanlı tarama ilerlemesi
-  const [scans, setScans] = useState<Map<string, { done: number; total: number }>>(
+  const [scans, setScans] = useState<Map<string, { done: number; total: number; located?: number; missing?: number }>>(
     () => new Map(),
   )
   const [skipped, setSkipped] = useState(0)
@@ -901,15 +901,17 @@ export default function App() {
           await new Promise<void>((resolve) => window.setTimeout(resolve, 400))
           const statusResponse = await fetch(`/api/scan/${encodeURIComponent(data.jobId)}?after=${after}`)
           const status = await statusResponse.json() as {
-            error?: string; total?: number; processed?: number; itemCount?: number; done?: boolean
+          error?: string; total?: number; processed?: number; itemCount?: number; done?: boolean; located?: number; missing?: number
             items?: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }>
           }
           if (!statusResponse.ok) throw new Error(status.error || 'Tarama durumu okunamadı.')
           if (status.items?.length) received.push(...status.items)
           after = status.itemCount ?? after
           setScans((prev) => new Map(prev).set(sourceId, {
-            done: status.processed ?? 0,
-            total: status.total ?? 0,
+          done: status.processed ?? 0,
+          total: status.total ?? 0,
+          located: status.located ?? 0,
+          missing: status.missing ?? 0,
           }))
           if (status.done) {
             if (status.error) throw new Error(status.error)
@@ -1842,7 +1844,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.44-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.45-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -2094,6 +2096,8 @@ export default function App() {
               {scans.size > 1 ? `${scans.size} kaynak okunuyor… ` : 'Okunuyor… '}
               {[...scans.values()].reduce((sum, p) => sum + p.done, 0)}/
               {[...scans.values()].reduce((sum, p) => sum + p.total, 0)}
+              {' · '}{[...scans.values()].reduce((sum, p) => sum + (p.located ?? 0), 0)} konum bulundu
+              {' · '}{[...scans.values()].reduce((sum, p) => sum + (p.missing ?? 0), 0)} konum bulunamadı
               <span className="status__hint"> — durdurmak için İptal</span>
             </p>
           )}

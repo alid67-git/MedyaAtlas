@@ -105,6 +105,8 @@ async function scan(root, sourceId, job) {
       const path = files[next++], kind = kindFor(basename(path))
       const point = await readGps(path, kind)
       job.processed += 1
+      if (point) job.located += 1
+      else job.missing += 1
       const info = await stat(path), rel = relative(root, path).replaceAll('\\', '/')
       const id = `${sourceId}|${rel}|${info.size}|${info.mtimeMs}`
       media.set(id, path)
@@ -138,7 +140,7 @@ createServer(async (req, res) => {
       const { path, sourceId } = await readBody(req)
       if (!path || !sourceId) return send(res, 400, { error: 'Klasör yolu gerekli.' })
       const jobId = `${sourceId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      const job = { phase: 'discovering', total: 0, processed: 0, items: [], done: false, error: null }
+      const job = { phase: 'discovering', total: 0, processed: 0, located: 0, missing: 0, items: [], done: false, error: null }
       jobs.set(jobId, job)
       scan(path, sourceId, job).catch((error) => {
         job.error = error instanceof Error ? error.message : 'Scan failed.'
@@ -155,6 +157,8 @@ createServer(async (req, res) => {
         phase: job.phase,
         total: job.total,
         processed: job.processed,
+        located: job.located,
+        missing: job.missing,
         items: job.items.slice(after),
         itemCount: job.items.length,
         done: job.done,
