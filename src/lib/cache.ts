@@ -56,6 +56,7 @@ export interface LibraryItem {
   takenAt?: number
   width?: number
   height?: number
+  locationMissing?: boolean
 }
 
 /** Bir kez üretilen küçük önizleme; video her seferinde yeniden açılmaz. */
