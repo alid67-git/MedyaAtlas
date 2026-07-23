@@ -1,7 +1,7 @@
 {
   "name": "mediaatlas",
   "private": true,
-  "version": "0.1.49-beta",
+  "version": "0.1.50-beta",
   "type": "module",
   "scripts": {
     "dev": "vite",

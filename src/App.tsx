@@ -1317,10 +1317,11 @@ export default function App() {
       const source = sourcesRef.current.find((item) => item.id === id)
       if (source) {
         const drive = /\(([A-Za-z]):\)/.exec(source.label)
-        const path = localPathForSource(source, sourcesRef.current) ?? window.prompt(
-          `"${source.label}" icin klasor ya da surucu yolu:`,
-          drive ? `${drive[1]}:\\` : '',
-        )
+        const path = localPathForSource(source, sourcesRef.current) ??
+          (drive ? `${drive[1]}:\\` : window.prompt(
+            `"${source.label}" icin klasor ya da surucu yolu:`,
+            '',
+          ))
         if (!path?.trim()) return
         await scanLocalPath(path, id)
         return
@@ -1355,10 +1356,11 @@ export default function App() {
       const source = sourcesRef.current.find((item) => item.id === id)
       if (source) {
         const drive = /\(([A-Za-z]):\)/.exec(source.label)
-        const path = localPathForSource(source, sourcesRef.current) ?? window.prompt(
-          `"${source.label}" icin klasor ya da surucu yolu:`,
-          drive ? `${drive[1]}:\\` : '',
-        )
+        const path = localPathForSource(source, sourcesRef.current) ??
+          (drive ? `${drive[1]}:\\` : window.prompt(
+            `"${source.label}" icin klasor ya da surucu yolu:`,
+            '',
+          ))
         if (!path?.trim()) return
         await scanLocalPath(path, id)
         return
@@ -1407,10 +1409,11 @@ export default function App() {
       (source) => source.parentId === anchorId && source.subPath === '',
     )
     const drive = /\(([A-Za-z]):\)/.exec(anchor.label)
-    const path = existingRoot?.localPath ?? window.prompt(
-      `"${anchor.label}" icin klasor ya da surucu yolu:`,
-      drive ? `${drive[1]}:\\` : '',
-    )
+    const path = existingRoot?.localPath ??
+      (drive ? `${drive[1]}:\\` : window.prompt(
+        `"${anchor.label}" icin klasor ya da surucu yolu:`,
+        '',
+      ))
     if (!path?.trim()) return
 
     if (existingRoot) {
@@ -1876,7 +1879,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.49-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.50-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
