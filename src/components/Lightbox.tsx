@@ -5,6 +5,7 @@ import { KIND_LABEL } from '../lib/media'
 interface LightboxProps {
   item: MediaItem | null
   resolveUrl: (item: MediaItem) => Promise<string | null>
+  resolveCompatibleVideoUrl: (item: MediaItem) => Promise<string | null>
   onClose: () => void
 }
 
@@ -18,9 +19,10 @@ function formatDuration(seconds: number): string {
     : `${minutes}:${String(secs).padStart(2, '0')}`
 }
 
-export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
+export function Lightbox({ item, resolveUrl, resolveCompatibleVideoUrl, onClose }: LightboxProps) {
   const [url, setUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+  const [converting, setConverting] = useState(false)
   const [duration, setDuration] = useState<number | null>(null)
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
     let alive = true
     setUrl(null)
     setFailed(false)
+    setConverting(false)
     setDuration(null)
     if (!item) return
     void resolveUrl(item).then((u) => {
@@ -52,6 +55,16 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
 
   const isVideo =
     item.kind === 'video' || item.kind === 'gopro' || item.kind === 'drone'
+  const makeCompatible = () => {
+    if (!isVideo || converting) return
+    setConverting(true)
+    setFailed(false)
+    void resolveCompatibleVideoUrl(item).then((compatibleUrl) => {
+      if (compatibleUrl) setUrl(compatibleUrl)
+      else setFailed(true)
+      setConverting(false)
+    })
+  }
 
   return (
     <div className="lightbox" role="dialog" aria-modal="true">
@@ -72,7 +85,12 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
           </button>
         </header>
         <div className="lightbox__stage">
-          {failed ? (
+          {converting ? (
+            <div className="lightbox__offline">
+              <p>Chrome uyumlu video hazırlanıyor…</p>
+              <p className="lightbox__offline-hint">Bu GoPro videosu ilk kez dönüştürülüyor; bitince otomatik oynatılacak.</p>
+            </div>
+          ) : failed ? (
             <div className="lightbox__offline">
               <p>Bu dosyaya şu an ulaşılamıyor.</p>
               <p className="lightbox__offline-hint">
@@ -94,8 +112,9 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
               onLoadedMetadata={(event) => {
                 const seconds = event.currentTarget.duration
                 if (Number.isFinite(seconds)) setDuration(seconds)
+                if (event.currentTarget.videoWidth === 0) makeCompatible()
               }}
-              onError={() => setFailed(true)}
+              onError={makeCompatible}
             />
           ) : (
             <img src={url} alt={item.name} className="lightbox__media" onError={() => setFailed(true)} />

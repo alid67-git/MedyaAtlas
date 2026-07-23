@@ -1,12 +1,17 @@
 import { createServer } from 'node:http'
 import { createReadStream } from 'node:fs'
-import { access, open, readdir, stat } from 'node:fs/promises'
+import { access, mkdir, open, readdir, stat } from 'node:fs/promises'
 import { basename, extname, relative, resolve, sep } from 'node:path'
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { tmpdir } from 'node:os'
 import exifr from 'exifr'
+import ffmpegPath from 'ffmpeg-static'
 
 const media = new Map()
 const jobs = new Map()
+const transcodeJobs = new Map()
+const transcodeDir = resolve(tmpdir(), 'MediaAtlas-transcodes')
 const photoExt = new Set('jpg jpeg jpe png webp heic heif tif tiff dng gpr arw cr2 cr3 nef nrw orf raf rw2 pef srw x3f 3fr iiQ rwl avif gif bmp jxl'.split(' '))
 const videoExt = new Set('mp4 mov m4v avi mkv webm 360 insv ts mts m2ts 3gp 3g2 wmv flv mpg mpeg m2v mod tod divx lrv'.split(' '))
 const skipDirs = new Set(['$recycle.bin', 'system volume information', 'windows', 'program files', 'programdata', '.git', 'node_modules'])
@@ -36,6 +41,41 @@ async function streamMedia(req, res, path) {
   if (start > end) { res.writeHead(416, { 'Content-Range': `bytes */${info.size}` }); res.end(); return }
   res.writeHead(206, { ...baseHeaders, 'Content-Range': `bytes ${start}-${end}/${info.size}`, 'Content-Length': end - start + 1 })
   createReadStream(path, { start, end }).pipe(res)
+}
+
+async function chromeCompatibleVideo(id, rootPath, relativePath) {
+  const root = resolve(rootPath || '')
+  const input = resolve(root, relativePath || '')
+  if (!id || !rootPath || !relativePath || !(input === root || input.startsWith(`${root}${sep}`))) {
+    throw new Error('Invalid media path.')
+  }
+  const inputInfo = await stat(input)
+  if (!inputInfo.isFile()) throw new Error('Media not found.')
+  await mkdir(transcodeDir, { recursive: true })
+  const key = createHash('sha1').update(`${input}|${inputInfo.size}|${inputInfo.mtimeMs}`).digest('hex')
+  const output = resolve(transcodeDir, `${key}.mp4`)
+  try {
+    const outputInfo = await stat(output)
+    if (outputInfo.size > 1024) return output
+  } catch { /* first conversion */ }
+  if (!ffmpegPath) throw new Error('Video converter is unavailable.')
+  let job = transcodeJobs.get(key)
+  if (!job) {
+    job = new Promise((resolveJob, rejectJob) => {
+      const child = spawn(ffmpegPath, [
+        '-y', '-i', input,
+        '-map', '0:v:0?', '-map', '0:a?',
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
+        '-c:a', 'aac', '-movflags', '+faststart', output,
+      ], { windowsHide: true })
+      let stderr = ''
+      child.stderr.on('data', (chunk) => { stderr += String(chunk).slice(-2000) })
+      child.on('error', rejectJob)
+      child.on('close', (code) => code === 0 ? resolveJob(output) : rejectJob(new Error(stderr || 'Video conversion failed.')))
+    }).finally(() => transcodeJobs.delete(key))
+    transcodeJobs.set(key, job)
+  }
+  return job
 }
 
 function gps(lat, lon) {
@@ -195,6 +235,13 @@ createServer(async (req, res) => {
       if (!info.isFile()) return send(res, 404, { error: 'Media not found.' })
       media.set(id, path)
       return send(res, 200, { url: `/api/media/${encodeURIComponent(id)}` })
+    }
+    if (req.method === 'POST' && url.pathname === '/api/transcode') {
+      const { id, rootPath, relativePath } = await readBody(req)
+      const path = await chromeCompatibleVideo(id, rootPath, relativePath)
+      const transcodeId = `transcode:${id}`
+      media.set(transcodeId, path)
+      return send(res, 200, { url: `/api/media/${encodeURIComponent(transcodeId)}` })
     }
     if (req.method === 'GET' && url.pathname.startsWith('/api/media/')) {
       const path = media.get(decodeURIComponent(url.pathname.slice(11)))

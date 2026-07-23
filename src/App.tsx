@@ -625,6 +625,26 @@ export default function App() {
     [resolveFile],
   )
 
+  const resolveCompatibleVideoUrl = useCallback(
+    async (item: MediaItem): Promise<string | null> => {
+      const source = sourcesRef.current.find((candidate) => candidate.id === item.sourceId)
+      const rootPath = source ? localPathForSource(source, sourcesRef.current) : undefined
+      if (!rootPath) return null
+      try {
+        const response = await fetch('/api/transcode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: item.id, rootPath, relativePath: item.relativePath }),
+        })
+        const data = await response.json() as { url?: string }
+        return response.ok && data.url ? data.url : null
+      } catch {
+        return null
+      }
+    },
+    [],
+  )
+
   /**
    * Küçük önizleme: önce bellek, sonra IndexedDB; yoksa dosyadan bir kez
    * üretilir ve kalıcı saklanır. Galeri asla tam boy video/foto açmaz.
@@ -1956,7 +1976,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.69-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.70-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -2305,6 +2325,7 @@ export default function App() {
       <Lightbox
         item={viewer}
         resolveUrl={resolveUrl}
+        resolveCompatibleVideoUrl={resolveCompatibleVideoUrl}
         onClose={() => setViewer(null)}
       />
 
