@@ -1643,7 +1643,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.29-beta</span>
+            MedyaAtlas <span className="brand__version">v0.1.30-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -1658,7 +1658,7 @@ export default function App() {
           >
             Klasör ekle
           </button>
-          <button
+          <button hidden
             type="button"
             className="btn"
             onClick={() => void scanLocalPath()}
@@ -1786,6 +1786,13 @@ export default function App() {
                   })
               )}
               <div className="sources-panel__actions">
+                <button
+                  type="button"
+                  className="sources-menu__drive-btn"
+                  onClick={() => void scanLocalPath()}
+                >
+                  + Yerel yol tara
+                </button>
                 <button
                   type="button"
                   className="sources-menu__action-btn"
