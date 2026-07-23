@@ -238,6 +238,11 @@ function toLibraryItem(item: MediaItem): LibraryItem {
 export default function App() {
   const [items, setItems] = useState<MediaItem[]>([])
   const [showLocationMissing, setShowLocationMissing] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [language, setLanguage] = useState<'tr' | 'en'>(() =>
+    localStorage.getItem('mediaatlas-language') === 'en' ? 'en' : 'tr',
+  )
   const [localOnlineIds, setLocalOnlineIds] = useState<Set<string>>(new Set())
   const [localAvailabilityReady, setLocalAvailabilityReady] = useState(false)
   const [enabledKinds, setEnabledKinds] = useState<Set<MediaKind>>(loadFilters)
@@ -433,18 +438,13 @@ export default function App() {
       const [srcs, rawLib] = await Promise.all([getSources(), getLibraryItems()])
 
       // LRV'ler değerlendirme dışı: eski kayıtları da temizle
-       const invalidItems = rawLib.filter(
-         (l) =>
-           l.name.toLowerCase().endsWith('.lrv') ||
-           isNullIslandCoordinate(l.latitude, l.longitude),
-       )
+       const invalidItems = rawLib.filter((l) => l.name.toLowerCase().endsWith('.lrv'))
        if (invalidItems.length > 0) {
          await deleteLibraryItems(invalidItems.map((l) => l.id))
        }
        const lib = rawLib.filter(
          (l) =>
-           !l.name.toLowerCase().endsWith('.lrv') &&
-           !isNullIslandCoordinate(l.latitude, l.longitude),
+            !l.name.toLowerCase().endsWith('.lrv'),
        )
 
       // Tarihsiz eski kayıtları onar: kayıt kimliğinin son parçası
@@ -501,6 +501,8 @@ export default function App() {
         takenAt: l.takenAt ? new Date(l.takenAt) : undefined,
         width: l.width,
         height: l.height,
+        // Eski kayÄ±tlarda bayrak yoktu; 0,0 koordinatÄ± konum yok demektir.
+        locationMissing: l.locationMissing ?? isNullIslandCoordinate(l.latitude, l.longitude),
       }))
       setSources(
         srcs
@@ -1903,7 +1905,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.60-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.61-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -1935,6 +1937,13 @@ export default function App() {
           >
             Dosya seç
           </button>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => setSettingsOpen(true)}
+          >
+            {language === 'en' ? 'Settings' : 'Ayarlar'}
+          </button>
           {busy ? (
             <button
               type="button"
@@ -1949,6 +1958,7 @@ export default function App() {
               <button
                 type="button"
                 className="btn btn--ghost"
+                hidden
                 onClick={() => void resetAll()}
                 title="Tüm kütüphaneyi ve kaynakları sil"
               >
@@ -2059,12 +2069,34 @@ export default function App() {
           )}
         </div>
 
+        <button
+          type="button"
+          className={`types-menu__toggle ${!showLocationMissing ? 'is-open' : ''}`}
+          onClick={() => setShowLocationMissing(false)}
+          title="Haritadaki GPS konumlu medyalar"
+        >
+          {language === 'en' ? 'GPS located' : 'GPS konumlu'}
+          <span className="sources-menu__count">
+            {availableItems.filter((item) => !item.locationMissing).length}
+          </span>
+        </button>
+        <button
+          type="button"
+          className={`types-menu__toggle ${showLocationMissing ? 'is-open' : ''}`}
+          onClick={() => setShowLocationMissing(true)}
+          title="GPS konumu bulunamayan medyalarÄ± gÃ¶ster"
+        >
+          {language === 'en' ? 'Location missing' : 'Konum bulunamayan'}
+          <span className="sources-menu__count">
+            {availableItems.filter((item) => item.locationMissing).length}
+          </span>
+        </button>
+
         <div className="types-menu" ref={typesMenuRef}>
           <button
             type="button"
             className={`types-menu__toggle ${typesOpen ? 'is-open' : ''}`}
             onClick={() => {
-              setShowLocationMissing(false)
               setTypesOpen((open) => !open)
             }}
             aria-expanded={typesOpen}
@@ -2117,6 +2149,7 @@ export default function App() {
         <button
           type="button"
           className={`types-menu__toggle ${showLocationMissing ? 'is-open' : ''}`}
+          hidden
           onClick={() => setShowLocationMissing((value) => !value)}
           title="GPS konumu bulunamayan medyaları göster"
         >
@@ -2199,6 +2232,7 @@ export default function App() {
         <MediaGallery
           items={visibleItems}
           locationMode={showLocationMissing ? 'missing' : 'located'}
+          language={language}
           resolveThumb={resolveThumb}
           pathForItem={pathForItem}
           onOpen={setViewer}
@@ -2212,6 +2246,109 @@ export default function App() {
         resolveUrl={resolveUrl}
         onClose={() => setViewer(null)}
       />
+
+      {settingsOpen && (
+        <div
+          className="settings-backdrop"
+          role="presentation"
+          onMouseDown={() => setSettingsOpen(false)}
+        >
+          <section
+            className="settings-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="settings-dialog__head">
+              <div>
+                <p className="settings-dialog__eyebrow">
+                  {language === 'en' ? 'MediaAtlas' : 'MedyaAtlas'}
+                </p>
+                <h2 id="settings-title">
+                  {language === 'en' ? 'Settings' : 'Ayarlar'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="settings-dialog__close"
+                onClick={() => setSettingsOpen(false)}
+                aria-label={language === 'en' ? 'Close' : 'Kapat'}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="settings-dialog__section">
+              <label className="settings-dialog__label" htmlFor="language-select">
+                {language === 'en' ? 'Language' : 'Dil'}
+              </label>
+              <select
+                id="language-select"
+                className="settings-dialog__select"
+                value={language}
+                onChange={(event) => {
+                  const next = event.target.value === 'en' ? 'en' : 'tr'
+                  setLanguage(next)
+                  localStorage.setItem('mediaatlas-language', next)
+                }}
+              >
+                <option value="tr">Türkçe</option>
+                <option value="en">English</option>
+              </select>
+              <p className="settings-dialog__note">
+                {language === 'en'
+                  ? 'Main controls switch immediately. More labels will follow in the next beta updates.'
+                  : 'Ana kontroller hemen değişir. Kalan metinler sonraki beta güncellemelerinde tamamlanacak.'}
+              </p>
+            </div>
+
+            <div className="settings-dialog__section">
+              <div className="settings-dialog__row">
+                <div>
+                  <h3>{language === 'en' ? 'Help' : 'Yardım'}</h3>
+                  <p>{language === 'en' ? 'How sources and location filters work.' : 'Kaynakların ve konum filtrelerinin nasıl çalıştığı.'}</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => setHelpOpen((open) => !open)}
+                >
+                  {helpOpen ? (language === 'en' ? 'Hide' : 'Gizle') : (language === 'en' ? 'Show' : 'Göster')}
+                </button>
+              </div>
+              {helpOpen && (
+                <ul className="settings-dialog__help">
+                  <li>{language === 'en' ? 'Add a drive from Sources. Its folders are discovered automatically.' : 'Kaynaklar içinden sürücü ekle. Alt klasörler otomatik bulunur.'}</li>
+                  <li>{language === 'en' ? 'GPS located media appears on the map; Location missing lists the remaining supported media.' : 'GPS konumlu medya haritada görünür; Konum bulunamayan, desteklenen diğer medyaları listeler.'}</li>
+                  <li>{language === 'en' ? 'Use Shift + drag on the map to count media in a selected area.' : 'Haritada Shift basılıyken sürükleyerek seçili alandaki medya sayısını gör.'}</li>
+                </ul>
+              )}
+            </div>
+
+            <div className="settings-dialog__section settings-dialog__section--danger">
+              <div className="settings-dialog__row">
+                <div>
+                  <h3>{language === 'en' ? 'Clear data' : 'Verileri temizle'}</h3>
+                  <p>{language === 'en' ? 'Removes the local library, previews and saved sources from this browser.' : 'Bu tarayıcıdaki kütüphaneyi, önizlemeleri ve kayıtlı kaynakları siler.'}</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  onClick={() => {
+                    if (window.confirm(language === 'en' ? 'Clear all MediaAtlas data on this browser?' : 'Bu tarayıcıdaki tüm MedyaAtlas verileri silinsin mi?')) {
+                      void resetAll()
+                      setSettingsOpen(false)
+                    }
+                  }}
+                >
+                  {language === 'en' ? 'Clear data' : 'Verileri temizle'}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

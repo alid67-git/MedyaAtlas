@@ -32,6 +32,7 @@ function loadThumbSize(): ThumbSize {
 interface MediaGalleryProps {
   items: MediaItem[]
   locationMode: 'located' | 'missing'
+  language: 'tr' | 'en'
   resolveThumb: (item: MediaItem) => Promise<ThumbInfo | null>
   pathForItem: (item: MediaItem) => string
   onOpen: (item: MediaItem) => void
@@ -282,6 +283,7 @@ function PathMenu({
 export function MediaGallery({
   items,
   locationMode,
+  language,
   resolveThumb,
   pathForItem,
   onOpen,
@@ -300,7 +302,7 @@ export function MediaGallery({
   const shown = items.slice(0, MAX_VISIBLE)
 
   return (
-    <section className="gallery">
+    <section className="gallery" lang={language}>
       <header className="gallery__header">
         <div>
           <h2>

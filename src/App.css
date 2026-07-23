@@ -98,6 +98,79 @@ input {
   justify-content: flex-end;
 }
 
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(1, 7, 12, 0.7);
+  backdrop-filter: blur(5px);
+}
+
+.settings-dialog {
+  width: min(560px, 100%);
+  max-height: min(720px, calc(100vh - 2rem));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #071722;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+.settings-dialog__head,
+.settings-dialog__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.settings-dialog__head {
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-dialog__eyebrow,
+.settings-dialog h2,
+.settings-dialog h3,
+.settings-dialog p {
+  margin: 0;
+}
+
+.settings-dialog__eyebrow {
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.settings-dialog h2 { font-size: 1.2rem; }
+.settings-dialog h3 { font-size: 0.9rem; }
+
+.settings-dialog__close {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink);
+  background: transparent;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.settings-dialog__section {
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-dialog__section:last-child { border-bottom: 0; }
+.settings-dialog__label { display: block; margin-bottom: 0.42rem; font-size: 0.82rem; font-weight: 700; }
+.settings-dialog__select { width: 100%; padding: 0.58rem 0.68rem; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: #0c2230; font: inherit; }
+.settings-dialog__note, .settings-dialog__row p { margin-top: 0.35rem !important; color: var(--ink-muted); font-size: 0.78rem; line-height: 1.4; }
+.settings-dialog__help { margin: 0.8rem 0 0; padding-left: 1.15rem; color: var(--ink-muted); font-size: 0.8rem; line-height: 1.55; }
+.settings-dialog__section--danger { background: rgba(226, 91, 69, 0.07); }
+
 .media-filters {
   display: flex;
   align-items: center;
