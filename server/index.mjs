@@ -2,6 +2,7 @@ import { createServer } from 'node:http'
 import { createReadStream } from 'node:fs'
 import { open, readdir, readFile, stat } from 'node:fs/promises'
 import { basename, extname, relative, resolve } from 'node:path'
+import { spawn } from 'node:child_process'
 import exifr from 'exifr'
 
 const media = new Map()
@@ -17,6 +18,24 @@ function kindFor(name) {
   const stem = name.replace(/\.[^.]+$/, '')
   if (/^DJI[_-]/i.test(stem)) return 'drone'
   return /^(gopr|g[xhs]\d{6}|gpfr|gp\d{6}|go\d{6})/i.test(stem) ? 'gopro' : 'video'
+}
+
+function mimeFor(path) {
+  const ext = extname(path).slice(1).toLowerCase()
+  return ({ mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', avi: 'video/x-msvideo', mkv: 'video/x-matroska', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic' })[ext] || 'application/octet-stream'
+}
+
+async function streamMedia(req, res, path) {
+  const info = await stat(path)
+  const range = req.headers.range
+  const baseHeaders = { 'Content-Type': mimeFor(path), 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-store' }
+  if (!range) { res.writeHead(200, { ...baseHeaders, 'Content-Length': info.size }); createReadStream(path).pipe(res); return }
+  const match = /bytes=(\d*)-(\d*)/.exec(range)
+  const start = Math.min(Number(match?.[1] || 0), Math.max(0, info.size - 1))
+  const end = Math.min(Number(match?.[2] || info.size - 1), info.size - 1)
+  if (start > end) { res.writeHead(416, { 'Content-Range': `bytes */${info.size}` }); res.end(); return }
+  res.writeHead(206, { ...baseHeaders, 'Content-Range': `bytes ${start}-${end}/${info.size}`, 'Content-Length': end - start + 1 })
+  createReadStream(path, { start, end }).pipe(res)
 }
 
 function gps(lat, lon) {
@@ -124,10 +143,18 @@ createServer(async (req, res) => {
         error: job.error,
       })
     }
+    if (req.method === 'POST' && url.pathname === '/api/open') {
+      const { id } = await readBody(req)
+      const path = media.get(id)
+      if (!path) return send(res, 404, { error: 'Media not found.' })
+      const child = spawn('cmd.exe', ['/c', 'start', '', path], { detached: true, stdio: 'ignore' })
+      child.unref()
+      return send(res, 200, { ok: true })
+    }
     if (req.method === 'GET' && url.pathname.startsWith('/api/media/')) {
       const path = media.get(decodeURIComponent(url.pathname.slice(11)))
       if (!path) return send(res, 404, { error: 'Medya bulunamadı.' })
-      createReadStream(path).pipe(res); return
+      await streamMedia(req, res, path); return
     }
     return send(res, 404, { error: 'Bulunamadı.' })
   } catch (error) { return send(res, 500, { error: error instanceof Error ? error.message : 'Tarama hatası.' }) }

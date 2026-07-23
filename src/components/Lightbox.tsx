@@ -53,6 +53,19 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
   const isVideo =
     item.kind === 'video' || item.kind === 'gopro' || item.kind === 'drone'
 
+  const openOnComputer = async () => {
+    try {
+      const response = await fetch('/api/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id }),
+      })
+      if (!response.ok) throw new Error('open failed')
+    } catch {
+      setFailed(true)
+    }
+  }
+
   return (
     <div className="lightbox" role="dialog" aria-modal="true">
       <button
@@ -67,9 +80,16 @@ export function Lightbox({ item, resolveUrl, onClose }: LightboxProps) {
             <p className="lightbox__kind">{KIND_LABEL[item.kind]}</p>
             <h3>{item.name}</h3>
           </div>
-          <button type="button" className="btn btn--ghost" onClick={onClose}>
-            Kapat
-          </button>
+          <div className="lightbox__actions">
+            {isVideo && (
+              <button type="button" className="btn btn--ghost" onClick={() => void openOnComputer()}>
+                Bilgisayarda aç
+              </button>
+            )}
+            <button type="button" className="btn btn--ghost" onClick={onClose}>
+              Kapat
+            </button>
+          </div>
         </header>
         <div className="lightbox__stage">
           {failed ? (
