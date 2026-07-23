@@ -27,6 +27,7 @@ for %%P in (5173 5174 5175) do (
   )
 )
 
+start "" /b cmd /c "npm run api"
 start "" cmd /c "timeout /t 3 /nobreak >nul & start http://localhost:5173"
 
 call npm run dev

@@ -1,10 +1,11 @@
 {
   "name": "mediaatlas",
   "private": true,
-  "version": "0.1.27-beta",
+  "version": "0.1.28-beta",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "api": "node server/index.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"

@@ -14,6 +14,11 @@ export default defineConfig({
       buffer: 'buffer/',
     },
   },
+  server: {
+    proxy: {
+      '/api': 'http://127.0.0.1:5174',
+    },
+  },
   optimizeDeps: {
     include: ['gpmf-extract', 'gopro-telemetry', 'mp4box', 'buffer'],
   },

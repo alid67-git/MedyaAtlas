@@ -76,6 +76,7 @@ interface SourceUi {
   id: string
   label: string
   addedAt: number
+  localPath?: string
   parentId?: string
   subPath?: string
   isAnchor?: boolean
@@ -496,6 +497,7 @@ export default function App() {
 
   const resolveUrl = useCallback(
     async (item: MediaItem): Promise<string | null> => {
+      if (item.url) return item.url
       const cached = urlCacheRef.current.get(item.id)
       if (cached) return cached
 
@@ -570,6 +572,11 @@ export default function App() {
     async (item: MediaItem): Promise<ThumbInfo | null> => {
       const inMemory = thumbCacheRef.current.get(item.id)
       if (inMemory !== undefined) return inMemory
+      if (item.url && item.kind === 'photo') {
+        const info = { url: item.url }
+        thumbCacheRef.current.set(item.id, info)
+        return info
+      }
       const pending = thumbPendingRef.current.get(item.id)
       if (pending) return pending
 
@@ -817,6 +824,48 @@ export default function App() {
       setError(friendlyError(e, 'Klasör eklenemedi.'))
     }
   }, [ingest])
+
+  const scanLocalPath = useCallback(async (existingPath?: string, existingId?: string) => {
+    const path = existingPath ?? window.prompt('Taranacak klasör ya da sürücü yolu:', 'F:\\')
+    if (!path?.trim()) return
+    const sourceId = existingId ?? `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const label = path.replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean).pop() || path
+    setError(null)
+    setSourcesOpen(true)
+    setScans((prev) => new Map(prev).set(sourceId, { done: 0, total: 0 }))
+    try {
+      const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, sourceId }),
+      })
+      const data = await response.json() as {
+        error?: string
+        items?: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }>
+      }
+      if (!response.ok || !data.items) throw new Error(data.error || 'Yerel tarama başlatılamadı.')
+      const next = data.items.map((item) => ({
+        ...item,
+        takenAt: item.takenAt ? new Date(item.takenAt) : undefined,
+      }))
+      setSources((prev) => [
+        ...prev.filter((source) => source.id !== sourceId),
+        { id: sourceId, label, localPath: path, addedAt: Date.now() },
+      ])
+      setItems((prev) => [...prev.filter((item) => item.sourceId !== sourceId), ...next])
+      setGrantedIds((prev) => new Set(prev).add(sourceId))
+      setSkipped(Math.max(0, (data.items?.length ?? 0)))
+      setViewer(null)
+    } catch (e) {
+      setError(friendlyError(e, 'Yerel klasör taranamadı.'))
+    } finally {
+      setScans((prev) => {
+        const next = new Map(prev)
+        next.delete(sourceId)
+        return next
+      })
+    }
+  }, [])
 
   const loadSourceFiles = useCallback(
     async (id: string) => {
@@ -1146,6 +1195,11 @@ export default function App() {
 
   const rescanSource = useCallback(
     async (id: string) => {
+      const localSource = sourcesRef.current.find((source) => source.id === id)
+      if (localSource?.localPath) {
+        await scanLocalPath(localSource.localPath, id)
+        return
+      }
       const handle = handlesRef.current.get(id)
       if (!handle) return
       try {
@@ -1160,7 +1214,7 @@ export default function App() {
         setError(friendlyError(e, 'Klasör taranamadı.'))
       }
     },
-    [ingest, loadSourceFiles],
+    [ingest, loadSourceFiles, scanLocalPath],
   )
 
   const rescanAll = useCallback(async () => {
@@ -1589,7 +1643,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.27-beta</span>
+            MedyaAtlas <span className="brand__version">v0.1.28-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -1603,6 +1657,14 @@ export default function App() {
             onClick={() => void addFolder()}
           >
             Klasör ekle
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => void scanLocalPath()}
+            title="Klasörü yerel arka plan hizmetiyle tara"
+          >
+            Bilgisayardan tara
           </button>
           <button
             type="button"
