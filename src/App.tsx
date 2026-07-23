@@ -1421,6 +1421,11 @@ export default function App() {
     await Promise.all(targets.map((s) => rescanSource(s.id)))
   }, [grantedIds, rescanSource])
 
+  // Eski tarayıcı-tabanlı sürücü ekleme/yığın tarama yolu artık arayüzde
+  // gösterilmez; yerel sürücü akışına geçiş tamamlanana kadar saklı tutulur.
+  void registerDrive
+  void rescanAll
+
   // Surucu satiri bir grup basligidir. Buna da bagla/tara eylemi veriyoruz;
   // tarama sonucu basligin altindaki "(kok)" dali olarak gorunur.
   const scanAnchorSource = useCallback(async (anchorId: string) => {
@@ -1903,7 +1908,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.58-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.59-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
