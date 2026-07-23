@@ -85,13 +85,21 @@ interface SourceUi {
 
 function localPathForSource(source: SourceUi, allSources: readonly SourceUi[]): string | undefined {
   if (source.localPath) return source.localPath
+  const drivePathFor = (candidate: SourceUi | undefined) => {
+    const match = candidate && /\(([A-Za-z]):\)/.exec(candidate.label)
+    return match ? `${match[1]}:\\` : undefined
+  }
+  if (source.isAnchor) return drivePathFor(source)
   if (!source.parentId) return undefined
   const root = allSources.find(
     (item) => item.parentId === source.parentId && item.subPath === '' && item.localPath,
   )
-  if (!root?.localPath) return undefined
+  const inheritedRoot = root?.localPath ?? drivePathFor(
+    allSources.find((item) => item.id === source.parentId && item.isAnchor),
+  )
+  if (!inheritedRoot) return undefined
   const subPath = source.subPath?.replaceAll('/', '\\').replace(/^\\+|\\+$/g, '')
-  return subPath ? `${root.localPath.replace(/[\\/]+$/, '')}\\${subPath}` : root.localPath
+  return subPath ? `${inheritedRoot.replace(/[\\/]+$/, '')}\\${subPath}` : inheritedRoot
 }
 
 function mediaStemKey(item: MediaItem): string {
@@ -240,6 +248,8 @@ export default function App() {
   const [showLocationMissing, setShowLocationMissing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [driveDialogOpen, setDriveDialogOpen] = useState(false)
+  const [drivePath, setDrivePath] = useState('F:\\')
   const [language, setLanguage] = useState<'tr' | 'en'>(() =>
     localStorage.getItem('mediaatlas-language') === 'en' ? 'en' : 'tr',
   )
@@ -934,6 +944,10 @@ export default function App() {
   }, [ingest])
 
   const scanLocalPath = useCallback(async (existingPath?: string, existingId?: string) => {
+    if (!existingPath?.trim()) {
+      setError('Sürücü yolu kayıtlı değil. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.')
+      return
+    }
     const path = existingPath ?? window.prompt('Taranacak klasör ya da sürücü yolu:', 'F:\\')
     if (!path?.trim()) return
     const sourceId = existingId ?? `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -1352,6 +1366,10 @@ export default function App() {
       const source = sourcesRef.current.find((item) => item.id === id)
       if (source) {
         const drive = /\(([A-Za-z]):\)/.exec(source.label)
+        if (!localPathForSource(source, sourcesRef.current) && !drive) {
+          setError('Sürücü yolu kayıtlı değil. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.')
+          return
+        }
         const path = localPathForSource(source, sourcesRef.current) ??
           (drive ? `${drive[1]}:\\` : window.prompt(
             `"${source.label}" icin klasor ya da surucu yolu:`,
@@ -1391,6 +1409,10 @@ export default function App() {
       const source = sourcesRef.current.find((item) => item.id === id)
       if (source) {
         const drive = /\(([A-Za-z]):\)/.exec(source.label)
+        if (!localPathForSource(source, sourcesRef.current) && !drive) {
+          setError('Sürücü yolu kayıtlı değil. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.')
+          return
+        }
         const path = localPathForSource(source, sourcesRef.current) ??
           (drive ? `${drive[1]}:\\` : window.prompt(
             `"${source.label}" icin klasor ya da surucu yolu:`,
@@ -1449,6 +1471,10 @@ export default function App() {
       (source) => source.parentId === anchorId && source.subPath === '',
     )
     const drive = /\(([A-Za-z]):\)/.exec(anchor.label)
+    if (!existingRoot?.localPath && !drive) {
+      setError('Sürücü yolu kayıtlı değil. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.')
+      return
+    }
     const path = existingRoot?.localPath ??
       (drive ? `${drive[1]}:\\` : window.prompt(
         `"${anchor.label}" icin klasor ya da surucu yolu:`,
@@ -1919,7 +1945,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.64-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.65-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -1938,7 +1964,7 @@ export default function App() {
           <button hidden
             type="button"
             className="btn"
-            onClick={() => void scanLocalPath()}
+            onClick={() => setDriveDialogOpen(true)}
             title="Klasörü yerel arka plan hizmetiyle tara"
           >
             Bilgisayardan tara
@@ -2060,7 +2086,7 @@ export default function App() {
                 <button
                   type="button"
                   className="sources-menu__action-btn"
-                  onClick={() => void scanLocalPath()}
+                  onClick={() => setDriveDialogOpen(true)}
                 >
                   + Sürücü ekle
                 </button>
@@ -2288,6 +2314,37 @@ export default function App() {
               Tamam
             </button>
           </section>
+        </div>
+      )}
+
+      {driveDialogOpen && (
+        <div className="notice-backdrop" role="presentation" onMouseDown={() => setDriveDialogOpen(false)}>
+          <form
+            className="drive-dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault()
+              const path = drivePath.trim()
+              if (!path) return
+              setDriveDialogOpen(false)
+              void scanLocalPath(path)
+            }}
+          >
+            <h2>Sürücü ekle</h2>
+            <p>MedyaAtlas bu sürücüyü yalnızca medya dosyalarını taramak ve önizlemeleri açmak için kullanır.</p>
+            <label htmlFor="drive-path">Sürücü yolu</label>
+            <input
+              id="drive-path"
+              value={drivePath}
+              onChange={(event) => setDrivePath(event.target.value)}
+              placeholder="Örn. F:\\"
+              autoFocus
+            />
+            <div className="drive-dialog__actions">
+              <button type="button" className="btn btn--ghost" onClick={() => setDriveDialogOpen(false)}>Vazgeç</button>
+              <button type="submit" className="btn btn--primary">Sürücüyü ekle ve tara</button>
+            </div>
+          </form>
         </div>
       )}
 
