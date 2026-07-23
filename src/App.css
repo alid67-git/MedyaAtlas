@@ -109,6 +109,45 @@ input {
   backdrop-filter: blur(5px);
 }
 
+.notice-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(1, 7, 12, 0.52);
+  backdrop-filter: blur(3px);
+}
+
+.notice-dialog {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.85rem;
+  width: min(560px, 100%);
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(46, 196, 182, 0.48);
+  border-radius: 15px;
+  background: #071b27;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+}
+
+.notice-dialog__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #06201d;
+  background: var(--accent);
+  font-weight: 900;
+}
+
+.notice-dialog h2, .notice-dialog p { margin: 0; }
+.notice-dialog h2 { font-size: 0.98rem; }
+.notice-dialog p { margin-top: 0.22rem; color: var(--ink-muted); font-size: 0.8rem; line-height: 1.45; }
+
 .settings-dialog {
   width: min(560px, 100%);
   max-height: min(720px, calc(100vh - 2rem));

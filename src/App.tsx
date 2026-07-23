@@ -264,6 +264,7 @@ export default function App() {
   const [skippedNames, setSkippedNames] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [cachedCount, setCachedCount] = useState(0)
+  const [notice, setNotice] = useState<{ title: string; message: string } | null>(null)
 
   const busy = scans.size > 0
   const folderInputRef = useRef<HTMLInputElement>(null)
@@ -1023,6 +1024,15 @@ export default function App() {
       setGrantedIds((prev) => new Set(prev).add(sourceId))
       setSkipped(Math.max(0, received.length))
       setViewer(null)
+      const locatedCount = next.filter((item) => !item.locationMissing).length
+      const missingCount = next.length - locatedCount
+      const sourceName = label || path
+      setNotice({
+        title: existingId ? 'Tarama tamamlandı' : 'Sürücü eklendi',
+        message: existingId
+          ? `“${sourceName}” güncellendi. ${next.length} medya okundu: ${locatedCount} GPS konumlu, ${missingCount} konum bulunamayan.`
+          : `“${sourceName}” sürücüsü eklendi ve tarandı. ${next.length} medya okundu: ${locatedCount} GPS konumlu, ${missingCount} konum bulunamayan.`,
+      })
     } catch (e) {
       setError(friendlyError(e, 'Yerel klasör taranamadı.'))
     } finally {
@@ -1905,7 +1915,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.62-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.63-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -2246,6 +2256,26 @@ export default function App() {
         resolveUrl={resolveUrl}
         onClose={() => setViewer(null)}
       />
+
+      {notice && (
+        <div className="notice-backdrop" role="presentation" onMouseDown={() => setNotice(null)}>
+          <section
+            className="notice-dialog"
+            role="status"
+            aria-live="polite"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <span className="notice-dialog__icon" aria-hidden>✓</span>
+            <div>
+              <h2>{notice.title}</h2>
+              <p>{notice.message}</p>
+            </div>
+            <button type="button" className="btn btn--primary" onClick={() => setNotice(null)}>
+              Tamam
+            </button>
+          </section>
+        </div>
+      )}
 
       {settingsOpen && (
         <div
