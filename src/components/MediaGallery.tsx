@@ -9,7 +9,8 @@ import type { MediaItem } from '../types'
 import type { ThumbInfo } from '../App'
 import { KIND_LABEL } from '../lib/media'
 
-const MAX_VISIBLE = 300
+// Aynı anda yüzlerce video önizlemesi üretmek Chrome sekmesini ağırlaştırır.
+const MAX_VISIBLE = 96
 
 type ThumbSize = 'small' | 'medium' | 'large'
 
