@@ -366,11 +366,6 @@ export default function App() {
     ).size,
     [availableItems],
   )
-  const inProgressMissingCount = useMemo(
-    () => [...scans.values()].reduce((sum, scan) => sum + (scan.missing ?? 0), 0),
-    [scans],
-  )
-
   // O anki harita alanındaki öğeler (tür/kaynak filtresi uygulanmadan);
   // menülerdeki sayılar görünen alanı yansıtır.
   const boundedItems = useMemo(() => {
@@ -1942,7 +1937,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.67-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.68-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -2131,7 +2126,7 @@ export default function App() {
         >
           {language === 'en' ? 'Location missing' : 'Konum bulunamayan'}
           <span className="sources-menu__count">
-            {availableItems.filter((item) => item.locationMissing).length + inProgressMissingCount}
+            {availableItems.filter((item) => item.locationMissing).length}
           </span>
         </button>
 
