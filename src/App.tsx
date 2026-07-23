@@ -347,10 +347,18 @@ export default function App() {
               const source = sources.find((candidate) => candidate.id === it.sourceId)
               return localPathForSource(source ?? { id: '', label: '', addedAt: 0 }, sources)
                 ? !localAvailabilityReady || localOnlineIds.has(it.sourceId)
-                : true
+                : grantedIds.has(it.sourceId)
             })(),
         )
-        .map((it) => ({ ...it, available: true }))
+        .map((it) => ({
+          ...it,
+          available: localPathForSource(
+            sources.find((candidate) => candidate.id === it.sourceId) ?? { id: '', label: '', addedAt: 0 },
+            sources,
+          )
+            ? !localAvailabilityReady || localOnlineIds.has(it.sourceId)
+            : grantedIds.has(it.sourceId),
+        }))
     },
     [items, grantedIds, enabledKinds, hiddenSourceIds, sources, localOnlineIds, localAvailabilityReady],
   )
@@ -1362,7 +1370,18 @@ export default function App() {
       if (source) {
         const drive = /\(([A-Za-z]):\)/.exec(source.label)
         if (!localPathForSource(source, sourcesRef.current) && !drive) {
-          setError('Sürücü yolu kayıtlı değil. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.')
+          const handle = handlesRef.current.get(id)
+          if (handle) {
+            try {
+              const ok = await ensureReadPermission(handle, true)
+              if (ok && (await isSourceAvailable(handle))) {
+                setGrantedIds((prev) => new Set(prev).add(id))
+                setError(null)
+                return
+              }
+            } catch { /* alttaki açıklayıcı uyarı gösterilir */ }
+          }
+          setError('Bu eski kaynak için sürücü yolu kayıtlı değil. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.')
           return
         }
         const path = localPathForSource(source, sourcesRef.current) ??
@@ -1937,7 +1956,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.68-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.69-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
