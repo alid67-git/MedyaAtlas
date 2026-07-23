@@ -840,28 +840,38 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, sourceId }),
       })
-      const data = await response.json() as { error?: string; jobId?: string }
-      if (!response.ok || !data.jobId) throw new Error(data.error || 'Yerel tarama başlatılamadı.')
+      const data = await response.json() as {
+        error?: string; jobId?: string
+        items?: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }>
+      }
+      if (!response.ok) throw new Error(data.error || 'Yerel tarama başlatılamadı.')
       const received: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }> = []
-      let after = 0
-      for (;;) {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 400))
-        const statusResponse = await fetch(`/api/scan/${encodeURIComponent(data.jobId)}?after=${after}`)
-        const status = await statusResponse.json() as {
-          error?: string; total?: number; processed?: number; itemCount?: number; done?: boolean
-          items?: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }>
+      if (data.jobId) {
+        let after = 0
+        for (;;) {
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 400))
+          const statusResponse = await fetch(`/api/scan/${encodeURIComponent(data.jobId)}?after=${after}`)
+          const status = await statusResponse.json() as {
+            error?: string; total?: number; processed?: number; itemCount?: number; done?: boolean
+            items?: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }>
+          }
+          if (!statusResponse.ok) throw new Error(status.error || 'Tarama durumu okunamadı.')
+          if (status.items?.length) received.push(...status.items)
+          after = status.itemCount ?? after
+          setScans((prev) => new Map(prev).set(sourceId, {
+            done: status.processed ?? 0,
+            total: status.total ?? 0,
+          }))
+          if (status.done) {
+            if (status.error) throw new Error(status.error)
+            break
+          }
         }
-        if (!statusResponse.ok) throw new Error(status.error || 'Tarama durumu okunamadı.')
-        if (status.items?.length) received.push(...status.items)
-        after = status.itemCount ?? after
-        setScans((prev) => new Map(prev).set(sourceId, {
-          done: status.processed ?? 0,
-          total: status.total ?? 0,
-        }))
-        if (status.done) {
-          if (status.error) throw new Error(status.error)
-          break
-        }
+      } else if (data.items) {
+        // Eski hizmet açıksa yine de taramayı tamamla; yalnızca canlı sayaç yoktur.
+        received.push(...data.items)
+      } else {
+        throw new Error(data.error || 'Yerel tarama başlatılamadı.')
       }
       const next = received.map((item) => ({
         ...item,
@@ -1768,7 +1778,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.34-beta</span>
+            MedyaAtlas <span className="brand__version">v0.1.35-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
