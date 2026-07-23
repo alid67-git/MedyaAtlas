@@ -339,7 +339,7 @@ export default function App() {
                 : grantedIds.has(it.sourceId)
             })(),
         )
-        .map((it) => ({ ...it, available: grantedIds.has(it.sourceId) })),
+        .map((it) => ({ ...it, available: grantedIds.has(it.sourceId) }))
     },
     [items, grantedIds, enabledKinds, hiddenSourceIds, sources, localOnlineIds, localAvailabilityReady],
   )
@@ -1894,7 +1894,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.52-beta</span>
+             MedyaAtlas <span className="brand__version">v0.1.53-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
