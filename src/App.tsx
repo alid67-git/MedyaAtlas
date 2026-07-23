@@ -1804,7 +1804,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-            MedyaAtlas <span className="brand__version">v0.1.41-beta</span>
+            MedyaAtlas <span className="brand__version">v0.1.42-beta</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin

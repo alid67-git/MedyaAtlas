@@ -1,14 +1,14 @@
 import { createServer } from 'node:http'
 import { createReadStream } from 'node:fs'
-import { open, readdir, readFile, stat } from 'node:fs/promises'
+import { open, readdir, stat } from 'node:fs/promises'
 import { basename, extname, relative, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
 import exifr from 'exifr'
 
 const media = new Map()
 const jobs = new Map()
-const photoExt = new Set('jpg jpeg png webp heic heif tif tiff dng gpr arw cr2 nef orf raf rw2'.split(' '))
-const videoExt = new Set('mp4 mov m4v avi mkv webm 360 insv ts mts m2ts'.split(' '))
+const photoExt = new Set('jpg jpeg jpe png webp heic heif tif tiff dng gpr arw cr2 cr3 nef nrw orf raf rw2 pef srw x3f 3fr iiQ rwl avif gif bmp jxl'.split(' '))
+const videoExt = new Set('mp4 mov m4v avi mkv webm 360 insv ts mts m2ts 3gp 3g2 wmv flv mpg mpeg m2v mod tod divx lrv'.split(' '))
 const skipDirs = new Set(['$recycle.bin', 'system volume information', 'windows', 'program files', 'programdata', '.git', 'node_modules'])
 
 function kindFor(name) {
@@ -55,9 +55,10 @@ function gpsFromText(text) {
 async function readGps(path, kind) {
   try {
     if (kind === 'photo') {
-      const tags = await exifr.parse(await readFile(path), { gps: true, exif: true, tiff: true })
-      const point = gps(tags?.latitude, tags?.longitude)
-      return point ? { ...point, takenAt: tags?.DateTimeOriginal ?? tags?.CreateDate } : null
+      // GPS etiketi genellikle dosyanın ilk küçük parçasındadır. Tüm HEIC/JPEG'i
+      // belleğe almak yerine exifr'in GPS-odaklı hızlı okuyucusunu kullan.
+      const point = await exifr.gps(path)
+      return gps(point?.latitude, point?.longitude)
     }
     const info = await stat(path), part = 256 * 1024
     const file = await open(path, 'r')
@@ -90,10 +91,16 @@ async function walk(dir, files) {
 async function scan(root, sourceId, job) {
   root = resolve(root)
   const files = []; await walk(root, files)
+  // Asıl amaç GoPro konumları: onları ve drone videolarını önce işle.
+  const priority = (path) => {
+    const kind = kindFor(basename(path))
+    return kind === 'gopro' ? 0 : kind === 'drone' ? 1 : kind === 'photo' ? 2 : 3
+  }
+  files.sort((a, b) => priority(a) - priority(b))
   job.total = files.length
   job.phase = 'scanning'
   let next = 0
-  await Promise.all(Array.from({ length: Math.min(3, files.length) }, async () => {
+  await Promise.all(Array.from({ length: Math.min(5, files.length) }, async () => {
     while (next < files.length) {
       const path = files[next++], kind = kindFor(basename(path))
       const point = await readGps(path, kind)
