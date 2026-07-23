@@ -262,6 +262,13 @@ input {
   cursor: pointer;
 }
 
+/* Tarayıcının [hidden] varsayılanı, bu bileşenin display kuralından daha
+   düşük önceliklidir. Gizlenen eski kontroller hiçbir koşulda görünmesin. */
+.types-menu__toggle[hidden],
+.topbar__actions .btn[hidden] {
+  display: none !important;
+}
+
 .types-menu__toggle:hover,
 .types-menu__toggle.is-open {
   border-color: rgba(46, 196, 182, 0.45);
