@@ -1,11 +1,16 @@
 {
   "name": "mediaatlas",
   "private": true,
-  "version": "0.1.71-beta",
+  "version": "0.1.139-beta",
   "type": "module",
   "scripts": {
+    "bump": "node scripts/bump-version.mjs",
     "dev": "vite",
     "api": "node server/index.mjs",
+    "desktop:api": "python desktop/main.py --api-only",
+    "desktop": "python desktop/main.py --ui http://localhost:5173/",
+    "desktop:dev": "python desktop/main.py --ui http://localhost:5173/",
+    "desktop:build": "npm run build && pyinstaller desktop/mediaatlas.spec",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"

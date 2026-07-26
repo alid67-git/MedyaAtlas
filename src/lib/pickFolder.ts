@@ -103,23 +103,32 @@ export interface DiscoveredMediaFolder {
   directCount: number
 }
 
+export const DISCOVER_MAX_FOLDERS = 50_000
+
 /**
  * Sürücü/klasör ağacında doğrudan medya içeren klasörleri bulur.
  * GPS okumaz — sadece ada göre hızlı keşif; alt dallar için kullanılır.
+ *
+ * BFS kullanır: 5TB gibi büyük disklerde derinlik-öncelikli tarama bir
+ * dalda limit doldurup diğer üst klasörleri kaçırıyordu.
  */
 export async function discoverMediaFolders(
   root: FileSystemDirectoryHandle,
   acceptName: (name: string) => boolean,
   options?: { maxFolders?: number; signal?: AbortSignal },
 ): Promise<DiscoveredMediaFolder[]> {
-  const maxFolders = options?.maxFolders ?? 800
+  const maxFolders = options?.maxFolders ?? DISCOVER_MAX_FOLDERS
   const signal = options?.signal
   const found: DiscoveredMediaFolder[] = []
+  const queue: Array<{ dir: DirHandle; pathPrefix: string }> = [
+    { dir: root as DirHandle, pathPrefix: '' },
+  ]
 
-  const walk = async (dir: DirHandle, pathPrefix: string): Promise<void> => {
+  while (queue.length > 0) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-    if (found.length >= maxFolders) return
+    if (found.length >= maxFolders) break
 
+    const { dir, pathPrefix } = queue.shift()!
     let directCount = 0
     const subdirs: Array<{ name: string; handle: DirHandle }> = []
 
@@ -138,13 +147,11 @@ export async function discoverMediaFolders(
     }
 
     for (const sub of subdirs) {
-      if (found.length >= maxFolders) return
       const next = pathPrefix ? `${pathPrefix}/${sub.name}` : sub.name
-      await walk(sub.handle, next)
+      queue.push({ dir: sub.handle, pathPrefix: next })
     }
   }
 
-  await walk(root as DirHandle, '')
   return found
 }
 

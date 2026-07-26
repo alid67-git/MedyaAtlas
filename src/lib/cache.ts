@@ -28,7 +28,8 @@ export interface SourceRecord {
   id: string
   label: string
   addedAt: number
-  handle: FileSystemDirectoryHandle
+  /** Klasör seçiciyle eklenenlerde var; yalnızca yol ile eklenenlerde olmayabilir. */
+  handle?: FileSystemDirectoryHandle
   /** Yerel arka plan hizmetinin doğrudan tarayacağı klasör yolu. */
   localPath?: string
   /** Bağlı olduğu sürücü kökü (çapa) kaynağının kimliği. */
@@ -187,13 +188,43 @@ export async function clearGpsCache(): Promise<void> {
 
 // ---- Kaynaklar (diskler/klasörler) ----
 
+function sourceMeta(record: SourceRecord): Omit<SourceRecord, 'handle'> & { id: string } {
+  const { handle: _handle, ...meta } = record
+  return meta
+}
+
 export async function getSources(): Promise<SourceRecord[]> {
   const db = await openDb()
   if (!db) return []
   return new Promise((resolve) => {
-    const tx = db.transaction(SOURCE_STORE, 'readonly')
+    const tx = db.transaction([SOURCE_STORE, HANDLE_STORE], 'readonly')
     const req = tx.objectStore(SOURCE_STORE).getAll()
-    req.onsuccess = () => resolve((req.result as SourceRecord[]) ?? [])
+    req.onsuccess = () => {
+      const rows = (req.result as SourceRecord[]) ?? []
+      if (rows.length === 0) {
+        resolve([])
+        return
+      }
+      const handleStore = tx.objectStore(HANDLE_STORE)
+      const out: SourceRecord[] = new Array(rows.length)
+      let pending = rows.length
+      rows.forEach((row, index) => {
+        const meta = sourceMeta(row)
+        const hReq = handleStore.get(row.id)
+        hReq.onsuccess = () => {
+          const handle =
+            (hReq.result as FileSystemDirectoryHandle | undefined) ?? row.handle
+          out[index] = handle ? { ...meta, handle } : meta
+          pending -= 1
+          if (pending === 0) resolve(out)
+        }
+        hReq.onerror = () => {
+          out[index] = meta
+          pending -= 1
+          if (pending === 0) resolve(out)
+        }
+      })
+    }
     req.onerror = () => resolve([])
   })
 }
@@ -202,8 +233,13 @@ export async function putSource(record: SourceRecord): Promise<void> {
   const db = await openDb()
   if (!db) return
   return new Promise((resolve) => {
-    const tx = db.transaction(SOURCE_STORE, 'readwrite')
-    tx.objectStore(SOURCE_STORE).put(record)
+    const tx = db.transaction([SOURCE_STORE, HANDLE_STORE], 'readwrite')
+    // Handle ayrı store'da: bazı ortamlarda SourceRecord içinde clone başarısız olur
+    // ve tüm kayıt silinir / yazılmaz.
+    tx.objectStore(SOURCE_STORE).put(sourceMeta(record))
+    if (record.handle) {
+      tx.objectStore(HANDLE_STORE).put(record.handle, record.id)
+    }
     tx.oncomplete = () => resolve()
     tx.onerror = () => resolve()
   })
@@ -213,8 +249,9 @@ export async function deleteSource(id: string): Promise<void> {
   const db = await openDb()
   if (!db) return
   return new Promise((resolve) => {
-    const tx = db.transaction(SOURCE_STORE, 'readwrite')
+    const tx = db.transaction([SOURCE_STORE, HANDLE_STORE], 'readwrite')
     tx.objectStore(SOURCE_STORE).delete(id)
+    tx.objectStore(HANDLE_STORE).delete(id)
     tx.oncomplete = () => resolve()
     tx.onerror = () => resolve()
   })
@@ -281,12 +318,20 @@ export async function clearLibrary(): Promise<void> {
   if (!db) return
   await new Promise<void>((resolve) => {
     const tx = db.transaction(
-      [LIBRARY_STORE, SOURCE_STORE, THUMB_STORE],
+      [LIBRARY_STORE, SOURCE_STORE, THUMB_STORE, HANDLE_STORE],
       'readwrite',
     )
     tx.objectStore(LIBRARY_STORE).clear()
     tx.objectStore(SOURCE_STORE).clear()
     tx.objectStore(THUMB_STORE).clear()
+    // lastDir anahtarını koru; yalnızca kaynak handle'larını sil
+    const handles = tx.objectStore(HANDLE_STORE)
+    const req = handles.getAllKeys()
+    req.onsuccess = () => {
+      for (const key of (req.result as IDBValidKey[]) ?? []) {
+        if (key !== LAST_DIR_KEY) handles.delete(key)
+      }
+    }
     tx.oncomplete = () => resolve()
     tx.onerror = () => resolve()
   })

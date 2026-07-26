@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   MapContainer,
   TileLayer,
@@ -44,28 +44,22 @@ function makeBeaconIcon(count: number) {
 }
 
 /**
- * Alan seçimi: aktifken fareyle dikdörtgen çizilir, bırakınca harita
- * o alana yakınlaşır. Esc iptal eder. (Shift+sürükle her zaman çalışır.)
+ * Sol sürükle: alan seçip yakınlaş.
+ * Shift basılıyken sürükle: haritayı taşı.
+ * Esc: seçimi iptal.
  */
-function AreaSelector({
-  active,
-  onDone,
-}: {
-  active: boolean
-  onDone: () => void
-}) {
+function AreaSelector() {
   const map = useMap()
 
   useEffect(() => {
     const container = map.getContainer()
-    let shiftSelecting = false
-    if (active) {
-      map.dragging.disable()
-      container.style.cursor = 'crosshair'
-    }
+    map.dragging.disable()
+    container.style.cursor = 'crosshair'
 
     let start: L.LatLng | null = null
+    let startPx: { x: number; y: number } | null = null
     let rect: L.Rectangle | null = null
+    let drawing = false
 
     const toLatLng = (e: PointerEvent) =>
       map.mouseEventToLatLng(e as unknown as MouseEvent)
@@ -74,81 +68,96 @@ function AreaSelector({
       if (rect) map.removeLayer(rect)
       rect = null
       start = null
+      startPx = null
+      drawing = false
     }
 
-    const onDown = (e: PointerEvent) => {
-      if (e.button !== 0 || (!active && !e.shiftKey)) return
-      e.preventDefault()
-      // Leaflet'in sürükleme dinleyicisi devreye girmeden olayı yakala.
-      e.stopPropagation()
-      if (!active && e.shiftKey) {
-        shiftSelecting = true
+    const setPanMode = (on: boolean) => {
+      if (on) {
+        clearRect()
+        map.dragging.enable()
+        container.style.cursor = 'grab'
+      } else {
         map.dragging.disable()
         container.style.cursor = 'crosshair'
       }
+    }
+
+    const isUiTarget = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return false
+      return Boolean(
+        target.closest(
+          '.leaflet-marker-icon, .leaflet-control, .leaflet-tooltip, a, button',
+        ),
+      )
+    }
+
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0 || e.shiftKey || isUiTarget(e.target)) return
       start = toLatLng(e)
-      rect = L.rectangle(L.latLngBounds(start, start), {
-        color: '#2ec4b6',
-        weight: 1.5,
-        dashArray: '6 4',
-        fillColor: '#2ec4b6',
-        fillOpacity: 0.12,
-        interactive: false,
-      }).addTo(map)
+      startPx = { x: e.clientX, y: e.clientY }
+      drawing = false
     }
 
     const onMove = (e: PointerEvent) => {
-      if (!start || !rect) return
-      rect.setBounds(L.latLngBounds(start, toLatLng(e)))
+      if (!start || !startPx || e.shiftKey) return
+      const dx = e.clientX - startPx.x
+      const dy = e.clientY - startPx.y
+      if (!drawing && dx * dx + dy * dy < 36) return
+      if (!drawing) {
+        drawing = true
+        e.preventDefault()
+        rect = L.rectangle(L.latLngBounds(start, start), {
+          color: '#2ec4b6',
+          weight: 1.5,
+          dashArray: '6 4',
+          fillColor: '#2ec4b6',
+          fillOpacity: 0.12,
+          interactive: false,
+        }).addTo(map)
+      }
+      if (rect) rect.setBounds(L.latLngBounds(start, toLatLng(e)))
     }
 
     const onUp = (e: PointerEvent) => {
-      if (!start || !rect) return
+      if (!start || !rect) {
+        clearRect()
+        return
+      }
       const bounds = L.latLngBounds(start, toLatLng(e))
       clearRect()
-      // Çok küçük (yanlışlıkla tıklama) seçimleri yok say
       const p1 = map.latLngToContainerPoint(bounds.getNorthWest())
       const p2 = map.latLngToContainerPoint(bounds.getSouthEast())
       if (Math.abs(p1.x - p2.x) > 10 && Math.abs(p1.y - p2.y) > 10) {
         map.fitBounds(bounds, { animate: true })
       }
-      if (shiftSelecting) {
-        shiftSelecting = false
-        map.dragging.enable()
-        container.style.cursor = ''
-      }
-      if (active) onDone()
     }
 
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        clearRect()
-      if (shiftSelecting) {
-        shiftSelecting = false
-        map.dragging.enable()
-        container.style.cursor = ''
-      }
-      if (active) onDone()
-      }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') setPanMode(true)
+      if (e.key === 'Escape') clearRect()
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') setPanMode(false)
     }
 
-    // Capture fazı, Shift+sürükle davranışının Leaflet harita gezintisiyle
-    // yarışmasını önler.
     container.addEventListener('pointerdown', onDown, true)
     container.addEventListener('pointermove', onMove, true)
     window.addEventListener('pointerup', onUp, true)
-    window.addEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
 
     return () => {
       container.removeEventListener('pointerdown', onDown, true)
       container.removeEventListener('pointermove', onMove, true)
       window.removeEventListener('pointerup', onUp, true)
-      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
       clearRect()
       map.dragging.enable()
       container.style.cursor = ''
     }
-  }, [active, map, onDone])
+  }, [map])
 
   return null
 }
@@ -334,15 +343,125 @@ function ClusterMarkers({ clusters }: { clusters: LocationCluster[] }) {
   )
 }
 
+function makeFocusIcon() {
+  return L.divIcon({
+    className: 'map-focus',
+    iconSize: [64, 64],
+    iconAnchor: [32, 32],
+    html: `<div class="map-focus__body"><span class="map-focus__ring"></span><span class="map-focus__cross"></span><span class="map-focus__core"></span></div>`,
+  })
+}
+
+/** Galeriden seçilen medya — zoom yok; görünür alandaysa pan, belirgin işaret. */
+function FocusTarget({
+  point,
+}: {
+  point: { latitude: number; longitude: number; id: string } | null
+}) {
+  const map = useMap()
+  const icon = useMemo(() => makeFocusIcon(), [])
+
+  useEffect(() => {
+    if (!point) return
+    if (Math.abs(point.latitude) < 0.01 && Math.abs(point.longitude) < 0.01) return
+    const latlng = L.latLng(point.latitude, point.longitude)
+    if (!map.getBounds().pad(-0.15).contains(latlng)) {
+      map.panTo(latlng, { animate: true })
+    }
+  }, [map, point?.id, point?.latitude, point?.longitude])
+
+  if (!point) return null
+  if (Math.abs(point.latitude) < 0.01 && Math.abs(point.longitude) < 0.01) return null
+
+  return (
+    <Marker
+      position={[point.latitude, point.longitude]}
+      icon={icon}
+      zIndexOffset={1000}
+    >
+      <Tooltip direction="top" offset={[0, -28]} opacity={0.98} permanent>
+        Seçili
+      </Tooltip>
+    </Marker>
+  )
+}
+
+/** Tek çubuk: dünya (üstte) + +/- zoom. */
+function WorldAndZoomControls() {
+  const map = useMap()
+
+  useEffect(() => {
+    // Eski/çift zoom kontrollerini temizle (HMR / StrictMode artıkları)
+    if (map.zoomControl) map.removeControl(map.zoomControl)
+    const corner = containerTopLeft(map)
+    corner
+      ?.querySelectorAll('.leaflet-control-zoom, .map-world-control, .map-nav-control')
+      .forEach((el) => el.remove())
+
+    const nav = new L.Control({ position: 'topleft' })
+    nav.onAdd = () => {
+      const wrap = L.DomUtil.create('div', 'leaflet-bar map-nav-control')
+      const world = L.DomUtil.create('a', 'map-world-btn', wrap)
+      world.href = '#'
+      world.title = 'Tüm dünya haritası'
+      world.setAttribute('role', 'button')
+      world.setAttribute('aria-label', 'Tüm dünya haritası')
+      world.innerHTML =
+        '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/><ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>'
+
+      const zoomIn = L.DomUtil.create('a', 'map-zoom-btn', wrap)
+      zoomIn.href = '#'
+      zoomIn.title = 'Yakınlaştır'
+      zoomIn.setAttribute('role', 'button')
+      zoomIn.setAttribute('aria-label', 'Yakınlaştır')
+      zoomIn.innerHTML = '+'
+
+      const zoomOut = L.DomUtil.create('a', 'map-zoom-btn', wrap)
+      zoomOut.href = '#'
+      zoomOut.title = 'Uzaklaştır'
+      zoomOut.setAttribute('role', 'button')
+      zoomOut.setAttribute('aria-label', 'Uzaklaştır')
+      zoomOut.innerHTML = '&#x2212;'
+
+      L.DomEvent.disableClickPropagation(wrap)
+      L.DomEvent.on(world, 'click', (event) => {
+        L.DomEvent.preventDefault(event)
+        map.setView([20, 0], 2, { animate: true })
+      })
+      L.DomEvent.on(zoomIn, 'click', (event) => {
+        L.DomEvent.preventDefault(event)
+        map.zoomIn()
+      })
+      L.DomEvent.on(zoomOut, 'click', (event) => {
+        L.DomEvent.preventDefault(event)
+        map.zoomOut()
+      })
+      return wrap
+    }
+    nav.addTo(map)
+    return () => {
+      nav.remove()
+    }
+  }, [map])
+
+  return null
+}
+
+function containerTopLeft(map: L.Map): HTMLElement | null {
+  const corners = (map as L.Map & { _controlCorners?: Record<string, HTMLElement> })
+    ._controlCorners
+  return corners?.topleft ?? null
+}
+
 interface WorldMapProps {
   clusters: LocationCluster[]
   onBoundsChange: (bounds: MapBounds) => void
+  /** Galeriden tek tıkla vurgulanan konum */
+  focusPoint?: { id: string; latitude: number; longitude: number } | null
 }
 
-export function WorldMap({ clusters, onBoundsChange }: WorldMapProps) {
+export function WorldMap({ clusters, onBoundsChange, focusPoint = null }: WorldMapProps) {
   const [zoom, setZoom] = useState(2)
-  const [selecting, setSelecting] = useState(false)
-  const stopSelecting = useCallback(() => setSelecting(false), [])
 
   return (
     <>
@@ -353,9 +472,10 @@ export function WorldMap({ clusters, onBoundsChange }: WorldMapProps) {
       minZoom={2}
       maxZoom={19}
       worldCopyJump
-      zoomControl
+      zoomControl={false}
       scrollWheelZoom
       doubleClickZoom
+      dragging={false}
     >
       <TileLayer
         attribution='Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics'
@@ -372,25 +492,18 @@ export function WorldMap({ clusters, onBoundsChange }: WorldMapProps) {
       <InitialView />
       <BoundsReporter onBoundsChange={onBoundsChange} />
       <ZoomTracker onZoom={setZoom} />
+      <WorldAndZoomControls />
       <HeatLayer clusters={clusters} />
       {zoom >= MARKER_MIN_ZOOM ? (
         <ClusterMarkers clusters={clusters} />
       ) : (
         <BeaconMarkers clusters={clusters} />
       )}
-      <AreaSelector active={selecting} onDone={stopSelecting} />
+      <FocusTarget point={focusPoint} />
+      <AreaSelector />
     </MapContainer>
-    <button
-      type="button"
-      hidden
-      className={`map-select-btn ${selecting ? 'is-active' : ''}`}
-      onClick={() => setSelecting((v) => !v)}
-      title="Haritada bir alan çiz, o alana yakınlaş (Esc iptal)"
-    >
-      <span aria-hidden>⬚</span> {selecting ? 'Alan çiz…' : 'Alan seç'}
-    </button>
-    <div className="map-area-hint" title="Shift basılıyken sol fare tuşuyla sürükleyip bırak">
-      <kbd>Shift</kbd> + sürükle: alan seç
+    <div className="map-area-hint" title="Sol sürükle: alan seç · Shift+sürükle: haritayı taşı">
+      Sürükle: alan · <kbd>Shift</kbd>: taşı
     </div>
     </>
   )

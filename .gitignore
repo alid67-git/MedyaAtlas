@@ -11,11 +11,17 @@ node_modules
 dist
 dist-ssr
 *.local
+desktop/.deps_ok
+desktop/**/__pycache__/
+*.py[cod]
+build/
+*.spec.bak
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
+.cursor/
 .DS_Store
 *.suo
 *.ntvs*

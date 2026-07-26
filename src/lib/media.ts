@@ -7,6 +7,7 @@ import { fileSignature, getGpsCacheSnapshot, putCachedGps } from './cache'
 const PHOTO_EXT = new Set([
   'jpg',
   'jpeg',
+  'jpe',
   'png',
   'webp',
   'heic',
@@ -17,10 +18,18 @@ const PHOTO_EXT = new Set([
   'gpr',
   'arw',
   'cr2',
+  'cr3',
   'nef',
+  'nrw',
   'orf',
   'raf',
   'rw2',
+  'pef',
+  'srw',
+  'x3f',
+  'avif',
+  'gif',
+  'bmp',
 ])
 
 // LRV: GoPro'nun düşük çözünürlüklü kopyaları — değerlendirmeye alınmaz
@@ -36,6 +45,11 @@ const VIDEO_EXT = new Set([
   'ts',
   'mts',
   'm2ts',
+  '3gp',
+  '3g2',
+  'wmv',
+  'mpg',
+  'mpeg',
 ])
 
 // GH010123, GX010123, GOPR1234, GP010123, GO012345 vb.

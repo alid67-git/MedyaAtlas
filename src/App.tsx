@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WorldMap, type MapBounds } from './components/WorldMap'
-import { MediaGallery } from './components/MediaGallery'
+import { MediaGallery, loadGalleryScope, type GalleryScope } from './components/MediaGallery'
 import { Lightbox } from './components/Lightbox'
 import {
   ScanAbortedError,
@@ -72,6 +72,30 @@ function isNullIslandCoordinate(latitude: number, longitude: number): boolean {
   return Math.abs(latitude) < 0.01 && Math.abs(longitude) < 0.01
 }
 
+/** Yeniden taramada mtime değişse bile aynı dosya önizlemesi. id: kaynak|yol|boyut|mtime */
+function stableThumbKey(item: MediaItem): string {
+  const parts = item.id.split('|')
+  if (parts.length >= 4) return parts.slice(0, -1).join('|')
+  return `${item.sourceId}|${item.relativePath || item.name}`
+}
+
+/** Aynı anda en fazla N /api/thumb — tarayıcı + ffmpeg tıkanmasın. */
+const THUMB_FETCH_MAX = 4
+let thumbFetchActive = 0
+const thumbFetchWait: Array<() => void> = []
+
+async function acquireThumbFetch(): Promise<void> {
+  if (thumbFetchActive >= THUMB_FETCH_MAX) {
+    await new Promise<void>((resolve) => thumbFetchWait.push(resolve))
+  }
+  thumbFetchActive += 1
+}
+
+function releaseThumbFetch(): void {
+  thumbFetchActive = Math.max(0, thumbFetchActive - 1)
+  thumbFetchWait.shift()?.()
+}
+
 interface SourceUi {
   id: string
   label: string
@@ -83,28 +107,199 @@ interface SourceUi {
   directOnly?: boolean
 }
 
-function localPathForSource(source: SourceUi, allSources: readonly SourceUi[]): string | undefined {
-  if (source.localPath) return source.localPath
-  const drivePathFor = (candidate: SourceUi | undefined) => {
-    const match = candidate && /\(([A-Za-z]):\)/.exec(candidate.label)
-    return match ? `${match[1]}:\\` : undefined
-  }
-  if (source.isAnchor) return drivePathFor(source)
-  if (!source.parentId) return undefined
-  const root = allSources.find(
-    (item) => item.parentId === source.parentId && item.subPath === '' && item.localPath,
-  )
-  const inheritedRoot = root?.localPath ?? drivePathFor(
-    allSources.find((item) => item.id === source.parentId && item.isAnchor),
-  )
-  if (!inheritedRoot) return undefined
-  const subPath = source.subPath?.replaceAll('/', '\\').replace(/^\\+|\\+$/g, '')
-  return subPath ? `${inheritedRoot.replace(/[\\/]+$/, '')}\\${subPath}` : inheritedRoot
+function drivePathFromLabel(label: string | undefined): string | undefined {
+  if (!label) return undefined
+  // "Elements SE (E:)" veya eski biçim
+  const paren = /\(([A-Za-z]):\)/.exec(label)
+  if (paren) return `${paren[1].toUpperCase()}:\\`
+  // "E: (Elements SE)" — harf başta
+  const start = /^([A-Za-z]):(?:\s|$|[\\/])/.exec(label.trim())
+  if (start) return `${start[1].toUpperCase()}:\\`
+  return undefined
 }
 
-function mediaStemKey(item: MediaItem): string {
-  const path = item.relativePath || item.name
-  return `${item.sourceId}|${path.replace(/\.[^.]+$/, '').toLowerCase()}`
+/**
+ * Çocuk kaynaklarda kayıtlı absolute localPath bayat kalabilir (sürücü harfi değişince).
+ * parentId + subPath varsa çapa yolundan türet — offline sanılıp medyanın gizlenmesini önler.
+ */
+function localPathForSource(source: SourceUi, allSources: readonly SourceUi[]): string | undefined {
+  if (source.parentId != null && source.subPath != null) {
+    const anchor = allSources.find((item) => item.id === source.parentId)
+    const rootSibling = allSources.find(
+      (item) =>
+        item.parentId === source.parentId && item.subPath === '' && item.localPath,
+    )
+    const inheritedRoot =
+      anchor?.localPath ??
+      rootSibling?.localPath ??
+      (anchor ? drivePathFromLabel(anchor.label) : undefined)
+    if (inheritedRoot) {
+      const subPath = source.subPath.replaceAll('/', '\\').replace(/^\\+|\\+$/g, '')
+      const root = inheritedRoot.replace(/[\\/]+$/, '')
+      return subPath ? `${root}\\${subPath}` : `${root}\\`
+    }
+  }
+  if (source.localPath) return source.localPath
+  if (source.isAnchor) return drivePathFromLabel(source.label)
+  return undefined
+}
+
+/** `F:\\`, `F:/`, `F:` → `F` */
+function driveLetterOf(path: string | undefined): string | null {
+  if (!path) return null
+  const match = /^([A-Za-z]):/.exec(path.trim())
+  return match ? match[1].toUpperCase() : null
+}
+
+function isDriveRootPath(path: string | undefined): boolean {
+  return Boolean(path && /^[A-Za-z]:[\\/]*$/.test(path.trim()))
+}
+
+function normalizeWinPath(path: string): string {
+  return path.trim().replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
+}
+
+/** `inner` == `outer` veya `outer` altında. */
+function pathEqualsOrInside(inner: string, outer: string): boolean {
+  const a = normalizeWinPath(inner)
+  const b = normalizeWinPath(outer)
+  return a === b || a.startsWith(`${b}\\`)
+}
+
+/** Medyanın bağlı olduğu kaynak; çocuk yoksa çevrimiçi çapaya düş. */
+function findSourceForItem(
+  item: MediaItem,
+  sources: readonly SourceUi[],
+  grantedIds: ReadonlySet<string>,
+  localOnlineIds: ReadonlySet<string>,
+  localAvailabilityReady: boolean,
+): SourceUi | undefined {
+  const direct = sources.find((candidate) => candidate.id === item.sourceId)
+  if (direct) return direct
+  for (const anchor of sources) {
+    if (!anchor.isAnchor) continue
+    if (
+      !isSourceOnline(
+        anchor,
+        sources,
+        grantedIds,
+        localOnlineIds,
+        localAvailabilityReady,
+      )
+    ) {
+      continue
+    }
+    return anchor
+  }
+  return undefined
+}
+
+/** Dosyanın bulunduğu klasörler (sürücü ağacı çocukları). */
+function mediaFolderSubPaths(items: readonly MediaItem[]): string[] {
+  const dirs = new Set<string>()
+  let rootFiles = false
+  for (const item of items) {
+    const rel = (item.relativePath || item.name).replaceAll('\\', '/')
+    const slash = rel.lastIndexOf('/')
+    if (slash < 0) rootFiles = true
+    else dirs.add(rel.slice(0, slash))
+  }
+  const list = [...dirs].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+  if (rootFiles) list.unshift('')
+  return list
+}
+
+function rewriteItemSource(
+  item: MediaItem,
+  newSourceId: string,
+  newRel: string,
+): MediaItem {
+  const parts = item.id.split('|')
+  const size = parts.length >= 3 ? parts[parts.length - 2] : '0'
+  const mtime = parts.length >= 4 ? parts[parts.length - 1] : String(Date.now())
+  return {
+    ...item,
+    sourceId: newSourceId,
+    relativePath: newRel,
+    id: `${newSourceId}|${newRel}|${size}|${mtime}`,
+  }
+}
+
+/** Çapa altındaki çocuklara medyayı dağıt (göreli yol + sourceId). */
+function remapItemsToDriveChildren(
+  items: readonly MediaItem[],
+  anchorId: string,
+  children: readonly { id: string; subPath: string }[],
+): MediaItem[] {
+  const sorted = [...children].sort((a, b) => b.subPath.length - a.subPath.length)
+  return items.map((item) => {
+    if (item.sourceId !== anchorId) return item
+    const rel = (item.relativePath || item.name).replaceAll('\\', '/')
+    for (const child of sorted) {
+      if (child.subPath === '') {
+        if (!rel.includes('/')) return rewriteItemSource(item, child.id, rel)
+        continue
+      }
+      if (rel === child.subPath || rel.startsWith(`${child.subPath}/`)) {
+        const newRel =
+          rel === child.subPath ? item.name : rel.slice(child.subPath.length + 1)
+        return rewriteItemSource(item, child.id, newRel)
+      }
+    }
+    return item
+  })
+}
+
+/** Yerel yol varsa disk erişimi; yoksa File System Access izni. */
+function isSourceOnline(
+  source: SourceUi,
+  allSources: readonly SourceUi[],
+  grantedIds: ReadonlySet<string>,
+  localOnlineIds: ReadonlySet<string>,
+  localAvailabilityReady: boolean,
+): boolean {
+  const path = localPathForSource(source, allSources)
+  if (path) {
+    // Availability henüz gelmediyse yollu kaynağı çevrimdışı sayma
+    if (!localAvailabilityReady) return true
+    if (localOnlineIds.has(source.id)) return true
+    // Alt klasör yolu başarısız olsa bile sürücü çapası online ise medyayı gizleme
+    if (source.parentId) {
+      const parent = allSources.find((item) => item.id === source.parentId)
+      if (
+        parent &&
+        isSourceOnline(
+          parent,
+          allSources,
+          grantedIds,
+          localOnlineIds,
+          localAvailabilityReady,
+        )
+      ) {
+        return true
+      }
+    }
+    return false
+  }
+  return grantedIds.has(source.id)
+}
+
+/** Tarama sırasında bilinen Windows yolu; Explorer / VLC için. */
+function windowsPathForItem(
+  item: MediaItem,
+  allSources: readonly SourceUi[],
+): string | undefined {
+  const raw = item.relativePath || item.name
+  if (/^[a-zA-Z]:[\\/]/.test(raw) || raw.startsWith('\\\\')) {
+    return raw.replace(/\//g, '\\')
+  }
+  const source = allSources.find((candidate) => candidate.id === item.sourceId)
+  if (!source) return undefined
+  const root = localPathForSource(source, allSources)
+  if (!root) return undefined
+  const rel = raw.replace(/\//g, '\\').replace(/^\\+/, '')
+  if (!rel) return root.replace(/[\\/]+$/, '')
+  return `${root.replace(/[\\/]+$/, '')}\\${rel}`
 }
 
 interface SourceTreeNode {
@@ -165,6 +360,23 @@ function collectDescendantSourceIds(node: SourceTreeNode): string[] {
   return ids
 }
 
+/** Sürücü ağacını (ara klasörler dahil) açık göstermek için expand anahtarları. */
+function expandKeysForDriveChildren(
+  anchorId: string,
+  children: readonly SourceUi[],
+): string[] {
+  const keys = new Set<string>([`${anchorId}::`])
+  for (const child of children) {
+    const parts = (child.subPath || '').split('/').filter(Boolean)
+    let path = ''
+    for (const part of parts) {
+      path = path ? `${path}/${part}` : part
+      keys.add(`${anchorId}::${path}`)
+    }
+  }
+  return [...keys]
+}
+
 const TRANSIENT_PREFIX = 'transient-'
 const FILTER_KEY = 'konumnerede-media-filters'
 const HIDDEN_SOURCES_KEY = 'konumnerede-hidden-sources'
@@ -198,6 +410,7 @@ function loadFilters(): Set<MediaKind> {
 }
 
 function acceptsFileName(name: string, kinds: ReadonlySet<MediaKind>): boolean {
+  if (/\.lrv$/i.test(name)) return false
   if (getExtension(name) === 'xmp' || getExtension(name) === 'srt') return true
   const kind = detectKind(name)
   return kind !== null && kinds.has(kind)
@@ -205,6 +418,7 @@ function acceptsFileName(name: string, kinds: ReadonlySet<MediaKind>): boolean {
 
 /** Kaynak keşfi, ekrandaki tür filtresinden bağımsız tüm desteklenen medyayı görür. */
 function isSupportedMediaFileName(name: string): boolean {
+  if (/\.lrv$/i.test(name)) return false
   if (getExtension(name) === 'xmp' || getExtension(name) === 'srt') return true
   return detectKind(name) !== null
 }
@@ -249,7 +463,13 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [driveDialogOpen, setDriveDialogOpen] = useState(false)
-  const [drivePath, setDrivePath] = useState('F:\\')
+  const [drivePath, setDrivePath] = useState('')
+  const [driveLabel, setDriveLabel] = useState('')
+  const [availableDrives, setAvailableDrives] = useState<
+    Array<{ letter: string; path: string; label: string; volumeName: string | null }>
+  >([])
+  const [drivesLoading, setDrivesLoading] = useState(false)
+  const [drivesError, setDrivesError] = useState<string | null>(null)
   const [language, setLanguage] = useState<'tr' | 'en'>(() =>
     localStorage.getItem('mediaatlas-language') === 'en' ? 'en' : 'tr',
   )
@@ -265,14 +485,34 @@ export default function App() {
   /** Açık ağaç düğümleri: `${anchorId}::${path}` */
   const [expandedTree, setExpandedTree] = useState<Set<string>>(() => new Set())
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null)
+  const [galleryScope, setGalleryScope] = useState<GalleryScope>(() => loadGalleryScope())
   const [viewer, setViewer] = useState<MediaItem | null>(null)
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
   // Kaynak başına eşzamanlı tarama ilerlemesi
   const [scans, setScans] = useState<Map<string, { done: number; total: number; located?: number; missing?: number }>>(
     () => new Map(),
   )
   const [skipped, setSkipped] = useState(0)
   const [skippedNames, setSkippedNames] = useState<string[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [error, setErrorState] = useState<string | null>(null)
+  const [toastKind, setToastKind] = useState<'error' | 'info'>('error')
+  const errorTimerRef = useRef<number | null>(null)
+
+  const setError = useCallback((message: string | null, kind: 'error' | 'info' = 'error') => {
+    if (errorTimerRef.current != null) {
+      window.clearTimeout(errorTimerRef.current)
+      errorTimerRef.current = null
+    }
+    setErrorState(message)
+    setToastKind(kind)
+    if (message) {
+      errorTimerRef.current = window.setTimeout(() => {
+        setErrorState(null)
+        errorTimerRef.current = null
+      }, 2500)
+    }
+  }, [])
+
   const [cachedCount, setCachedCount] = useState(0)
   const [notice, setNotice] = useState<{ title: string; message: string } | null>(null)
 
@@ -282,6 +522,7 @@ export default function App() {
   const sourcesMenuRef = useRef<HTMLDivElement>(null)
   const typesMenuRef = useRef<HTMLDivElement>(null)
   const scanControllersRef = useRef<Map<string, AbortController>>(new Map())
+  const scanJobIdsRef = useRef<Map<string, string>>(new Map())
   const handlesRef = useRef<Map<string, FileSystemDirectoryHandle>>(new Map())
   const fileMapRef = useRef<Map<string, File>>(new Map())
   const urlCacheRef = useRef<Map<string, string>>(new Map())
@@ -329,36 +570,122 @@ export default function App() {
     return () => { alive = false; window.clearInterval(timer) }
   }, [sources])
 
+  useEffect(() => {
+    if (!driveDialogOpen) return
+    let alive = true
+    setDrivesLoading(true)
+    setDrivesError(null)
+    void (async () => {
+      try {
+        const response = await fetch('/api/drives')
+        const data = (await response.json()) as {
+          error?: string
+          drives?: Array<{ letter: string; path: string; label: string; volumeName: string | null }>
+        }
+        if (!alive) return
+        if (!response.ok) throw new Error(data.error || 'Sürücüler okunamadı.')
+        const drives = data.drives ?? []
+        setAvailableDrives(drives)
+
+        const addedLetters = new Set<string>()
+        for (const source of sourcesRef.current) {
+          const root = source.localPath ?? localPathForSource(source, sourcesRef.current)
+          if (isDriveRootPath(root) || source.isAnchor) {
+            const letter = driveLetterOf(root) ?? driveLetterOf(source.localPath)
+            if (letter) addedLetters.add(letter)
+          }
+        }
+
+        const selectable = drives.filter((d) => !addedLetters.has(d.letter.toUpperCase()))
+        const preferred =
+          selectable.find((d) => d.path.toUpperCase() === drivePath.toUpperCase())
+          ?? selectable.find((d) => d.letter !== 'C')
+          ?? selectable[0]
+          ?? null
+
+        if (preferred) {
+          setDrivePath(preferred.path)
+          setDriveLabel(preferred.label)
+        } else {
+          setDrivePath('')
+          setDriveLabel('')
+        }
+      } catch {
+        if (!alive) return
+        setAvailableDrives([])
+        setDrivesError(
+          'Sürücü listesi alınamadı. Yerel servisin (baslat.bat) açık olduğundan emin olun.',
+        )
+      } finally {
+        if (alive) setDrivesLoading(false)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [driveDialogOpen])
+
+  const addedDriveLetters = useMemo(() => {
+    const letters = new Set<string>()
+    for (const source of sources) {
+      const root = source.localPath ?? localPathForSource(source, sources)
+      if (isDriveRootPath(root) || (source.isAnchor && root)) {
+        const letter = driveLetterOf(root)
+        if (letter) letters.add(letter)
+      } else if (isDriveRootPath(source.localPath)) {
+        const letter = driveLetterOf(source.localPath)
+        if (letter) letters.add(letter)
+      }
+    }
+    return letters
+  }, [sources])
+
   // Kaynak erişimi + seçili tür ve kaynak filtreleri
   const availableItems = useMemo(
     () => {
-      const originalVideoStems = new Set(
-        items
-          .filter((item) => !/\.lrv$/i.test(item.name))
-          .map(mediaStemKey),
-      )
       return items
         .filter(
           (it) =>
             enabledKinds.has(it.kind) &&
-            (!/\.lrv$/i.test(it.name) || !originalVideoStems.has(mediaStemKey(it))) &&
+            !/\.lrv$/i.test(it.name) &&
             !hiddenSourceIds.has(it.sourceId) &&
             (() => {
-              const source = sources.find((candidate) => candidate.id === it.sourceId)
-              return localPathForSource(source ?? { id: '', label: '', addedAt: 0 }, sources)
-                ? !localAvailabilityReady || localOnlineIds.has(it.sourceId)
-                : grantedIds.has(it.sourceId)
+              const source = findSourceForItem(
+                it,
+                sources,
+                grantedIds,
+                localOnlineIds,
+                localAvailabilityReady,
+              )
+              if (!source) return false
+              return isSourceOnline(
+                source,
+                sources,
+                grantedIds,
+                localOnlineIds,
+                localAvailabilityReady,
+              )
             })(),
         )
-        .map((it) => ({
-          ...it,
-          available: localPathForSource(
-            sources.find((candidate) => candidate.id === it.sourceId) ?? { id: '', label: '', addedAt: 0 },
+        .map((it) => {
+          const source = findSourceForItem(
+            it,
             sources,
+            grantedIds,
+            localOnlineIds,
+            localAvailabilityReady,
           )
-            ? !localAvailabilityReady || localOnlineIds.has(it.sourceId)
-            : grantedIds.has(it.sourceId),
-        }))
+          const online = source
+            ? isSourceOnline(
+                source,
+                sources,
+                grantedIds,
+                localOnlineIds,
+                localAvailabilityReady,
+              )
+            : false
+          return { ...it, available: online }
+        })
     },
     [items, grantedIds, enabledKinds, hiddenSourceIds, sources, localOnlineIds, localAvailabilityReady],
   )
@@ -374,36 +701,60 @@ export default function App() {
     ).size,
     [availableItems],
   )
-  // O anki harita alanındaki öğeler (tür/kaynak filtresi uygulanmadan);
-  // menülerdeki sayılar görünen alanı yansıtır.
-  const boundedItems = useMemo(() => {
-    if (!mapBounds) return items
-    return items.filter((i) => !i.locationMissing && inBounds(i.latitude, i.longitude, mapBounds))
-  }, [items, mapBounds])
-
-  // Tür başına, haritada görünen alandaki görüntü sayısı
-  // Kaynak başına, haritada görünen alandaki görüntü sayısı
+  // Kaynak başına kütüphanedeki medya sayısı (harita alanına bağlı değil)
   const sourceCounts = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const it of boundedItems) {
+    for (const it of availableItems) {
       counts.set(it.sourceId, (counts.get(it.sourceId) ?? 0) + 1)
     }
     return counts
-  }, [boundedItems])
+  }, [availableItems])
 
-  // Haritada o an görünen alandaki medya, en yeni tarih üstte
-  const visibleItems = useMemo(() => {
+  // Galeri: alan veya tüm kütüphane; en yeni üstte
+  const galleryItems = useMemo(() => {
     if (showLocationMissing) return availableItems.filter((item) => item.locationMissing)
-    if (!mapBounds) return []
-    return availableItems
-      .filter((i) => !i.locationMissing && inBounds(i.latitude, i.longitude, mapBounds))
-      .sort((a, b) => {
-        if (a.takenAt && b.takenAt) return b.takenAt.getTime() - a.takenAt.getTime()
-        if (a.takenAt) return -1
-        if (b.takenAt) return 1
-        return a.name.localeCompare(b.name)
-      })
-  }, [availableItems, mapBounds, showLocationMissing])
+    const located = availableItems.filter((i) => !i.locationMissing)
+    const list =
+      galleryScope === 'all' || !mapBounds
+        ? located
+        : located.filter((i) => inBounds(i.latitude, i.longitude, mapBounds))
+    return list.sort((a, b) => {
+      if (a.takenAt && b.takenAt) return b.takenAt.getTime() - a.takenAt.getTime()
+      if (a.takenAt) return -1
+      if (b.takenAt) return 1
+      return a.name.localeCompare(b.name)
+    })
+  }, [availableItems, mapBounds, showLocationMissing, galleryScope])
+
+  const locatedCount = useMemo(
+    () => availableItems.filter((i) => !i.locationMissing).length,
+    [availableItems],
+  )
+
+  // Harita rozeti: her zaman mevcut görünüm
+  const visibleInArea = useMemo(() => {
+    if (!mapBounds) return 0
+    return availableItems.filter(
+      (i) => !i.locationMissing && inBounds(i.latitude, i.longitude, mapBounds),
+    ).length
+  }, [availableItems, mapBounds])
+
+  const focusedItem = useMemo(
+    () =>
+      focusedItemId
+        ? availableItems.find((item) => item.id === focusedItemId) ?? null
+        : null,
+    [availableItems, focusedItemId],
+  )
+
+  const focusPoint = useMemo(() => {
+    if (!focusedItem || focusedItem.locationMissing) return null
+    return {
+      id: focusedItem.id,
+      latitude: focusedItem.latitude,
+      longitude: focusedItem.longitude,
+    }
+  }, [focusedItem])
 
   useEffect(() => {
     const cache = urlCacheRef.current
@@ -503,6 +854,7 @@ export default function App() {
       const granted = new Set<string>()
       await Promise.all(
         srcs.map(async (s) => {
+          if (!s.handle) return
           handlesRef.current.set(s.id, s.handle)
           if (await isSourceAvailable(s.handle)) granted.add(s.id)
         }),
@@ -519,28 +871,122 @@ export default function App() {
         takenAt: l.takenAt ? new Date(l.takenAt) : undefined,
         width: l.width,
         height: l.height,
-        // Eski kayÄ±tlarda bayrak yoktu; 0,0 koordinatÄ± konum yok demektir.
+        // Eski kayıtlarda bayrak yoktu; 0,0 koordinatı konum yok demektir.
         locationMissing: l.locationMissing ?? isNullIslandCoordinate(l.latitude, l.longitude),
       }))
-      setSources(
-        srcs
-          .map((s) => ({
-            id: s.id,
-            label: s.label,
-            addedAt: s.addedAt,
-            parentId: s.parentId,
-             subPath: s.subPath,
-             localPath: s.localPath,
-             isAnchor: s.isAnchor,
-            directOnly: s.directOnly,
-          }))
-          .sort((a, b) => a.addedAt - b.addedAt),
-      )
-       // Her açılışta sade başla: yalnız sürücü adları görünür olsun.
-       setExpandedTree(new Set())
-       setSourcesOpen(false)
+
+      // Eski sürücü kayıtları: medya çapa id'sinde kalmış → alt klasör çocuklarına böl
+      let uiSources: SourceUi[] = srcs
+        .map((s) => ({
+          id: s.id,
+          label: s.label,
+          addedAt: s.addedAt,
+          parentId: s.parentId,
+          subPath: s.subPath,
+          localPath: s.localPath,
+          isAnchor: s.isAnchor ?? isDriveRootPath(s.localPath),
+          directOnly: s.directOnly,
+        }))
+        .sort((a, b) => a.addedAt - b.addedAt)
+
+      let uiItems = loaded
+      for (const anchor of [...uiSources]) {
+        if (!anchor.isAnchor && !isDriveRootPath(anchor.localPath)) continue
+        const rootPath = anchor.localPath
+        if (!rootPath || !isDriveRootPath(rootPath)) continue
+        const onAnchor = uiItems.filter((i) => i.sourceId === anchor.id)
+        if (onAnchor.length === 0) continue
+
+        const folderPaths = mediaFolderSubPaths(onAnchor)
+        const existingKids = uiSources.filter(
+          (s) => s.parentId === anchor.id && s.subPath != null,
+        )
+        const bySub = new Map(existingKids.map((s) => [s.subPath as string, s]))
+        const childSources: SourceUi[] = []
+        for (const subPath of folderPaths) {
+          const childPath =
+            subPath === ''
+              ? `${rootPath.replace(/[\\/]+$/, '')}\\`
+              : `${rootPath.replace(/[\\/]+$/, '')}\\${subPath.replaceAll('/', '\\')}`
+          const prev = bySub.get(subPath)
+          if (prev) {
+            childSources.push({ ...prev, localPath: childPath, isAnchor: false })
+            continue
+          }
+          childSources.push({
+            id: `src-mig-${anchor.id}-${childSources.length}-${Date.now().toString(36)}`,
+            label:
+              subPath === ''
+                ? '(kök)'
+                : subPath.split('/').filter(Boolean).pop() || subPath,
+            addedAt: Date.now(),
+            localPath: childPath,
+            parentId: anchor.id,
+            subPath,
+            directOnly: true,
+          })
+        }
+
+        const remapped = remapItemsToDriveChildren(
+          onAnchor,
+          anchor.id,
+          childSources.map((c) => ({ id: c.id, subPath: c.subPath ?? '' })),
+        )
+        uiItems = [
+          ...uiItems.filter((i) => i.sourceId !== anchor.id),
+          ...remapped,
+        ]
+        uiSources = [
+          ...uiSources.filter(
+            (s) =>
+              s.id === anchor.id ||
+              s.parentId !== anchor.id ||
+              childSources.some((c) => c.id === s.id),
+          ),
+          ...childSources.filter((c) => !bySub.has(c.subPath ?? '')),
+        ]
+        // Güncellenmiş localPath'leri yaz
+        uiSources = uiSources.map((s) => {
+          const fresh = childSources.find((c) => c.id === s.id)
+          return fresh ? { ...s, localPath: fresh.localPath } : s
+        })
+
+        await deleteLibraryItemsBySource(anchor.id)
+        for (const child of childSources) {
+          await putSource({
+            id: child.id,
+            label: child.label,
+            addedAt: child.addedAt,
+            localPath: child.localPath,
+            parentId: anchor.id,
+            subPath: child.subPath,
+            directOnly: true,
+          })
+        }
+        await putSource({
+          id: anchor.id,
+          label: anchor.label,
+          addedAt: anchor.addedAt,
+          localPath: anchor.localPath,
+          isAnchor: true,
+        })
+        await putLibraryItems(remapped.map(toLibraryItem))
+        for (const child of childSources) granted.add(child.id)
+      }
+
+      setSources(uiSources)
+      // Sürücü alt klasörleri görünsün
+      const expand = new Set<string>()
+      for (const anchor of uiSources.filter((s) => s.isAnchor)) {
+        const kids = uiSources.filter((s) => s.parentId === anchor.id)
+        for (const key of expandKeysForDriveChildren(anchor.id, kids)) {
+          expand.add(key)
+        }
+      }
+      setExpandedTree(expand)
+      setSourcesOpen(false)
       setGrantedIds(granted)
-      setItems(loaded)
+      setItems(uiItems)
     })()
   }, [])
 
@@ -548,6 +994,15 @@ export default function App() {
     for (const controller of scanControllersRef.current.values()) {
       controller.abort()
     }
+    scanControllersRef.current.clear()
+    for (const jobId of scanJobIdsRef.current.values()) {
+      void fetch(`/api/scan/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' }).catch(
+        () => {},
+      )
+    }
+    scanJobIdsRef.current.clear()
+    setScans(new Map())
+    setError('Tarama iptal edildi.', 'info')
   }, [])
 
   const toggleSourceVisible = useCallback((id: string) => {
@@ -595,9 +1050,11 @@ export default function App() {
 
   const resolveUrl = useCallback(
     async (item: MediaItem): Promise<string | null> => {
-      if (item.url) return item.url
       const cached = urlCacheRef.current.get(item.id)
       if (cached) return cached
+
+      const toDirect = (url: string) =>
+        url.startsWith('/api/') ? `http://127.0.0.1:5174${url}` : url
 
       const source = sourcesRef.current.find((candidate) => candidate.id === item.sourceId)
       const rootPath = source ? localPathForSource(source, sourcesRef.current) : undefined
@@ -606,18 +1063,36 @@ export default function App() {
           const response = await fetch('/api/resolve', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: item.id, rootPath, relativePath: item.relativePath }),
+            body: JSON.stringify({
+              id: item.id,
+              rootPath,
+              relativePath: item.relativePath || item.name,
+            }),
           })
-          const data = await response.json() as { url?: string }
+          const data = (await response.json()) as { url?: string }
           if (response.ok && data.url) {
-            urlCacheRef.current.set(item.id, data.url)
-            return data.url
+            const mediaUrl = toDirect(data.url)
+            urlCacheRef.current.set(item.id, mediaUrl)
+            return mediaUrl
           }
         } catch { /* tarayıcı dosya yolu çözümüne düş */ }
       }
 
+      // Blob / http dışı sabit url'ler (eski tarayıcı akışı)
+      if (item.url && !item.url.startsWith('/api/media/')) {
+        urlCacheRef.current.set(item.id, item.url)
+        return item.url
+      }
+
       const file = await resolveFile(item)
-      if (!file) return null
+      if (!file) {
+        if (item.url) {
+          const fallback = toDirect(item.url)
+          urlCacheRef.current.set(item.id, fallback)
+          return fallback
+        }
+        return null
+      }
       const url = URL.createObjectURL(file)
       urlCacheRef.current.set(item.id, url)
       return url
@@ -626,7 +1101,10 @@ export default function App() {
   )
 
   const resolveCompatibleVideoUrl = useCallback(
-    async (item: MediaItem): Promise<string | null> => {
+    async (
+      item: MediaItem,
+      _onProgress?: (percent: number | null) => void,
+    ): Promise<string | null> => {
       const source = sourcesRef.current.find((candidate) => candidate.id === item.sourceId)
       const rootPath = source ? localPathForSource(source, sourcesRef.current) : undefined
       if (!rootPath) return null
@@ -634,16 +1112,146 @@ export default function App() {
         const response = await fetch('/api/transcode', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: item.id, rootPath, relativePath: item.relativePath }),
+          body: JSON.stringify({
+            id: item.id,
+            rootPath,
+            relativePath: item.relativePath || item.name,
+          }),
         })
-        const data = await response.json() as { url?: string }
-        return response.ok && data.url ? data.url : null
+        const data = (await response.json()) as { url?: string }
+        if (!response.ok || !data.url) return null
+        return data.url.startsWith('/api/')
+          ? `http://127.0.0.1:5174${data.url}`
+          : data.url
       } catch {
         return null
       }
     },
     [],
   )
+
+  const revealInFolder = useCallback(
+    async (item: MediaItem): Promise<boolean> => {
+      try {
+        const path = windowsPathForItem(item, sourcesRef.current)
+        const source = sourcesRef.current.find((s) => s.id === item.sourceId)
+        const response = await fetch('/api/reveal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path,
+            id: item.id,
+            rootPath: source
+              ? localPathForSource(source, sourcesRef.current)
+              : undefined,
+            relativePath: item.relativePath || item.name,
+          }),
+        })
+        return response.ok
+      } catch {
+        return false
+      }
+    },
+    [],
+  )
+
+  const playExternally = useCallback(
+    async (
+      item: MediaItem,
+      player: 'system' | 'vlc' = 'vlc',
+    ): Promise<boolean> => {
+      try {
+        const path = windowsPathForItem(item, sourcesRef.current)
+        const source = sourcesRef.current.find((s) => s.id === item.sourceId)
+        const response = await fetch('/api/play', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path,
+            id: item.id,
+            player,
+            rootPath: source
+              ? localPathForSource(source, sourcesRef.current)
+              : undefined,
+            relativePath: item.relativePath || item.name,
+          }),
+        })
+        return response.ok
+      } catch {
+        return false
+      }
+    },
+    [],
+  )
+
+  const previewEmbed = useCallback(
+    async (
+      item: MediaItem,
+      bounds: { x: number; y: number; width: number; height: number; viewport?: boolean },
+    ): Promise<boolean> => {
+      try {
+        const path = windowsPathForItem(item, sourcesRef.current)
+        const source = sourcesRef.current.find((s) => s.id === item.sourceId)
+        const response = await fetch('/api/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: item.id,
+            path,
+            rootPath: source
+              ? localPathForSource(source, sourcesRef.current)
+              : undefined,
+            relativePath: item.relativePath || item.name,
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+            viewport: bounds.viewport !== false,
+          }),
+        })
+        const data = (await response.json()) as { ok?: boolean; error?: string }
+        return Boolean(response.ok && data?.ok)
+      } catch {
+        return false
+      }
+    },
+    [],
+  )
+
+  const updatePreviewBounds = useCallback(
+    async (bounds: {
+      x: number
+      y: number
+      width: number
+      height: number
+      viewport?: boolean
+    }) => {
+      try {
+        await fetch('/api/preview/bounds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+            viewport: bounds.viewport !== false,
+          }),
+        })
+      } catch {
+        /* yok say */
+      }
+    },
+    [],
+  )
+
+  const stopPreview = useCallback(async () => {
+    try {
+      await fetch('/api/preview/stop', { method: 'POST' })
+    } catch {
+      /* yok say */
+    }
+  }, [])
 
   /**
    * Küçük önizleme: önce bellek, sonra IndexedDB; yoksa dosyadan bir kez
@@ -692,7 +1300,7 @@ export default function App() {
     (item: MediaItem) => {
       const text = pathForItem(item)
       void navigator.clipboard.writeText(text).then(
-        () => setError(`Yol kopyalandı: ${text}`),
+        () => setError(`Yol kopyalandı: ${text}`, 'info'),
         () => setError('Yol kopyalanamadı.'),
       )
     },
@@ -700,49 +1308,94 @@ export default function App() {
   )
 
   /**
-   * Küçük önizleme: önce bellek, sonra IndexedDB; yoksa dosyadan bir kez
-   * üretilir ve kalıcı saklanır. Galeri asla tam boy video/foto açmaz.
+   * Küçük önizleme: bellek → IndexedDB → masaüstü /api/thumb → tarayıcı dosyası.
+   * Disk önbelleği kararlı anahtarla (mtime yok) — her taramada yeniden üretilmez.
    */
   const resolveThumb = useCallback(
     async (item: MediaItem): Promise<ThumbInfo | null> => {
-      const inMemory = thumbCacheRef.current.get(item.id)
-      if (inMemory !== undefined) return inMemory
-      if (item.url && item.kind === 'photo') {
-        const info = { url: item.url }
-        thumbCacheRef.current.set(item.id, info)
-        return info
-      }
-      const pending = thumbPendingRef.current.get(item.id)
+      const cacheKey = stableThumbKey(item)
+      const inMemory = thumbCacheRef.current.get(cacheKey)
+      if (inMemory) return inMemory
+
+      const pending = thumbPendingRef.current.get(cacheKey)
       if (pending) return pending
 
+      const toDirect = (url: string) =>
+        url.startsWith('/api/') ? `http://127.0.0.1:5174${url}` : url
+
       const task = (async (): Promise<ThumbInfo | null> => {
-        const stored = await getThumb(item.id)
+        const stored = await getThumb(cacheKey)
         if (stored) {
           const info: ThumbInfo = {
             url: URL.createObjectURL(stored.blob),
             durationSec: stored.durationSec,
           }
-          thumbCacheRef.current.set(item.id, info)
+          thumbCacheRef.current.set(cacheKey, info)
+          return info
+        }
+
+        const source = sourcesRef.current.find((candidate) => candidate.id === item.sourceId)
+        const rootPath = source
+          ? localPathForSource(source, sourcesRef.current)
+          : undefined
+
+        if (rootPath && item.kind === 'photo') {
+          const directUrl = await resolveUrl(item)
+          if (directUrl) {
+            const info = { url: directUrl }
+            thumbCacheRef.current.set(cacheKey, info)
+            return info
+          }
+        }
+
+        if (rootPath) {
+          await acquireThumbFetch()
+          try {
+            const response = await fetch('/api/thumb', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: item.id,
+                rootPath,
+                relativePath: item.relativePath || item.name,
+              }),
+            })
+            const data = (await response.json()) as { url?: string; durationSec?: number; cached?: boolean }
+            if (response.ok && data.url) {
+              const info: ThumbInfo = {
+                url: toDirect(data.url),
+                durationSec: data.durationSec,
+              }
+              thumbCacheRef.current.set(cacheKey, info)
+              return info
+            }
+          } catch { /* tarayıcı yoluna düş */ }
+          finally {
+            releaseThumbFetch()
+          }
+        }
+
+        if (item.url && item.kind === 'photo') {
+          const info = { url: toDirect(item.url) }
+          thumbCacheRef.current.set(cacheKey, info)
           return info
         }
 
         const directUrl = item.kind === 'photo' ? await resolveUrl(item) : null
         if (directUrl) {
           const info = { url: directUrl }
-          thumbCacheRef.current.set(item.id, info)
+          thumbCacheRef.current.set(cacheKey, info)
           return info
         }
+
         const file = await resolveFile(item)
         if (!file) return null
 
         const generated = await generateThumb(file, item.kind)
-        if (!generated) {
-          thumbCacheRef.current.set(item.id, null)
-          return null
-        }
+        if (!generated) return null
 
         await putThumb({
-          id: item.id,
+          id: cacheKey,
           blob: generated.blob,
           durationSec: generated.durationSec,
         })
@@ -750,14 +1403,15 @@ export default function App() {
           url: URL.createObjectURL(generated.blob),
           durationSec: generated.durationSec,
         }
-        thumbCacheRef.current.set(item.id, info)
+        thumbCacheRef.current.set(cacheKey, info)
         return info
       })()
-      thumbPendingRef.current.set(item.id, task)
+
+      thumbPendingRef.current.set(cacheKey, task)
       try {
         return await task
       } finally {
-        thumbPendingRef.current.delete(item.id)
+        thumbPendingRef.current.delete(cacheKey)
       }
     },
     [resolveFile, resolveUrl],
@@ -902,6 +1556,60 @@ export default function App() {
         }
       }
 
+      // 1b) Yerel sürücü / alt klasörlerle çakışma (yol + medya yolu)
+      const nameLower = handle.name.toLowerCase()
+      for (const source of sourcesRef.current) {
+        const existing =
+          localPathForSource(source, sourcesRef.current) ?? source.localPath
+        if (existing) {
+          const leaf = existing
+            .replace(/[\\/]+$/, '')
+            .split(/[\\/]/)
+            .pop()
+            ?.toLowerCase()
+          if (leaf === nameLower) {
+            setError(
+              `“${handle.name}” zaten “${source.label}” olarak yüklü` +
+                (source.parentId || source.isAnchor
+                  ? ' (sürücü taramasında). Ayrı ekleme.'
+                  : '.'),
+            )
+            return
+          }
+        }
+        if (source.subPath) {
+          const parts = source.subPath.split('/').map((p) => p.toLowerCase())
+          if (parts.includes(nameLower)) {
+            const parent = sourcesRef.current.find((s) => s.id === source.parentId)
+            setError(
+              `“${handle.name}” zaten “${parent?.label ?? 'sürücü'}” altında yüklü` +
+                ` (${source.subPath.replaceAll('/', '\\')}).`,
+            )
+            return
+          }
+        }
+      }
+      for (const anchor of sourcesRef.current.filter((s) => s.isAnchor)) {
+        const related = new Set(
+          sourcesRef.current
+            .filter((s) => s.id === anchor.id || s.parentId === anchor.id)
+            .map((s) => s.id),
+        )
+        for (const item of itemsRef.current) {
+          if (!related.has(item.sourceId)) continue
+          const rel = (item.relativePath || item.name)
+            .replaceAll('\\', '/')
+            .toLowerCase()
+          if (rel.split('/').includes(nameLower)) {
+            setError(
+              `“${handle.name}” zaten “${anchor.label}” sürücü taramasında var. ` +
+                'Kaynaklar listesinde sürücünün alt klasörlerine bak.',
+            )
+            return
+          }
+        }
+      }
+
       // 2) Mevcut kaynaklarla ilişki: çapa altına yerleşir,
       //    taranmış kaynak kapsamındaysa mükerrer veri olmasın diye eklenmez
       let parentId: string | undefined
@@ -956,7 +1664,25 @@ export default function App() {
         ...prev,
         { id: sourceId, label: handle.name, addedAt, parentId, subPath },
       ])
+      if (parentId) {
+        setExpandedTree((prev) => {
+          const next = new Set(prev)
+          for (const key of expandKeysForDriveChildren(parentId, [
+            {
+              id: sourceId,
+              label: handle.name,
+              addedAt,
+              parentId,
+              subPath,
+            },
+          ])) {
+            next.add(key)
+          }
+          return next
+        })
+      }
 
+      setGrantedIds((prev) => new Set(prev).add(sourceId))
       const files = await readFilesFromHandle(handle, (name) =>
         acceptsFileName(name, enabledKindsRef.current),
       )
@@ -966,41 +1692,195 @@ export default function App() {
     }
   }, [ingest])
 
-  const scanLocalPath = useCallback(async (existingPath?: string, existingId?: string) => {
+  const scanLocalPath = useCallback(async (
+    existingPath?: string,
+    existingId?: string,
+    preferredLabel?: string,
+  ) => {
     if (!existingPath?.trim()) {
       setError('Sürücü yolu kayıtlı değil. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.')
       return
     }
-    const path = existingPath ?? window.prompt('Taranacak klasör ya da sürücü yolu:', 'F:\\')
-    if (!path?.trim()) return
+    const path = existingPath.trim()
     const sourceId = existingId ?? `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const label = path.replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean).pop() || path
+    const label =
+      preferredLabel?.trim()
+      || path.replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean).pop()
+      || path
+
+    // Yol çakışması: aynı / kapsayan / kapsanan kaynak
+    if (!existingId) {
+      for (const source of sourcesRef.current) {
+        const existing =
+          localPathForSource(source, sourcesRef.current) ?? source.localPath
+        if (!existing) continue
+        if (pathEqualsOrInside(path, existing)) {
+          if (normalizeWinPath(path) === normalizeWinPath(existing)) {
+            setError(
+              `“${source.label}” zaten ekli. Yeniden taramak için listedeki ↻ düğmesini kullan.`,
+            )
+            return
+          }
+          setError(
+            `Bu klasör zaten “${source.label}” içinde yüklü` +
+              (source.isAnchor || isDriveRootPath(existing)
+                ? ' (sürücü taraması onu kapsıyor).'
+                : '. Ayrı eklemek mükerrer kayıt oluşturur.'),
+          )
+          return
+        }
+        if (
+          !source.isAnchor &&
+          pathEqualsOrInside(existing, path) &&
+          !isDriveRootPath(path)
+        ) {
+          setError(
+            `Bu yol, ekli “${source.label}” kaynağını kapsıyor. ` +
+              'Önce onu × ile kaldır veya sürücü olarak ekle.',
+          )
+          return
+        }
+      }
+    }
+
+    // Sürücü eklenirken altındaki elle eklenmiş klasörleri temizle (yeniden çocuk olacak)
+    let absorbedCount = 0
+    if (isDriveRootPath(path) && !existingId) {
+      const absorb = sourcesRef.current.filter((source) => {
+        if (source.isAnchor || source.id === sourceId) return false
+        const existing =
+          localPathForSource(source, sourcesRef.current) ?? source.localPath
+        return Boolean(existing && pathEqualsOrInside(existing, path))
+      })
+      if (absorb.length > 0) {
+        absorbedCount = absorb.length
+        const removeIds = new Set(absorb.map((s) => s.id))
+        for (const rid of removeIds) {
+          void deleteSource(rid)
+          void deleteLibraryItemsBySource(rid)
+          handlesRef.current.delete(rid)
+        }
+        setSources((prev) => prev.filter((s) => !removeIds.has(s.id)))
+        setItems((prev) => prev.filter((i) => !removeIds.has(i.sourceId)))
+        setGrantedIds((prev) => {
+          const next = new Set(prev)
+          for (const rid of removeIds) next.delete(rid)
+          return next
+        })
+      }
+    }
+
     setError(null)
-    setSourcesOpen(true)
+    setSourcesOpen(false)
+    setDriveDialogOpen(false)
+    // Tarama başlarken kaynağı bağlı say — kırmızı “Disk bağlı değil” olmasın
+    setGrantedIds((prev) => new Set(prev).add(sourceId))
+    setLocalOnlineIds((prev) => new Set(prev).add(sourceId))
+    setLocalAvailabilityReady(true)
     setScans((prev) => new Map(prev).set(sourceId, { done: 0, total: 0 }))
+    scanControllersRef.current.get(sourceId)?.abort()
+    const controller = new AbortController()
+    scanControllersRef.current.set(sourceId, controller)
+    const signal = controller.signal
+    // Kaynak hemen listede görünsün
+    const startedAt = Date.now()
+    setSources((prev) => {
+      if (existingId || prev.some((s) => s.id === sourceId)) {
+        return prev.map((s) =>
+          s.id === sourceId ? { ...s, label, localPath: path } : s,
+        )
+      }
+      return [
+        ...prev,
+        {
+          id: sourceId,
+          label,
+          localPath: path,
+          addedAt: startedAt,
+          isAnchor: isDriveRootPath(path),
+        },
+      ]
+    })
     try {
       const response = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, sourceId }),
+        signal,
       })
       const data = await response.json() as {
         error?: string; jobId?: string
         items?: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }>
       }
       if (!response.ok) throw new Error(data.error || 'Yerel tarama başlatılamadı.')
+      if (data.jobId) scanJobIdsRef.current.set(sourceId, data.jobId)
       const received: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }> = []
+      const seenIds = new Set<string>()
+
+      const publishLive = (
+        batch: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }>,
+      ) => {
+        if (batch.length === 0) return
+        const fresh = batch
+          .filter((item) => !/\.lrv$/i.test(item.name) && !seenIds.has(item.id))
+          .map((item) => {
+            seenIds.add(item.id)
+            return {
+              ...item,
+              takenAt: item.takenAt ? new Date(item.takenAt) : undefined,
+              url: undefined,
+              available: true,
+            } as MediaItem
+          })
+        if (fresh.length === 0) return
+
+        // Önceki GPS'i koru (aynı id yeniden gelirse)
+        const withPreserved = fresh.map((item) => {
+          const prev = itemsRef.current.find((p) => p.id === item.id)
+          if (
+            item.locationMissing &&
+            prev &&
+            !prev.locationMissing &&
+            !isNullIslandCoordinate(prev.latitude, prev.longitude)
+          ) {
+            return {
+              ...item,
+              latitude: prev.latitude,
+              longitude: prev.longitude,
+              locationMissing: false,
+              takenAt: item.takenAt ?? prev.takenAt,
+            }
+          }
+          return item
+        })
+
+        setItems((prev) => {
+          const byId = new Map(prev.map((item) => [item.id, item]))
+          for (const item of withPreserved) byId.set(item.id, item)
+          return [...byId.values()]
+        })
+        void putLibraryItems(withPreserved.map(toLibraryItem))
+      }
+
       if (data.jobId) {
         let after = 0
         for (;;) {
-          await new Promise<void>((resolve) => window.setTimeout(resolve, 400))
-          const statusResponse = await fetch(`/api/scan/${encodeURIComponent(data.jobId)}?after=${after}`)
+          if (signal.aborted) break
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 350))
+          if (signal.aborted) break
+          const statusResponse = await fetch(
+            `/api/scan/${encodeURIComponent(data.jobId)}?after=${after}`,
+            { signal },
+          )
           const status = await statusResponse.json() as {
-          error?: string; total?: number; processed?: number; itemCount?: number; done?: boolean; located?: number; missing?: number
+          error?: string; total?: number; processed?: number; itemCount?: number; done?: boolean; located?: number; missing?: number; cancelled?: boolean
             items?: Array<Omit<MediaItem, 'takenAt'> & { takenAt?: string }>
           }
           if (!statusResponse.ok) throw new Error(status.error || 'Tarama durumu okunamadı.')
-          if (status.items?.length) received.push(...status.items)
+          if (status.items?.length) {
+            received.push(...status.items)
+            publishLive(status.items)
+          }
           after = status.itemCount ?? after
           setScans((prev) => new Map(prev).set(sourceId, {
           done: status.processed ?? 0,
@@ -1008,82 +1888,279 @@ export default function App() {
           located: status.located ?? 0,
           missing: status.missing ?? 0,
           }))
-          if (status.done) {
-            if (status.error) throw new Error(status.error)
+          if (status.done || status.cancelled) {
+            if (status.error && !status.cancelled) throw new Error(status.error)
             break
           }
         }
       } else if (data.items) {
         // Eski hizmet açıksa yine de taramayı tamamla; yalnızca canlı sayaç yoktur.
         received.push(...data.items)
+        publishLive(data.items)
       } else {
         throw new Error(data.error || 'Yerel tarama başlatılamadı.')
       }
-      const next = received.map((item) => ({
-        ...item,
-        takenAt: item.takenAt ? new Date(item.takenAt) : undefined,
-      }))
-      setSources((prev) => [
-        ...prev.filter((source) => source.id !== sourceId),
-        {
-          ...(sourcesRef.current.find((source) => source.id === sourceId) ?? {}),
+      if (signal.aborted) {
+        setError('Tarama iptal edildi. Bulunanlar haritada kaldı.', 'info')
+        return
+      }
+      const next = received
+        .filter((item) => !/\.lrv$/i.test(item.name))
+        .map((item) => ({
+          ...item,
+          takenAt: item.takenAt ? new Date(item.takenAt) : undefined,
+          url: undefined,
+        }))
+      const previousSnapshot = new Map(
+        itemsRef.current
+          .filter((item) => item.sourceId === sourceId)
+          .map((item) => [item.id, item]),
+      )
+      const mergedNext = next.map((item) => {
+        const prev = previousSnapshot.get(item.id)
+        if (
+          item.locationMissing &&
+          prev &&
+          !prev.locationMissing &&
+          !isNullIslandCoordinate(prev.latitude, prev.longitude)
+        ) {
+          return {
+            ...item,
+            latitude: prev.latitude,
+            longitude: prev.longitude,
+            locationMissing: false,
+            takenAt: item.takenAt ?? prev.takenAt,
+          }
+        }
+        return item
+      })
+      // Canlı yayında zaten eklendi; finalde bu taranın sonuçlarını netleştir
+      let finalItems: MediaItem[] = mergedNext as MediaItem[]
+      let childSources: SourceUi[] = []
+      const absorbedOrphanIds = new Set<string>()
+
+      if (isDriveRootPath(path)) {
+        const folderPaths = mediaFolderSubPaths(mergedNext as MediaItem[])
+        const existingChildren = sourcesRef.current.filter(
+          (s) => s.parentId === sourceId && s.subPath != null,
+        )
+        const bySub = new Map(
+          existingChildren.map((s) => [s.subPath as string, s]),
+        )
+        childSources = []
+        for (const subPath of folderPaths) {
+          const childPath =
+            subPath === ''
+              ? `${path.replace(/[\\/]+$/, '')}\\`
+              : `${path.replace(/[\\/]+$/, '')}\\${subPath.replaceAll('/', '\\')}`
+          const prev = bySub.get(subPath)
+          if (prev) {
+            childSources.push({ ...prev, localPath: childPath })
+            continue
+          }
+          const childId = `src-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${childSources.length}`
+          const childLabel =
+            subPath === ''
+              ? '(kök)'
+              : subPath.split('/').filter(Boolean).pop() || subPath
+          childSources.push({
+            id: childId,
+            label: childLabel,
+            addedAt: Date.now(),
+            localPath: childPath,
+            parentId: sourceId,
+            subPath,
+            directOnly: true,
+          })
+        }
+
+        finalItems = remapItemsToDriveChildren(
+          mergedNext,
+          sourceId,
+          childSources.map((c) => ({ id: c.id, subPath: c.subPath ?? '' })),
+        )
+
+        // Eski çapa-id'li kütüphane kayıtlarını temizle
+        await deleteLibraryItemsBySource(sourceId)
+        for (const child of existingChildren) {
+          if (!folderPaths.includes(child.subPath ?? '')) {
+            await deleteSource(child.id)
+            await deleteLibraryItemsBySource(child.id)
+          }
+        }
+
+        for (const child of childSources) {
+          await putSource({
+            id: child.id,
+            label: child.label,
+            addedAt: child.addedAt,
+            localPath: child.localPath,
+            parentId: sourceId,
+            subPath: child.subPath,
+            directOnly: true,
+          })
+        }
+
+        setExpandedTree((prev) => {
+          const next = new Set(prev)
+          for (const key of expandKeysForDriveChildren(sourceId, childSources)) {
+            next.add(key)
+          }
+          return next
+        })
+        setGrantedIds((prev) => {
+          const next = new Set(prev)
+          next.add(sourceId)
+          for (const child of childSources) next.add(child.id)
+          return next
+        })
+        setLocalOnlineIds((prev) => {
+          const next = new Set(prev)
+          next.add(sourceId)
+          for (const child of childSources) next.add(child.id)
+          return next
+        })
+
+        // Aynı isimli üst seviye “Klasör ekle” kaynaklarını birleştir
+        const childLabels = new Set(
+          childSources.map((c) => c.label.toLowerCase()),
+        )
+        for (const s of sourcesRef.current) {
+          if (s.isAnchor || s.parentId || s.id === sourceId) continue
+          if (childSources.some((c) => c.id === s.id)) continue
+          if (!childLabels.has(s.label.toLowerCase())) continue
+          absorbedOrphanIds.add(s.id)
+        }
+        if (absorbedOrphanIds.size > 0) {
+          absorbedCount += absorbedOrphanIds.size
+          for (const rid of absorbedOrphanIds) {
+            void deleteSource(rid)
+            void deleteLibraryItemsBySource(rid)
+            handlesRef.current.delete(rid)
+          }
+        }
+      }
+
+      setItems((prev) => {
+        const childIdSet = new Set(childSources.map((c) => c.id))
+        const keptOther = prev.filter((item) => {
+          if (absorbedOrphanIds.has(item.sourceId)) return false
+          if (item.sourceId === sourceId) return false
+          if (childIdSet.has(item.sourceId)) return false
+          const parent = sourcesRef.current.find((s) => s.id === item.sourceId)
+          if (parent?.parentId === sourceId) return false
+          return true
+        })
+        const byId = new Map(keptOther.map((item) => [item.id, item]))
+        for (const item of finalItems) byId.set(item.id, item)
+        return [...byId.values()]
+      })
+      setSources((prev) => {
+        const withoutStaleChildren = prev.filter(
+          (source) =>
+            !absorbedOrphanIds.has(source.id) &&
+            source.id !== sourceId &&
+            !(source.parentId === sourceId && !childSources.some((c) => c.id === source.id)),
+        )
+        const anchor: SourceUi = {
+          ...(sourcesRef.current.find((source) => source.id === sourceId) ?? {
+            id: sourceId,
+            label,
+            addedAt: startedAt,
+          }),
           id: sourceId,
           label,
           localPath: path,
-          addedAt: Date.now(),
-        },
-      ])
-      // Eski tarayici kaynagini bir kez yerel yola bagladigimizda bu bilgiyi
-      // IndexedDB'ye de yaz. Sonraki "Tara" tiklamalari Chrome taramasina
-      // donmez; arka plandaki yerel hizmet kullanilir.
+          addedAt:
+            sourcesRef.current.find((source) => source.id === sourceId)?.addedAt ??
+            startedAt,
+          isAnchor: isDriveRootPath(path),
+          parentId: undefined,
+          subPath: undefined,
+        }
+        if (!isDriveRootPath(path)) {
+          const existingSource = sourcesRef.current.find((source) => source.id === sourceId)
+          return [
+            ...withoutStaleChildren.filter((s) => s.id !== sourceId),
+            {
+              ...anchor,
+              isAnchor: existingSource?.isAnchor ?? false,
+              parentId: existingSource?.parentId,
+              subPath: existingSource?.subPath,
+              directOnly: existingSource?.directOnly,
+            },
+          ]
+        }
+        return [...withoutStaleChildren, anchor, ...childSources]
+      })
       const existingSource = sourcesRef.current.find((source) => source.id === sourceId)
       const existingHandle = handlesRef.current.get(sourceId)
-      if (existingSource && existingHandle) {
-        await putSource({
-          id: sourceId,
-          label,
-          addedAt: existingSource.addedAt,
-          handle: existingHandle,
-          localPath: path,
-          parentId: existingSource.parentId,
-          subPath: existingSource.subPath,
-          isAnchor: existingSource.isAnchor,
-          directOnly: existingSource.directOnly,
-        })
-      }
-      // Yerel tarama eksik GPS/HEIC desteği yüzünden daha az sonuç döndürse bile
-      // daha önce bulunmuş kütüphane kayıtlarını kaybetme. Yeni tarama yalnızca
-      // aynı kimlikteki kaydı günceller veya yeni kayıt ekler.
-      setItems((prev) => {
-        const nextIds = new Set(next.map((item) => item.id))
-        return [
-          ...prev.filter((item) => item.sourceId !== sourceId || !nextIds.has(item.id)),
-          ...next,
-        ]
+      await putSource({
+        id: sourceId,
+        label,
+        addedAt: existingSource?.addedAt ?? startedAt,
+        handle: existingHandle,
+        localPath: path,
+        parentId: isDriveRootPath(path) ? undefined : existingSource?.parentId,
+        subPath: isDriveRootPath(path) ? undefined : existingSource?.subPath,
+        isAnchor: isDriveRootPath(path) || (existingSource?.isAnchor ?? false),
+        directOnly: isDriveRootPath(path) ? undefined : existingSource?.directOnly,
       })
-      await putLibraryItems(next.map(toLibraryItem))
+      await putLibraryItems(finalItems.map(toLibraryItem))
       setGrantedIds((prev) => new Set(prev).add(sourceId))
-      setSkipped(Math.max(0, received.length))
+      const missingGps = finalItems.filter((item) => item.locationMissing).length
+      setSkipped(missingGps)
       setViewer(null)
-      const locatedCount = next.filter((item) => !item.locationMissing).length
-      const missingCount = next.length - locatedCount
+      const locatedCount = finalItems.length - missingGps
       const sourceName = label || path
-      setNotice({
-        title: existingId ? 'Tarama tamamlandı' : 'Sürücü eklendi',
-        message: existingId
-          ? `“${sourceName}” güncellendi. ${next.length} medya okundu: ${locatedCount} GPS konumlu, ${missingCount} konum bulunamayan.`
-          : `“${sourceName}” sürücüsü eklendi ve tarandı. ${next.length} medya okundu: ${locatedCount} GPS konumlu, ${missingCount} konum bulunamayan.`,
-      })
+      const branchNote =
+        isDriveRootPath(path) && childSources.length > 0
+          ? ` · ${childSources.length} klasör`
+          : ''
+      const absorbNote =
+        absorbedCount > 0 ? ` · ${absorbedCount} alt kaynak birleştirildi` : ''
+      setError(
+        existingId
+          ? `“${sourceName}” güncellendi · ${finalItems.length} medya (${locatedCount} GPS)${branchNote}`
+          : `“${sourceName}” eklendi · ${finalItems.length} medya (${locatedCount} GPS)${branchNote}${absorbNote}`,
+        'info',
+      )
     } catch (e) {
+      if (signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) {
+        setError('Tarama iptal edildi. Bulunanlar haritada kaldı.', 'info')
+        return
+      }
       setError(friendlyError(e, 'Yerel klasör taranamadı.'))
     } finally {
+      scanControllersRef.current.delete(sourceId)
+      scanJobIdsRef.current.delete(sourceId)
       setScans((prev) => {
-        const next = new Map(prev)
-        next.delete(sourceId)
-        return next
+        const nextMap = new Map(prev)
+        nextMap.delete(sourceId)
+        return nextMap
       })
     }
   }, [])
+
+  /** Önce masaüstü yol seçici (çakışma net); olmazsa tarayıcı klasör seçici. */
+  const addFolderSmart = useCallback(async () => {
+    try {
+      const pick = await fetch('/api/pick-folder', { method: 'POST' })
+      if (pick.ok) {
+        const data = (await pick.json()) as {
+          path?: string
+          cancelled?: boolean
+        }
+        if (data.cancelled) return
+        if (data.path) {
+          setSourcesOpen(true)
+          await scanLocalPath(data.path)
+          return
+        }
+      }
+    } catch { /* FSA */ }
+    await addFolder()
+  }, [addFolder, scanLocalPath])
 
   const loadSourceFiles = useCallback(
     async (id: string) => {
@@ -1121,7 +2198,7 @@ export default function App() {
           return
         }
 
-        setError(`"${source.label}" altında medyalı klasörler aranıyor…`)
+        setError(`"${source.label}" altında medyalı klasörler aranıyor…`, 'info')
         const discovered = await discoverMediaFolders(handle, isSupportedMediaFileName)
         const nested = discovered.filter((d) => d.subPath !== '')
         if (nested.length === 0) {
@@ -1289,7 +2366,7 @@ export default function App() {
         isAnchor: true,
       })
 
-      setError(`"${driveLabel}" taranıyor: medyalı klasörler aranıyor…`)
+      setError(`"${driveLabel}" taranıyor: medyalı klasörler aranıyor…`, 'info')
       const discovered = await discoverMediaFolders(handle, isSupportedMediaFileName)
 
       // Mevcut kaynakları bu kökün altına bağla
@@ -1388,8 +2465,8 @@ export default function App() {
     async (id: string) => {
       const source = sourcesRef.current.find((item) => item.id === id)
       if (source) {
-        const drive = /\(([A-Za-z]):\)/.exec(source.label)
-        if (!localPathForSource(source, sourcesRef.current) && !drive) {
+        let path = localPathForSource(source, sourcesRef.current)
+        if (!path) {
           const handle = handlesRef.current.get(id)
           if (handle) {
             try {
@@ -1399,18 +2476,21 @@ export default function App() {
                 setError(null)
                 return
               }
-            } catch { /* alttaki açıklayıcı uyarı gösterilir */ }
+            } catch { /* alttaki yol isteği */ }
           }
-          setError('Bu eski kaynak için sürücü yolu kayıtlı değil. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.')
-          return
-        }
-        const path = localPathForSource(source, sourcesRef.current) ??
-          (drive ? `${drive[1]}:\\` : window.prompt(
-            `"${source.label}" icin klasor ya da surucu yolu:`,
+          const typed = window.prompt(
+            `"${source.label}" klasörünün tam yolunu yaz (ör. E:\\DCIM\\100GOPRO):`,
             '',
-          ))
-        if (!path?.trim()) return
-        await scanLocalPath(path, id)
+          )
+          path = typed?.trim() || undefined
+          if (!path) {
+            setError(
+              'Bu kaynak için klasör yolu yok. Yolu yaz veya kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.',
+            )
+            return
+          }
+        }
+        await scanLocalPath(path, id, source.label)
         return
       }
       const handle = handlesRef.current.get(id)
@@ -1442,18 +2522,21 @@ export default function App() {
     async (id: string) => {
       const source = sourcesRef.current.find((item) => item.id === id)
       if (source) {
-        const drive = /\(([A-Za-z]):\)/.exec(source.label)
-        if (!localPathForSource(source, sourcesRef.current) && !drive) {
-          setError('Sürücü yolu kayıtlı değil. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.')
+        let path = localPathForSource(source, sourcesRef.current)
+        if (!path?.trim()) {
+          const typed = window.prompt(
+            `"${source.label}" için klasör/sürücü yolu:`,
+            source.isAnchor ? '' : '',
+          )
+          path = typed?.trim() || undefined
+        }
+        if (!path?.trim()) {
+          setError(
+            'Bu kaynak için yol bulunamadı. Sürücüyse “+ Sürücü ekle” ile ekle; klasörse yolu yaz.',
+          )
           return
         }
-        const path = localPathForSource(source, sourcesRef.current) ??
-          (drive ? `${drive[1]}:\\` : window.prompt(
-            `"${source.label}" icin klasor ya da surucu yolu:`,
-            '',
-          ))
-        if (!path?.trim()) return
-        await scanLocalPath(path, id)
+        await scanLocalPath(path, id, source.label)
         return
       }
       const handle = handlesRef.current.get(id)
@@ -1501,50 +2584,38 @@ export default function App() {
     const existingRoot = sourcesRef.current.find(
       (source) => source.parentId === anchorId && source.subPath === '',
     )
-    const drive = /\(([A-Za-z]):\)/.exec(anchor.label)
-    if (!existingRoot?.localPath && !drive) {
-      setError('Sürücü yolu kayıtlı değil. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle.')
+    const path =
+      existingRoot?.localPath ??
+      anchor.localPath ??
+      localPathForSource(anchor, sourcesRef.current) ??
+      window.prompt(`"${anchor.label}" sürücü yolu (ör. E:\\):`, '') ??
+      undefined
+    if (!path?.trim()) {
+      setError(
+        'Sürücü yolu bulunamadı. Kaynağı kaldırıp “+ Sürücü ekle” ile yeniden ekle veya yolu yaz.',
+      )
       return
     }
-    const path = existingRoot?.localPath ??
-      (drive ? `${drive[1]}:\\` : window.prompt(
-        `"${anchor.label}" icin klasor ya da surucu yolu:`,
-        '',
-      ))
-    if (!path?.trim()) return
 
     if (existingRoot) {
-      await scanLocalPath(path, existingRoot.id)
+      await scanLocalPath(path, existingRoot.id, anchor.label)
       return
     }
 
-    const handle = handlesRef.current.get(anchorId)
-    if (!handle) {
-      setError('Surucu kaydi bulunamadi. Lutfen kaynak listesinden yeniden ekle.')
-      return
-    }
-    const rootId = `src-root-${anchorId}`
-    const root: SourceUi = {
-      id: rootId,
-      label: '(kok)',
-      addedAt: Date.now(),
-      localPath: path,
-      parentId: anchorId,
-      subPath: '',
-    }
-    handlesRef.current.set(rootId, handle)
-    sourcesRef.current = [...sourcesRef.current, root]
-    setSources((prev) => [...prev, root])
+    // Çapayı doğrudan tara (kök çocuğu yoksa) — localPath kaydı güncellenir
     await putSource({
-      id: rootId,
-      label: root.label,
-      addedAt: root.addedAt,
-      handle,
-      localPath: path,
-      parentId: anchorId,
-      subPath: '',
+      id: anchor.id,
+      label: anchor.label,
+      addedAt: anchor.addedAt,
+      localPath: path.trim(),
+      isAnchor: true,
     })
-    await scanLocalPath(path, rootId)
+    setSources((prev) =>
+      prev.map((s) =>
+        s.id === anchorId ? { ...s, localPath: path.trim(), isAnchor: true } : s,
+      ),
+    )
+    await scanLocalPath(path.trim(), anchorId, anchor.label)
   }, [scanLocalPath])
 
   const removeSource = useCallback(async (id: string) => {
@@ -1662,7 +2733,15 @@ export default function App() {
           }
         : undefined
     const isScanning = scanProgress !== undefined
-    const connected = source ? grantedIds.has(source.id) : true
+    const connected = source
+      ? isSourceOnline(
+          source,
+          sources,
+          grantedIds,
+          localOnlineIds,
+          localAvailabilityReady,
+        )
+      : true
 
     return (
       <div key={`${anchorId}:${node.path || node.name}`}>
@@ -1717,7 +2796,7 @@ export default function App() {
           {childSourceIds.length > 0 && (
             <span
               className="source-row__count"
-              title="Haritadaki alanda görünen sayı"
+              title="Bu klasördeki medya sayısı"
             >
               {count}
             </span>
@@ -1778,10 +2857,9 @@ export default function App() {
   const renderSourceRow = (s: SourceUi, isChild: boolean) => {
     if (s.isAnchor) {
       const kids = sources.filter((c) => c.parentId === s.id)
-      const childCount = kids.reduce(
-        (sum, c) => sum + (sourceCounts.get(c.id) ?? 0),
-        0,
-      )
+      const childCount =
+        kids.reduce((sum, c) => sum + (sourceCounts.get(c.id) ?? 0), 0) +
+        (sourceCounts.get(s.id) ?? 0)
       const tree = buildSourceTree(kids)
       const rootKey = `${s.id}::`
       const expanded = expandedTree.has(rootKey)
@@ -1820,7 +2898,7 @@ export default function App() {
             </button>
             <span
               className="source-row__count"
-              title="Haritadaki alanda görünen sayı"
+              title="Bu sürücüdeki medya sayısı"
             >
               {childCount}
             </span>
@@ -1858,8 +2936,14 @@ export default function App() {
       )
     }
 
-    const connected = grantedIds.has(s.id)
     const hasLocalPath = Boolean(localPathForSource(s, sources))
+    const connected = isSourceOnline(
+      s,
+      sources,
+      grantedIds,
+      localOnlineIds,
+      localAvailabilityReady,
+    )
     const visible = !hiddenSourceIds.has(s.id)
     const count = sourceCounts.get(s.id) ?? 0
     const label = isChild && s.subPath ? s.subPath : s.label
@@ -1886,7 +2970,7 @@ export default function App() {
         <span className="source-row__name" title={label}>
           {label}
         </span>
-        <span className="source-row__count" title="Haritadaki alanda görünen sayı">
+        <span className="source-row__count" title="Bu kaynaktaki medya sayısı">
           {count}
         </span>
         {isScanning ? (
@@ -1968,7 +3052,7 @@ export default function App() {
     setSkipped(0)
     setSkippedNames([])
     setCachedCount(0)
-    setError('Kütüphane temizlendi.')
+    setError('Kütüphane temizlendi.', 'info')
   }, [])
 
   return (
@@ -1976,7 +3060,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <p className="brand__mark">
-             MedyaAtlas <span className="brand__version">v0.1.71-beta</span>
+             MedyaAtlas <span className="brand__version">v{__APP_VERSION__}</span>
           </p>
           <p className="brand__tag">
             Dünya haritasında medya izlerin
@@ -1988,7 +3072,7 @@ export default function App() {
             type="button"
             hidden
             className="btn btn--primary"
-            onClick={() => void addFolder()}
+            onClick={() => void addFolderSmart()}
           >
             Klasör ekle
           </button>
@@ -2124,7 +3208,7 @@ export default function App() {
                 <button
                   type="button"
                   className="sources-menu__drive-btn"
-                  onClick={() => void addFolder()}
+                  onClick={() => void addFolderSmart()}
                 >
                   + Klasör ekle
                 </button>
@@ -2244,7 +3328,7 @@ export default function App() {
         </span>
       </div>
 
-      {(busy || error || items.length > 0) && (
+      {(busy || items.length > 0) && (
         <div className="status">
           {busy && (
             <p>
@@ -2272,29 +3356,35 @@ export default function App() {
               {skippedNames.length > 8 ? ` +${skippedNames.length - 8}` : ''}
             </p>
           )}
-          {error && (
-            <div className="status__error" role="alert">
-              <p>{error}</p>
-              <button
-                type="button"
-                className="status__error-close"
-                onClick={() => setError(null)}
-                title="Uyarıyı kapat"
-                aria-label="Uyarıyı kapat"
-              >
-                ×
-              </button>
-            </div>
-          )}
+        </div>
+      )}
+
+      {error && (
+        <div
+          className="flash-toast-backdrop"
+          role="presentation"
+          onMouseDown={() => setError(null)}
+        >
+          <div
+            className={`flash-toast flash-toast--${toastKind}`}
+            role="alert"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <p>{error}</p>
+          </div>
         </div>
       )}
 
       <main className="content">
         <div className="stage">
-          <WorldMap clusters={clusters} onBoundsChange={setMapBounds} />
+          <WorldMap
+            clusters={clusters}
+            onBoundsChange={setMapBounds}
+            focusPoint={focusPoint}
+          />
           {items.length > 0 && (
-            <div className="map-count" title={`Toplam ${items.length} medya`}>
-              <strong>{visibleItems.length}</strong> görüntü bu alanda
+            <div className="map-count" title={`Toplam ${locatedCount} GPS’li medya`}>
+              <strong>{visibleInArea}</strong> görüntü bu alanda
             </div>
           )}
           {items.length === 0 && !busy && (
@@ -2311,12 +3401,25 @@ export default function App() {
         </div>
 
         <MediaGallery
-          items={visibleItems}
+          items={galleryItems}
+          totalLocated={locatedCount}
           locationMode={showLocationMissing ? 'missing' : 'located'}
           language={language}
+          scope={galleryScope}
+          onScopeChange={setGalleryScope}
+          selectedId={focusedItemId}
           resolveThumb={resolveThumb}
           pathForItem={pathForItem}
-          onOpen={setViewer}
+          onSelect={(item) => {
+            setFocusedItemId(item.id)
+            if (item.locationMissing) {
+              setError('Bu medyada GPS konumu yok.', 'info')
+            }
+          }}
+          onOpen={(item) => {
+            setFocusedItemId(item.id)
+            setViewer(item)
+          }}
           onReconnect={reconnectSource}
           onCopyPath={copyItemPath}
         />
@@ -2326,7 +3429,15 @@ export default function App() {
         item={viewer}
         resolveUrl={resolveUrl}
         resolveCompatibleVideoUrl={resolveCompatibleVideoUrl}
-        onClose={() => setViewer(null)}
+        revealInFolder={revealInFolder}
+        playExternally={playExternally}
+        previewEmbed={previewEmbed}
+        updatePreviewBounds={updatePreviewBounds}
+        stopPreview={stopPreview}
+        onClose={() => {
+          if (viewer) setFocusedItemId(viewer.id)
+          setViewer(null)
+        }}
       />
 
       {notice && (
@@ -2357,24 +3468,70 @@ export default function App() {
             onSubmit={(event) => {
               event.preventDefault()
               const path = drivePath.trim()
-              if (!path) return
+              const letter = driveLetterOf(path)
+              if (!path || (letter && addedDriveLetters.has(letter))) return
               setDriveDialogOpen(false)
-              void scanLocalPath(path)
+              void scanLocalPath(path, undefined, driveLabel || undefined)
             }}
           >
             <h2>Sürücü ekle</h2>
             <p>MedyaAtlas bu sürücüyü yalnızca medya dosyalarını taramak ve önizlemeleri açmak için kullanır.</p>
-            <label htmlFor="drive-path">Sürücü yolu</label>
-            <input
-              id="drive-path"
-              value={drivePath}
-              onChange={(event) => setDrivePath(event.target.value)}
-              placeholder="Örn. F:\\"
-              autoFocus
-            />
+            <label>Bağlı sürücüler</label>
+            {drivesLoading && <p className="drive-dialog__status">Sürücüler okunuyor…</p>}
+            {drivesError && <p className="drive-dialog__status drive-dialog__status--error">{drivesError}</p>}
+            {!drivesLoading && !drivesError && availableDrives.length === 0 && (
+              <p className="drive-dialog__status">Bağlı sürücü bulunamadı.</p>
+            )}
+            <div className="drive-dialog__list" role="listbox" aria-label="Sürücüler">
+              {availableDrives.map((drive) => {
+                const alreadyAdded = addedDriveLetters.has(drive.letter.toUpperCase())
+                return (
+                  <button
+                    key={drive.path}
+                    type="button"
+                    role="option"
+                    aria-selected={!alreadyAdded && drivePath === drive.path}
+                    aria-disabled={alreadyAdded}
+                    disabled={alreadyAdded}
+                    className={[
+                      'drive-dialog__drive',
+                      alreadyAdded ? 'is-added' : '',
+                      !alreadyAdded && drivePath === drive.path ? 'is-selected' : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => {
+                      if (alreadyAdded) return
+                      setDrivePath(drive.path)
+                      setDriveLabel(drive.label)
+                    }}
+                    onDoubleClick={() => {
+                      if (alreadyAdded) return
+                      setDrivePath(drive.path)
+                      setDriveLabel(drive.label)
+                      setDriveDialogOpen(false)
+                      void scanLocalPath(drive.path, undefined, drive.label)
+                    }}
+                  >
+                    <span className="drive-dialog__drive-name">{drive.label}</span>
+                    <span className="drive-dialog__drive-meta">
+                      {alreadyAdded ? <span className="drive-dialog__badge">Eklendi</span> : null}
+                      <span className="drive-dialog__drive-path">{drive.path}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
             <div className="drive-dialog__actions">
               <button type="button" className="btn btn--ghost" onClick={() => setDriveDialogOpen(false)}>Vazgeç</button>
-              <button type="submit" className="btn btn--primary">Sürücüyü ekle ve tara</button>
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={
+                  !drivePath.trim()
+                  || Boolean(driveLetterOf(drivePath) && addedDriveLetters.has(driveLetterOf(drivePath)!))
+                }
+              >
+                Sürücüyü ekle ve tara
+              </button>
             </div>
           </form>
         </div>
