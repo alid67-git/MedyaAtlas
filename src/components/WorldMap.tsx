@@ -4,12 +4,14 @@ import {
   TileLayer,
   Marker,
   Tooltip,
+  Polyline,
   useMap,
   useMapEvents,
 } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet.heat'
-import type { LocationCluster } from '../types'
+import type { LocationCluster, MediaItem } from '../types'
+import { trackBounds, type MapTrack } from '../lib/tracks'
 import { KIND_LABEL } from '../lib/media'
 import 'leaflet/dist/leaflet.css'
 
@@ -41,125 +43,6 @@ function makeBeaconIcon(count: number) {
     iconAnchor: [size / 2, size / 2],
     html: `<div class="map-beacon__body" style="--beacon-size:${size}px"><span class="map-beacon__ring"></span><span class="map-beacon__core"></span></div>`,
   })
-}
-
-/**
- * Sol sürükle: alan seçip yakınlaş.
- * Shift basılıyken sürükle: haritayı taşı.
- * Esc: seçimi iptal.
- */
-function AreaSelector() {
-  const map = useMap()
-
-  useEffect(() => {
-    const container = map.getContainer()
-    map.dragging.disable()
-    container.style.cursor = 'crosshair'
-
-    let start: L.LatLng | null = null
-    let startPx: { x: number; y: number } | null = null
-    let rect: L.Rectangle | null = null
-    let drawing = false
-
-    const toLatLng = (e: PointerEvent) =>
-      map.mouseEventToLatLng(e as unknown as MouseEvent)
-
-    const clearRect = () => {
-      if (rect) map.removeLayer(rect)
-      rect = null
-      start = null
-      startPx = null
-      drawing = false
-    }
-
-    const setPanMode = (on: boolean) => {
-      if (on) {
-        clearRect()
-        map.dragging.enable()
-        container.style.cursor = 'grab'
-      } else {
-        map.dragging.disable()
-        container.style.cursor = 'crosshair'
-      }
-    }
-
-    const isUiTarget = (target: EventTarget | null) => {
-      if (!(target instanceof Element)) return false
-      return Boolean(
-        target.closest(
-          '.leaflet-marker-icon, .leaflet-control, .leaflet-tooltip, a, button',
-        ),
-      )
-    }
-
-    const onDown = (e: PointerEvent) => {
-      if (e.button !== 0 || e.shiftKey || isUiTarget(e.target)) return
-      start = toLatLng(e)
-      startPx = { x: e.clientX, y: e.clientY }
-      drawing = false
-    }
-
-    const onMove = (e: PointerEvent) => {
-      if (!start || !startPx || e.shiftKey) return
-      const dx = e.clientX - startPx.x
-      const dy = e.clientY - startPx.y
-      if (!drawing && dx * dx + dy * dy < 36) return
-      if (!drawing) {
-        drawing = true
-        e.preventDefault()
-        rect = L.rectangle(L.latLngBounds(start, start), {
-          color: '#2ec4b6',
-          weight: 1.5,
-          dashArray: '6 4',
-          fillColor: '#2ec4b6',
-          fillOpacity: 0.12,
-          interactive: false,
-        }).addTo(map)
-      }
-      if (rect) rect.setBounds(L.latLngBounds(start, toLatLng(e)))
-    }
-
-    const onUp = (e: PointerEvent) => {
-      if (!start || !rect) {
-        clearRect()
-        return
-      }
-      const bounds = L.latLngBounds(start, toLatLng(e))
-      clearRect()
-      const p1 = map.latLngToContainerPoint(bounds.getNorthWest())
-      const p2 = map.latLngToContainerPoint(bounds.getSouthEast())
-      if (Math.abs(p1.x - p2.x) > 10 && Math.abs(p1.y - p2.y) > 10) {
-        map.fitBounds(bounds, { animate: true })
-      }
-    }
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') setPanMode(true)
-      if (e.key === 'Escape') clearRect()
-    }
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') setPanMode(false)
-    }
-
-    container.addEventListener('pointerdown', onDown, true)
-    container.addEventListener('pointermove', onMove, true)
-    window.addEventListener('pointerup', onUp, true)
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-
-    return () => {
-      container.removeEventListener('pointerdown', onDown, true)
-      container.removeEventListener('pointermove', onMove, true)
-      window.removeEventListener('pointerup', onUp, true)
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-      clearRect()
-      map.dragging.enable()
-      container.style.cursor = ''
-    }
-  }, [map])
-
-  return null
 }
 
 /** Panel açılıp kapanınca harita kabı daralır; Leaflet'i yeniden boyutlandır. */
@@ -269,7 +152,13 @@ function ZoomTracker({ onZoom }: { onZoom: (zoom: number) => void }) {
 }
 
 /** Uzak görünümde her konumu belirgin kılan işaretler (alevin üstünde). */
-function BeaconMarkers({ clusters }: { clusters: LocationCluster[] }) {
+function BeaconMarkers({
+  clusters,
+  onClusterSelect,
+}: {
+  clusters: LocationCluster[]
+  onClusterSelect?: (items: LocationCluster['items']) => void
+}) {
   const map = useMap()
 
   const icons = useMemo(() => {
@@ -288,12 +177,14 @@ function BeaconMarkers({ clusters }: { clusters: LocationCluster[] }) {
             position={[cluster.latitude, cluster.longitude]}
             icon={icons.get(cluster.id)}
             eventHandlers={{
-              click: () =>
+              click: () => {
+                onClusterSelect?.(cluster.items)
                 map.setView(
                   [cluster.latitude, cluster.longitude],
                   Math.max(map.getZoom() + 4, MARKER_MIN_ZOOM),
                   { animate: true },
-                ),
+                )
+              },
             }}
           >
             <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
@@ -306,7 +197,13 @@ function BeaconMarkers({ clusters }: { clusters: LocationCluster[] }) {
   )
 }
 
-function ClusterMarkers({ clusters }: { clusters: LocationCluster[] }) {
+function ClusterMarkers({
+  clusters,
+  onClusterSelect,
+}: {
+  clusters: LocationCluster[]
+  onClusterSelect?: (items: LocationCluster['items']) => void
+}) {
   const map = useMap()
 
   const icons = useMemo(() => {
@@ -325,12 +222,14 @@ function ClusterMarkers({ clusters }: { clusters: LocationCluster[] }) {
             position={[cluster.latitude, cluster.longitude]}
             icon={icons.get(cluster.id)}
             eventHandlers={{
-              click: () =>
+              click: () => {
+                onClusterSelect?.(cluster.items)
                 map.setView(
                   [cluster.latitude, cluster.longitude],
                   Math.max(map.getZoom() + 2, 14),
                   { animate: true },
-                ),
+                )
+              },
             }}
           >
             <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
@@ -455,13 +354,135 @@ function containerTopLeft(map: L.Map): HTMLElement | null {
 
 interface WorldMapProps {
   clusters: LocationCluster[]
+  tracks?: MapTrack[]
+  selectedTrackId?: string | null
   onBoundsChange: (bounds: MapBounds) => void
+  /** Pin tıklanınca o kümedeki medyalar (galeri senkronu). */
+  onClusterSelect?: (items: MediaItem[]) => void
+  /** Güzergah çizgisine tıklanınca. */
+  onTrackSelect?: (track: MapTrack) => void
   /** Galeriden tek tıkla vurgulanan konum */
   focusPoint?: { id: string; latitude: number; longitude: number } | null
+  /** Yer aramasından haritaya git */
+  flyTo?: {
+    id: string
+    latitude: number
+    longitude: number
+    bbox?: [number, number, number, number]
+  } | null
 }
 
-export function WorldMap({ clusters, onBoundsChange, focusPoint = null }: WorldMapProps) {
+function FitSelectedTrack({ track }: { track: MapTrack | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!track) return
+    const b = trackBounds(track)
+    if (!b) return
+    map.fitBounds(
+      [
+        [b.south, b.west],
+        [b.north, b.east],
+      ],
+      { padding: [48, 48], maxZoom: 14, animate: true },
+    )
+  }, [map, track?.id])
+  return null
+}
+
+function FlyToTarget({
+  target,
+}: {
+  target: {
+    id: string
+    latitude: number
+    longitude: number
+    bbox?: [number, number, number, number]
+  } | null
+}) {
+  const map = useMap()
+  useEffect(() => {
+    if (!target) return
+    if (target.bbox) {
+      const [south, north, west, east] = target.bbox
+      map.fitBounds(
+        [
+          [south, west],
+          [north, east],
+        ],
+        { padding: [40, 40], maxZoom: 12, animate: true },
+      )
+      return
+    }
+    map.setView([target.latitude, target.longitude], 11, { animate: true })
+  }, [map, target?.id])
+  return null
+}
+
+function TrackLayers({
+  tracks,
+  selectedTrackId,
+  onTrackSelect,
+}: {
+  tracks: MapTrack[]
+  selectedTrackId?: string | null
+  onTrackSelect?: (track: MapTrack) => void
+}) {
+  // Yalnızca menüde işaretlenen (visible === true) güzergahlar
+  const visible = tracks.filter((t) => t.visible === true)
+  if (visible.length === 0) return null
+  return (
+    <>
+      {visible.map((track) => {
+        const selected = track.id === selectedTrackId
+        return (
+          <Polyline
+            key={track.id}
+            positions={track.points.map(
+              (p) => [p.latitude, p.longitude] as [number, number],
+            )}
+            pathOptions={{
+              color: selected ? '#ffd166' : '#2ec4b6',
+              weight: selected ? 5 : 3,
+              opacity: selected ? 1 : 0.85,
+            }}
+            eventHandlers={{
+              click: (e) => {
+                L.DomEvent.stopPropagation(e)
+                onTrackSelect?.(track)
+              },
+            }}
+          >
+            <Tooltip sticky>
+              <strong>{track.name}</strong>
+              <br />
+              {(track.pointCount ?? track.points.length).toLocaleString('tr-TR')} nokta
+              {onTrackSelect ? (
+                <>
+                  <br />
+                  <em>Tıkla: ride tarihlerindeki medya</em>
+                </>
+              ) : null}
+            </Tooltip>
+          </Polyline>
+        )
+      })}
+    </>
+  )
+}
+
+export function WorldMap({
+  clusters,
+  tracks = [],
+  selectedTrackId = null,
+  onBoundsChange,
+  onClusterSelect,
+  onTrackSelect,
+  focusPoint = null,
+  flyTo = null,
+}: WorldMapProps) {
   const [zoom, setZoom] = useState(2)
+  const selectedTrack =
+    tracks.find((t) => t.id === selectedTrackId && t.visible === true) ?? null
 
   return (
     <>
@@ -475,7 +496,7 @@ export function WorldMap({ clusters, onBoundsChange, focusPoint = null }: WorldM
       zoomControl={false}
       scrollWheelZoom
       doubleClickZoom
-      dragging={false}
+      dragging
     >
       <TileLayer
         attribution='Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics'
@@ -494,16 +515,22 @@ export function WorldMap({ clusters, onBoundsChange, focusPoint = null }: WorldM
       <ZoomTracker onZoom={setZoom} />
       <WorldAndZoomControls />
       <HeatLayer clusters={clusters} />
+      <TrackLayers
+        tracks={tracks}
+        selectedTrackId={selectedTrackId}
+        onTrackSelect={onTrackSelect}
+      />
+      <FitSelectedTrack track={selectedTrack} />
+      <FlyToTarget target={flyTo} />
       {zoom >= MARKER_MIN_ZOOM ? (
-        <ClusterMarkers clusters={clusters} />
+        <ClusterMarkers clusters={clusters} onClusterSelect={onClusterSelect} />
       ) : (
-        <BeaconMarkers clusters={clusters} />
+        <BeaconMarkers clusters={clusters} onClusterSelect={onClusterSelect} />
       )}
       <FocusTarget point={focusPoint} />
-      <AreaSelector />
     </MapContainer>
-    <div className="map-area-hint" title="Sol sürükle: alan seç · Shift+sürükle: haritayı taşı">
-      Sürükle: alan · <kbd>Shift</kbd>: taşı
+    <div className="map-area-hint" title="Sürükle: taşı · tekerlek: zoom · +/−/dünya: kontroller">
+      Sürükle: taşı · tekerlek: zoom
     </div>
     </>
   )

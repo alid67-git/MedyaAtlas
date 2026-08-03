@@ -1,12 +1,14 @@
 import type { MediaKind } from '../types'
+import type { MapTrack } from './tracks'
 
 const DB_NAME = 'konumnerede'
-const DB_VERSION = 3
+const DB_VERSION = 4
 const GPS_STORE = 'gps'
 const HANDLE_STORE = 'handles'
 const SOURCE_STORE = 'sources'
 const LIBRARY_STORE = 'library'
 const THUMB_STORE = 'thumbs'
+const TRACK_STORE = 'tracks'
 const LAST_DIR_KEY = 'lastDir'
 const GOPRO_FILE_NAME = /^(gopr|g[xhs]\d{6}|gpfr|gp\d{6}|go\d{6})/i
 const PHOTO_FILE_NAME = /\.(jpe?g|png|webp|heic|heif|tiff?|dng|gpr|arw|cr2|nef|orf|raf|rw2)$/i
@@ -21,6 +23,8 @@ export interface CachedGps {
   width?: number
   height?: number
   locationMissing?: boolean
+  /** GoPro: GPMF çıkarma başarısız (yeniden denenebilir). */
+  gpsExtractFailed?: boolean
 }
 
 /** Kalıcı kaynak (disk/klasör). Handle IndexedDB'de saklanır. */
@@ -58,6 +62,7 @@ export interface LibraryItem {
   width?: number
   height?: number
   locationMissing?: boolean
+  gpsExtractFailed?: boolean
 }
 
 /** Bir kez üretilen küçük önizleme; video her seferinde yeniden açılmaz. */
@@ -70,6 +75,10 @@ export interface ThumbRecord {
 let dbPromise: Promise<IDBDatabase | null> | null = null
 let gpsMemory: Map<string, CachedGps> | null = null
 let gpsMemoryLoading: Promise<Map<string, CachedGps>> | null = null
+
+function resetDbConnection(): void {
+  dbPromise = null
+}
 
 function openDb(): Promise<IDBDatabase | null> {
   if (dbPromise) return dbPromise
@@ -97,23 +106,80 @@ function openDb(): Promise<IDBDatabase | null> {
       if (!db.objectStoreNames.contains(THUMB_STORE)) {
         db.createObjectStore(THUMB_STORE, { keyPath: 'id' })
       }
+      if (!db.objectStoreNames.contains(TRACK_STORE)) {
+        db.createObjectStore(TRACK_STORE, { keyPath: 'id' })
+      }
     }
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => resolve(null)
+    req.onsuccess = () => {
+      const db = req.result
+      db.onclose = () => resetDbConnection()
+      db.onversionchange = () => {
+        try {
+          db.close()
+        } catch {
+          /* */
+        }
+        resetDbConnection()
+      }
+      resolve(db)
+    }
+    req.onerror = () => {
+      resetDbConnection()
+      resolve(null)
+    }
+    req.onblocked = () => {
+      /* başka sekme yükseltmesi */
+    }
   })
   return dbPromise
+}
+
+function isIdbClosingError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error ?? '')
+  return (
+    /connection is closing/i.test(msg) ||
+    /InvalidStateError/i.test(msg) ||
+    /database connection is closing/i.test(msg)
+  )
+}
+
+/** Kapalı bağlantıda bir kez yeniden açıp dene (Safari / telefon). */
+async function withDb<T>(
+  run: (db: IDBDatabase) => Promise<T>,
+): Promise<T | null> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const db = await openDb()
+      if (!db) return null
+      return await run(db)
+    } catch (error) {
+      if (attempt === 0 && isIdbClosingError(error)) {
+        resetDbConnection()
+        continue
+      }
+      return null
+    }
+  }
+  return null
+}
+
+function txDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => resolve()
+    tx.onabort = () => resolve()
+  })
 }
 
 /** Dosya kimliği: ad + boyut + değiştirilme zamanı. */
 export function fileSignature(file: File): string {
   const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath
   const baseName = file.name.replace(/\.[^.]+$/, '')
-  // GoPro/Max 360 okuyucusu güncellendiğinde eski "GPS yok" kayıtları
-  // yeniden denenmelidir.
+  // GoPro seyrek GPMF okuyucu: eski "GPS yok" kayıtlarını bir kez yeniden dene.
   const version = /^DJI[_-].*\.(mp4|mov)$/i.test(file.name)
     ? 'v3-dji'
     : GOPRO_FILE_NAME.test(baseName)
-      ? 'v8-gopro-gps'
+      ? 'v11-gopro-retryable'
       : PHOTO_FILE_NAME.test(file.name)
         ? 'v8-photo-exif-fallback'
       : 'v7-fast-skip'
@@ -260,25 +326,29 @@ export async function deleteSource(id: string): Promise<void> {
 // ---- Kütüphane (haritadaki kalıcı kayıtlar) ----
 
 export async function getLibraryItems(): Promise<LibraryItem[]> {
-  const db = await openDb()
-  if (!db) return []
-  return new Promise((resolve) => {
-    const tx = db.transaction(LIBRARY_STORE, 'readonly')
-    const req = tx.objectStore(LIBRARY_STORE).getAll()
-    req.onsuccess = () => resolve((req.result as LibraryItem[]) ?? [])
-    req.onerror = () => resolve([])
-  })
+  const result = await withDb(
+    (db) =>
+      new Promise<LibraryItem[]>((resolve, reject) => {
+        try {
+          const tx = db.transaction(LIBRARY_STORE, 'readonly')
+          const req = tx.objectStore(LIBRARY_STORE).getAll()
+          req.onsuccess = () => resolve((req.result as LibraryItem[]) ?? [])
+          req.onerror = () => resolve([])
+        } catch (error) {
+          reject(error)
+        }
+      }),
+  )
+  return result ?? []
 }
 
 export async function putLibraryItems(items: LibraryItem[]): Promise<void> {
-  const db = await openDb()
-  if (!db || items.length === 0) return
-  return new Promise((resolve) => {
+  if (items.length === 0) return
+  await withDb(async (db) => {
     const tx = db.transaction(LIBRARY_STORE, 'readwrite')
     const store = tx.objectStore(LIBRARY_STORE)
     for (const item of items) store.put(item)
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => resolve()
+    await txDone(tx)
   })
 }
 
@@ -338,24 +408,26 @@ export async function clearLibrary(): Promise<void> {
 }
 
 export async function getThumb(id: string): Promise<ThumbRecord | null> {
-  const db = await openDb()
-  if (!db) return null
-  return new Promise((resolve) => {
-    const tx = db.transaction(THUMB_STORE, 'readonly')
-    const req = tx.objectStore(THUMB_STORE).get(id)
-    req.onsuccess = () => resolve((req.result as ThumbRecord) ?? null)
-    req.onerror = () => resolve(null)
-  })
+  return withDb(
+    (db) =>
+      new Promise<ThumbRecord | null>((resolve, reject) => {
+        try {
+          const tx = db.transaction(THUMB_STORE, 'readonly')
+          const req = tx.objectStore(THUMB_STORE).get(id)
+          req.onsuccess = () => resolve((req.result as ThumbRecord) ?? null)
+          req.onerror = () => resolve(null)
+        } catch (error) {
+          reject(error)
+        }
+      }),
+  )
 }
 
 export async function putThumb(record: ThumbRecord): Promise<void> {
-  const db = await openDb()
-  if (!db) return
-  return new Promise((resolve) => {
+  await withDb(async (db) => {
     const tx = db.transaction(THUMB_STORE, 'readwrite')
     tx.objectStore(THUMB_STORE).put(record)
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => resolve()
+    await txDone(tx)
   })
 }
 
@@ -381,5 +453,42 @@ export async function getLastDirHandle(): Promise<FileSystemDirectoryHandle | nu
     req.onsuccess = () =>
       resolve((req.result as FileSystemDirectoryHandle) ?? null)
     req.onerror = () => resolve(null)
+  })
+}
+
+// ---- Ride güzergahları (GPX/KML/KMZ) ----
+
+export async function getStoredTracks(): Promise<MapTrack[]> {
+  const result = await withDb(
+    (db) =>
+      new Promise<MapTrack[]>((resolve) => {
+        try {
+          const tx = db.transaction(TRACK_STORE, 'readonly')
+          const req = tx.objectStore(TRACK_STORE).getAll()
+          req.onsuccess = () => resolve((req.result as MapTrack[]) ?? [])
+          req.onerror = () => resolve([])
+        } catch {
+          resolve([])
+        }
+      }),
+  )
+  return result ?? []
+}
+
+export async function putStoredTracks(tracks: MapTrack[]): Promise<void> {
+  await withDb(async (db) => {
+    const tx = db.transaction(TRACK_STORE, 'readwrite')
+    const store = tx.objectStore(TRACK_STORE)
+    store.clear()
+    for (const track of tracks) store.put(track)
+    await txDone(tx)
+  })
+}
+
+export async function clearStoredTracks(): Promise<void> {
+  await withDb(async (db) => {
+    const tx = db.transaction(TRACK_STORE, 'readwrite')
+    tx.objectStore(TRACK_STORE).clear()
+    await txDone(tx)
   })
 }

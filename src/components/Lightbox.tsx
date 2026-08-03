@@ -1,27 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MediaItem } from '../types'
-import { KIND_LABEL } from '../lib/media'
+import { KIND_LABEL, getExtension } from '../lib/media'
+import { isMobileClient, isWindowsDesktop } from '../lib/runtime'
 
 interface LightboxProps {
   item: MediaItem | null
-  /** Galerideki küçük önizleme — hemen gösterilir */
   posterUrl?: string | null
+  /** Çift tık / Oynat: hazır olunca hemen oynat; tam ekran kullanıcı seçimiyle */
+  autoPlay?: boolean
   resolveUrl: (item: MediaItem) => Promise<string | null>
-  resolveCompatibleVideoUrl?: (
-    item: MediaItem,
-    onProgress?: (percent: number | null) => void,
-  ) => Promise<string | null>
   revealInFolder?: (item: MediaItem) => Promise<boolean>
   playExternally?: (
     item: MediaItem,
-    player?: 'system' | 'vlc',
+    player?: 'system' | 'vlc' | 'wmplayer',
   ) => Promise<boolean>
-  /** Masaüstü: libVLC — lightbox stage dikdörtgenine hizalı */
-  previewEmbed?: (
-    item: MediaItem,
-    bounds: PreviewBounds,
-  ) => Promise<boolean>
-  updatePreviewBounds?: (bounds: PreviewBounds) => Promise<void>
   stopPreview?: () => Promise<void>
   onClose: () => void
 }
@@ -31,25 +23,19 @@ export interface PreviewBounds {
   y: number
   width: number
   height: number
-  /** true: x/y = getBoundingClientRect (viewport); Python ana pencereye map eder */
   viewport?: boolean
+  dpr?: number
 }
 
-function isDesktopRuntime(): boolean {
-  return Boolean(
-    (window as Window & { __MEDIAATLAS_DESKTOP__?: boolean }).__MEDIAATLAS_DESKTOP__,
-  )
+/** MP4 (ve yakın H.264 kapsayıcıları): HTML5 / GoPro index.html modeli. */
+function isHtml5FriendlyVideo(name: string): boolean {
+  const ext = getExtension(name)
+  return ext === 'mp4' || ext === 'm4v' || ext === 'webm'
 }
 
-function measureStageBounds(el: HTMLElement): PreviewBounds {
-  const rect = el.getBoundingClientRect()
-  return {
-    x: Math.round(rect.left),
-    y: Math.round(rect.top),
-    width: Math.max(1, Math.round(rect.width)),
-    height: Math.max(1, Math.round(rect.height)),
-    viewport: true,
-  }
+type WebkitDocument = Document & {
+  webkitFullscreenElement?: Element | null
+  webkitExitFullscreen?: () => Promise<void> | void
 }
 
 function formatDuration(seconds: number): string {
@@ -62,7 +48,6 @@ function formatDuration(seconds: number): string {
     : `${minutes}:${String(secs).padStart(2, '0')}`
 }
 
-/** Vite proxy video Range isteklerini boğar; medyayı API’ye doğrudan bağla. */
 function directMediaUrl(url: string): string {
   if (
     typeof window === 'undefined' ||
@@ -73,154 +58,267 @@ function directMediaUrl(url: string): string {
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
     return url
   }
+  // Büyük video Range istekleri Vite proxy’de takılabiliyor → doğrudan API
   return `http://127.0.0.1:5174${url}`
 }
 
+function seekTo(player: HTMLVideoElement, time: number): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => resolve()
+    player.addEventListener('seeked', done, { once: true })
+    try {
+      player.currentTime = time
+    } catch {
+      resolve()
+      return
+    }
+    window.setTimeout(done, 600)
+  })
+}
+
+function frameBrightness(player: HTMLVideoElement): number {
+  const c = document.createElement('canvas')
+  c.width = 48
+  c.height = 27
+  const ctx = c.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return 0
+  ctx.drawImage(player, 0, 0, 48, 27)
+  const d = ctx.getImageData(0, 0, 48, 27).data
+  let sum = 0
+  let n = 0
+  for (let i = 0; i < d.length; i += 4) {
+    sum += d[i] + d[i + 1] + d[i + 2]
+    n += 1
+  }
+  return n ? sum / n / 3 : 0
+}
+
+/** GoPro index.html: görünür önizleme karesi (dönüştürme yok). */
+async function showVisibleFrame(player: HTMLVideoElement): Promise<number> {
+  if (!player.duration || !Number.isFinite(player.duration)) {
+    await seekTo(player, 0)
+    return 0
+  }
+  const candidates = [0.2, 0.8, 1.2, Math.min(2, player.duration * 0.35)]
+  let bestT = 0
+  let bestAvg = -1
+  for (const t of candidates) {
+    const time = Math.min(Math.max(0, t), Math.max(0, player.duration - 0.05))
+    await seekTo(player, time)
+    let avg = 0
+    try {
+      avg = frameBrightness(player)
+    } catch {
+      avg = 0
+    }
+    if (avg > bestAvg) {
+      bestAvg = avg
+      bestT = time
+    }
+  }
+  await seekTo(player, bestT)
+  return bestT
+}
+
+/**
+ * V1 oynatma:
+ * - MP4/M4V/WebM → HTML5 (GoPro index.html)
+ * - Diğerleri → dönüştürme YOK; masaüstünde sistem/VLC; telefonda HTML5 dene / cihazda aç
+ * Çift tık / autoPlay → hemen oynat (tam ekran yapmadan) veya harici aç
+ */
 export function Lightbox({
   item,
   posterUrl,
+  autoPlay = false,
   resolveUrl,
-  resolveCompatibleVideoUrl,
   revealInFolder,
   playExternally,
-  previewEmbed,
-  updatePreviewBounds,
   stopPreview,
   onClose,
 }: LightboxProps) {
   const [url, setUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
-  const [failReason, setFailReason] = useState<string | null>(null)
-  const [converting, setConverting] = useState(false)
-  const [convertPercent, setConvertPercent] = useState<number | null>(null)
   const [duration, setDuration] = useState<number | null>(null)
   const [revealing, setRevealing] = useState(false)
   const [externalHint, setExternalHint] = useState<string | null>(null)
-  const [embedState, setEmbedState] = useState<
-    'idle' | 'starting' | 'playing' | 'fallback' | 'error'
-  >('idle')
-  const [embedError, setEmbedError] = useState<string | null>(null)
+  const [overlay, setOverlay] = useState<'loading' | 'error' | null>('loading')
+  const [overlayMsg, setOverlayMsg] = useState('Video yükleniyor…')
+  const [vlcAvailable, setVlcAvailable] = useState(false)
+  const [wmplayerAvailable, setWmplayerAvailable] = useState(false)
+  const [externalOnly, setExternalOnly] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
-  const convertingRef = useRef(false)
-  const usedCompatibleRef = useRef(false)
+  const readyOnceRef = useRef(false)
+  const previewTimeRef = useRef(0)
+  const autoPlayRef = useRef(autoPlay)
+  const launchedExternalRef = useRef(false)
 
   const isVideo =
     item != null &&
     (item.kind === 'video' || item.kind === 'gopro' || item.kind === 'drone')
-  const desktop = isDesktopRuntime()
-  const useLibVlc = desktop && isVideo && Boolean(previewEmbed)
-  const showHtml5 = isVideo && (!useLibVlc || embedState === 'fallback')
+  const windowsDesktop = isWindowsDesktop()
+  const mobile = isMobileClient()
+  const html5Ok = item ? isHtml5FriendlyVideo(item.name) : false
+  /** Masaüstünde MOV/HEVC vb. → HTML5 deneme; doğrudan harici. Telefonda dene. */
+  const useHtml5Video = isVideo && (html5Ok || mobile)
+
+  useEffect(() => {
+    autoPlayRef.current = autoPlay
+  }, [autoPlay])
 
   useEffect(() => {
     if (!item) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [item, onClose])
-
-  // libVLC — stage dikdörtgenine hizalı kenarlıksız katman
-  useEffect(() => {
-    if (!item || !useLibVlc || !previewEmbed) return
-    let alive = true
-    setEmbedState('starting')
-    setEmbedError(null)
-    setFailed(false)
-    setExternalHint(null)
-
-    const start = () => {
-      const stage = stageRef.current
-      if (!stage) {
-        if (retries < 40) {
-          retries += 1
-          window.setTimeout(start, 50)
-        } else if (alive) {
-          setEmbedState('fallback')
-          setEmbedError('Önizleme alanı hazır olmadı.')
-        }
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopPropagation()
+      if (
+        document.fullscreenElement ||
+        (document as WebkitDocument).webkitFullscreenElement
+      ) {
+        void (
+          document.exitFullscreen?.() ||
+          (document as WebkitDocument).webkitExitFullscreen?.()
+        )
         return
       }
-      const bounds = measureStageBounds(stage)
-      const work = previewEmbed(item, bounds)
-      const timeout = new Promise<boolean>((resolve) => {
-        window.setTimeout(() => resolve(false), 10000)
-      })
-      void Promise.race([work, timeout]).then((ok) => {
-        if (!alive) return
-        if (ok) {
-          setEmbedState('playing')
-          setExternalHint(null)
-        } else {
-          setEmbedState('fallback')
-          setEmbedError('libVLC zaman aşımı — HTML önizleme deneniyor.')
-        }
-      })
+      handleClose()
     }
-    let retries = 0
-    // Layout otursun diye bir frame bekle
-    const raf = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(start)
-    })
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+    // handleClose her render’da yeni; item değişince yeterli
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.id])
 
+  useEffect(() => {
+    if (!windowsDesktop) return
+    let alive = true
+    void fetch('/api/players')
+      .then((r) => r.json())
+      .then((data: { vlc?: boolean; wmplayer?: boolean }) => {
+        if (!alive) return
+        setVlcAvailable(Boolean(data.vlc))
+        setWmplayerAvailable(Boolean(data.wmplayer))
+      })
+      .catch(() => {
+        if (!alive) return
+        setVlcAvailable(true)
+        setWmplayerAvailable(true)
+      })
     return () => {
       alive = false
-      window.cancelAnimationFrame(raf)
-      void stopPreview?.()
     }
-  }, [item, useLibVlc, previewEmbed, stopPreview])
+  }, [windowsDesktop])
 
-  // Pencere / stage hareketinde VLC katmanını yeniden hizala
+  const launchExternal = useCallback(
+    (player: 'system' | 'vlc' | 'wmplayer') => {
+      if (!item || !playExternally || mobile) return
+      const labels = {
+        vlc: 'VLC açılıyor…',
+        wmplayer: 'Medya Player açılıyor…',
+        system: 'Sistem oynatıcı açılıyor…',
+      } as const
+      setExternalHint(labels[player])
+      setExternalOnly(true)
+      setOverlay(null)
+      void playExternally(item, player).then((ok) => {
+        if (!ok) {
+          if (player === 'system' && vlcAvailable) {
+            setExternalHint('Sistem açılamadı, VLC deneniyor…')
+            void playExternally(item, 'vlc').then((vlcOk) => {
+              if (!vlcOk) {
+                setFailed(true)
+                setOverlay('error')
+                setOverlayMsg(
+                  'Oynatıcı açılamadı. Dosya yolu bulunamadı veya VLC kurulu değil. Kaynakta 📁 ile klasörü kontrol et.',
+                )
+                setExternalHint(null)
+                return
+              }
+              setExternalHint('VLC’de açıldı.')
+            })
+            return
+          }
+          setFailed(true)
+          setOverlay('error')
+          setOverlayMsg(
+            player === 'vlc'
+              ? 'VLC açılamadı (kurulu olmayabilir).'
+              : player === 'wmplayer'
+                ? 'Medya Player açılamadı.'
+                : 'Sistem oynatıcı açılamadı. Dosya yolu yoksa sürücüyü yeniden bağla veya VLC dene.',
+          )
+          setExternalHint(null)
+        } else {
+          setExternalHint(
+            player === 'vlc'
+              ? 'VLC’de açıldı.'
+              : player === 'wmplayer'
+                ? 'Medya Player’da açıldı.'
+                : 'Sistem oynatıcıda açıldı.',
+          )
+        }
+      })
+    },
+    [item, playExternally, mobile, vlcAvailable],
+  )
+
   useEffect(() => {
-    if (!useLibVlc || embedState !== 'playing' || !updatePreviewBounds) return
-    const sync = () => {
-      const stage = stageRef.current
-      if (!stage) return
-      void updatePreviewBounds(measureStageBounds(stage))
-    }
-    sync()
-    const timer = window.setInterval(sync, 250)
-    window.addEventListener('resize', sync)
-    const ro =
-      typeof ResizeObserver !== 'undefined' && stageRef.current
-        ? new ResizeObserver(sync)
-        : null
-    if (stageRef.current && ro) ro.observe(stageRef.current)
-    return () => {
-      window.clearInterval(timer)
-      window.removeEventListener('resize', sync)
-      ro?.disconnect()
-    }
-  }, [useLibVlc, embedState, updatePreviewBounds])
+    readyOnceRef.current = false
+    previewTimeRef.current = 0
+    launchedExternalRef.current = false
+    setFailed(false)
+    setExternalOnly(false)
+    setExternalHint(null)
+    setOverlay(isVideo ? 'loading' : null)
+    setOverlayMsg('Video yükleniyor…')
+    void stopPreview?.()
+  }, [item?.id, isVideo, stopPreview])
 
-  // Foto / HTML5 video URL — her zaman API'ye doğrudan (Vite proxy JPG/MOV bozar)
+  // Masaüstü + HTML5-dışı video: dönüştürme yok → hemen sistem/VLC
+  useEffect(() => {
+    if (!item || !isVideo) return
+    if (useHtml5Video) return
+    if (!windowsDesktop || !playExternally) {
+      setExternalOnly(true)
+      setOverlay('error')
+      setOverlayMsg('Bu biçim tarayıcıda oynatılamıyor. Cihaz oynatıcısını kullan.')
+      setFailed(true)
+      return
+    }
+    if (launchedExternalRef.current) return
+    launchedExternalRef.current = true
+    setOverlayMsg('Sistem oynatıcıda açılıyor…')
+    // Dönüştürme yok — hemen varsayılan oynatıcı (VLC isteğe bağlı düğme)
+    launchExternal('system')
+  }, [
+    item,
+    isVideo,
+    useHtml5Video,
+    windowsDesktop,
+    playExternally,
+    launchExternal,
+  ])
+
   useEffect(() => {
     let alive = true
     const blobUrls: string[] = []
     setUrl(null)
-    setFailed(false)
-    setFailReason(null)
-    setConverting(false)
-    setConvertPercent(null)
     setDuration(null)
     setRevealing(false)
-    if (!useLibVlc) setExternalHint(null)
-    convertingRef.current = false
-    usedCompatibleRef.current = false
     if (!item) return
-    if (useLibVlc && embedState !== 'fallback') return
+    if (isVideo && !useHtml5Video) return
 
     void (async () => {
       const u = await resolveUrl(item)
       if (!alive) return
       if (!u) {
         setFailed(true)
-        setFailReason('Dosyaya ulaşılamadı.')
+        setOverlay('error')
+        setOverlayMsg('Dosyaya ulaşılamadı.')
         return
       }
       const direct = directMediaUrl(u)
-      // Fotoğraflar: blob ile yükle (WebView + relative /api yolu siyah kalabiliyor)
       if (!isVideo && (direct.includes('/api/media/') || direct.startsWith('http://127.0.0.1:5174'))) {
         try {
           const res = await fetch(direct)
@@ -231,105 +329,178 @@ export function Lightbox({
           blobUrls.push(objectUrl)
           if (!alive) return
           setUrl(objectUrl)
+          setOverlay(null)
           return
         } catch {
-          /* img src ile dene */
+          /* img src */
         }
       }
-      if (alive) setUrl(direct)
+      if (alive) {
+        setUrl(direct)
+        if (!isVideo) setOverlay(null)
+      }
     })()
     return () => {
       alive = false
       for (const b of blobUrls) URL.revokeObjectURL(b)
     }
-  }, [item, resolveUrl, isVideo, useLibVlc, embedState])
+  }, [item, resolveUrl, isVideo, useHtml5Video])
 
-  useEffect(() => {
-    if (!showHtml5 || !url || failed || converting) return
-    const el = videoRef.current
-    if (!el) return
-    const tryPlay = () => {
-      void el.play().catch(() => {})
+  const enterFullscreen = async () => {
+    const stage = stageRef.current
+    const player = videoRef.current
+    try {
+      if (stage?.requestFullscreen) await stage.requestFullscreen()
+      else if (stage && 'webkitRequestFullscreen' in stage) {
+        await (
+          stage as HTMLElement & { webkitRequestFullscreen: () => Promise<void> }
+        ).webkitRequestFullscreen()
+      } else if (player && 'webkitEnterFullscreen' in player) {
+        ;(player as HTMLVideoElement & { webkitEnterFullscreen: () => void }).webkitEnterFullscreen()
+      }
+    } catch {
+      /* */
     }
-    if (el.readyState >= 3) tryPlay()
-    else el.addEventListener('canplay', tryPlay, { once: true })
-    return () => el.removeEventListener('canplay', tryPlay)
-  }, [url, showHtml5, failed, converting])
+  }
 
-  const makeCompatible = () => {
-    if (!item || !isVideo || !resolveCompatibleVideoUrl) return
-    if (convertingRef.current || usedCompatibleRef.current) return
-    convertingRef.current = true
-    usedCompatibleRef.current = true
-    setConverting(true)
-    setConvertPercent(null)
-    setFailed(false)
-    setFailReason(null)
-    void resolveCompatibleVideoUrl(item, (percent) => {
-      setConvertPercent(percent)
-    }).then((compatibleUrl) => {
-      convertingRef.current = false
-      setConverting(false)
-      setConvertPercent(null)
-      if (compatibleUrl) {
-        setUrl(directMediaUrl(compatibleUrl))
+  const exitFullscreen = async () => {
+    const doc = document as WebkitDocument
+    try {
+      if (document.exitFullscreen) await document.exitFullscreen()
+      else if (doc.webkitExitFullscreen) await doc.webkitExitFullscreen()
+    } catch {
+      /* */
+    }
+  }
+
+  const isFullscreen = () => {
+    const doc = document as WebkitDocument
+    return Boolean(document.fullscreenElement || doc.webkitFullscreenElement)
+  }
+
+  const toggleFullscreen = async () => {
+    if (isFullscreen()) await exitFullscreen()
+    else await enterFullscreen()
+  }
+
+  const playFromStart = useCallback(async () => {
+    const player = videoRef.current
+    if (!player) return
+    if (player.ended || player.currentTime >= (player.duration || 0) - 0.08) {
+      player.currentTime = 0
+    }
+    try {
+      await player.play()
+    } catch {
+      /* */
+    }
+  }, [])
+
+  const onVideoReady = useCallback(
+    async (player: HTMLVideoElement) => {
+      if (readyOnceRef.current) {
+        setOverlay(null)
         return
       }
-      setFailed(true)
-      setFailReason(
-        'Önizleme hazırlanamadı. “VLC” veya “Klasörde göster” dene.',
-      )
-    })
-  }
-
-  const onVideoProblem = () => {
-    if (!item) return
-    if (desktop) {
-      usedCompatibleRef.current = true
-      setFailed(false)
-      setConverting(false)
-      setExternalHint(
-        'HTML önizleme bu videoda takılıyor. Tam VLC veya libVLC dene.',
-      )
-      return
-    }
-    if (resolveCompatibleVideoUrl && !usedCompatibleRef.current) {
-      makeCompatible()
-      return
-    }
-    setFailed(true)
-    setFailReason('Bu tarayıcı bu videoyu görüntülü oynatamıyor (çoğu MOV/HEVC).')
-  }
-
-  const launchExternal = (player: 'system' | 'vlc') => {
-    if (!item || !playExternally) return
-    setExternalHint(player === 'vlc' ? 'VLC açılıyor…' : 'Sistem oynatıcı açılıyor…')
-    void playExternally(item, player).then((ok) => {
-      if (!ok) {
-        setExternalHint(
-          player === 'vlc'
-            ? 'VLC açılamadı (kurulu olmayabilir).'
-            : 'Sistem oynatıcı açılamadı.',
+      readyOnceRef.current = true
+      const seconds = player.duration
+      if (Number.isFinite(seconds)) setDuration(seconds)
+      if (player.videoWidth === 0) {
+        setFailed(true)
+        setOverlay('error')
+        setOverlayMsg(
+          windowsDesktop
+            ? 'Tarayıcı bu videoyu çözemedi. Medya Player veya VLC ile aç.'
+            : 'Bu video burada oynatılamıyor. Cihazda açmayı dene.',
         )
-      } else {
-        setExternalHint(player === 'vlc' ? 'VLC’de açıldı.' : 'Sistem oynatıcıda açıldı.')
+        return
       }
-    })
+
+      // Otomatik oynatma: önizleme seek’leri play’i kesmesin
+      if (autoPlayRef.current) {
+        autoPlayRef.current = false
+        previewTimeRef.current = 0
+        setOverlay(null)
+        setFailed(false)
+        try {
+          player.currentTime = 0
+        } catch {
+          /* */
+        }
+        void playFromStart()
+        return
+      }
+
+      try {
+        previewTimeRef.current = await showVisibleFrame(player)
+      } catch {
+        try {
+          await seekTo(player, 0)
+        } catch {
+          /* */
+        }
+      } finally {
+        setOverlay(null)
+        setFailed(false)
+      }
+    },
+    [windowsDesktop, playFromStart],
+  )
+
+  const onVideoProblem = useCallback(() => {
+    setFailed(true)
+    setOverlay('error')
+    if (windowsDesktop && playExternally) {
+      setOverlayMsg('Tarayıcı oynatamadı. Medya Player veya VLC ile aç (dönüştürme yok).')
+    } else if (mobile) {
+      setOverlayMsg('Bu video burada oynatılamıyor. Cihazda aç.')
+    } else {
+      setOverlayMsg('Bu video tarayıcıda oynatılamıyor.')
+    }
+  }, [windowsDesktop, playExternally, mobile])
+
+  const openOnDevice = () => {
+    if (!url) {
+      setExternalHint('Açılacak adres yok.')
+      return
+    }
+    try {
+      const opened = window.open(url, '_blank', 'noopener,noreferrer')
+      if (opened) {
+        setExternalHint('Cihaz oynatıcısında açıldı.')
+        return
+      }
+    } catch {
+      /* */
+    }
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      void navigator
+        .share({ title: item?.name ?? 'Video', url })
+        .then(() => setExternalHint('Paylaşım açıldı.'))
+        .catch(() => setExternalHint('Cihazda açılamadı.'))
+      return
+    }
+    setExternalHint('Cihazda açılamadı.')
   }
 
   const handleClose = () => {
-    void stopPreview?.()
+    // Önce kapat — tarama/toast/async iş kapanmayı engellemesin
     onClose()
+    try {
+      const player = videoRef.current
+      if (player) {
+        player.pause()
+        player.removeAttribute('src')
+        player.load()
+      }
+    } catch {
+      /* */
+    }
+    void stopPreview?.()
+    void exitFullscreen()
   }
 
   if (!item) return null
-
-  const showPosterOnly =
-    isVideo &&
-    !url &&
-    !failed &&
-    !converting &&
-    !(useLibVlc && (embedState === 'starting' || embedState === 'playing'))
 
   return (
     <div className="lightbox" role="dialog" aria-modal="true">
@@ -346,23 +517,23 @@ export function Lightbox({
             <h3>{item.name}</h3>
           </div>
           <div className="lightbox__header-actions">
-            {playExternally && isVideo && (
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={() => launchExternal('vlc')}
-              >
-                VLC
-              </button>
-            )}
-            {revealInFolder && (
+            {revealInFolder && !mobile && (
               <button
                 type="button"
                 className="btn btn--ghost"
                 disabled={revealing}
                 onClick={() => {
                   setRevealing(true)
-                  void revealInFolder(item).finally(() => setRevealing(false))
+                  setExternalHint(null)
+                  void revealInFolder(item)
+                    .then((ok) => {
+                      setExternalHint(
+                        ok
+                          ? 'Klasör açıldı; dosya seçili olmalı.'
+                          : 'Klasör açılamadı (yol bulunamadı). Kaynak sürücü yolu bağlı mı?',
+                      )
+                    })
+                    .finally(() => setRevealing(false))
                 }}
               >
                 {revealing ? 'Açılıyor…' : 'Klasörde göster'}
@@ -373,156 +544,174 @@ export function Lightbox({
             </button>
           </div>
         </header>
+
         <div
           ref={stageRef}
-          className={`lightbox__stage${useLibVlc && embedState !== 'fallback' ? ' is-vlc-host' : ''}`}
+          className={`lightbox__stage${overlay ? ` is-${overlay}` : ''}`}
+          onDoubleClick={() => {
+            if (!isVideo) return
+            if (useHtml5Video && url && !failed) void playFromStart()
+            else if (windowsDesktop && playExternally) {
+              launchExternal(vlcAvailable ? 'vlc' : wmplayerAvailable ? 'wmplayer' : 'system')
+            }
+          }}
         >
-          {useLibVlc && embedState !== 'fallback' ? (
-            <div className="lightbox__vlc-slot" aria-live="polite">
-              {embedState === 'starting' && (
-                <p className="lightbox__offline-hint">Donanım önizleme bağlanıyor…</p>
-              )}
-              {embedState === 'playing' && posterUrl && (
-                <img
-                  src={posterUrl}
-                  alt=""
-                  className="lightbox__media lightbox__media--poster"
-                />
-              )}
-              {embedState === 'playing' && (
-                <p className="lightbox__offline-hint lightbox__external-hint">
-                  Önizleme üstte oynuyor. Görünmüyorsa VLC dene.
-                </p>
-              )}
-              {embedState === 'error' && (
-                <>
-                  <p className="lightbox__offline-hint">{embedError}</p>
-                  {playExternally && (
-                    <div className="lightbox__actions">
-                      <button
-                        type="button"
-                        className="btn btn--primary"
-                        onClick={() => launchExternal('vlc')}
-                      >
-                        Tam VLC’de aç
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          ) : converting ? (
-            <div className="lightbox__offline">
-              <p>Önizleme hazırlanıyor…</p>
-              <p className="lightbox__offline-hint">
-                HEVC → H.264
-                {convertPercent != null ? ` (%${convertPercent})` : ''}.
-                {desktop && ' İstersen “VLC” ile hemen aç.'}
-              </p>
-              {desktop && playExternally && (
-                <div className="lightbox__actions">
-                  <button
-                    type="button"
-                    className="btn btn--primary"
-                    onClick={() => launchExternal('vlc')}
-                  >
-                    VLC’de aç
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : failed ? (
-            <div className="lightbox__offline">
-              {posterUrl ? (
-                <img
-                  src={posterUrl}
-                  alt=""
-                  className="lightbox__media lightbox__media--poster"
-                />
-              ) : null}
-              <p>Önizleme yüklenemedi.</p>
-              <p className="lightbox__offline-hint">
-                {failReason || 'Dosyaya ulaşılamadı.'}
-              </p>
-              <div className="lightbox__actions">
-                {playExternally && isVideo && (
-                  <button
-                    type="button"
-                    className="btn btn--primary"
-                    onClick={() => launchExternal('vlc')}
-                  >
-                    VLC’de aç
-                  </button>
-                )}
-                {revealInFolder && (
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    onClick={() => {
-                      void revealInFolder(item)
-                    }}
-                  >
-                    Klasörde göster
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : showPosterOnly ? (
-            <div className="lightbox__poster-wrap">
-              {posterUrl ? (
-                <img
-                  src={posterUrl}
-                  alt={item.name}
-                  className="lightbox__media lightbox__media--poster"
-                />
-              ) : (
-                <p>Yükleniyor…</p>
-              )}
-              <p className="lightbox__offline-hint">Video akışı bağlanıyor…</p>
-            </div>
-          ) : showHtml5 && url ? (
-            <>
-              <video
-                key={url}
-                ref={videoRef}
-                controls
-                playsInline
-                preload="auto"
-                poster={posterUrl ?? undefined}
-                src={url}
-                className="lightbox__media"
-                onLoadedMetadata={(event) => {
-                  const seconds = event.currentTarget.duration
-                  if (Number.isFinite(seconds)) setDuration(seconds)
-                  if (event.currentTarget.videoWidth === 0) onVideoProblem()
-                }}
-                onLoadedData={(event) => {
-                  if (event.currentTarget.videoWidth === 0) onVideoProblem()
-                }}
-                onError={() => onVideoProblem()}
-              />
-              {externalHint && (
-                <p className="lightbox__offline-hint lightbox__external-hint">
-                  {externalHint}
-                </p>
-              )}
-            </>
-          ) : url ? (
+          {isVideo && useHtml5Video && url ? (
+            <video
+              key={url}
+              ref={videoRef}
+              controls
+              playsInline
+              {...{ 'webkit-playsinline': 'true' }}
+              preload="auto"
+              poster={posterUrl ?? undefined}
+              src={url}
+              className="lightbox__media"
+              onLoadedMetadata={(event) => {
+                const seconds = event.currentTarget.duration
+                if (Number.isFinite(seconds)) setDuration(seconds)
+                if (event.currentTarget.videoWidth === 0) onVideoProblem()
+              }}
+              onLoadedData={(event) => {
+                void onVideoReady(event.currentTarget)
+              }}
+              onCanPlay={() => {
+                if (readyOnceRef.current) setOverlay(null)
+              }}
+              onPlaying={() => setOverlay(null)}
+              onEnded={() => {
+                const player = videoRef.current
+                if (!player) return
+                void seekTo(player, previewTimeRef.current || 0)
+              }}
+              onError={() => onVideoProblem()}
+            />
+          ) : !isVideo && url ? (
             <img
               src={url}
               alt={item.name}
               className="lightbox__media"
               onError={() => {
                 setFailed(true)
-                setFailReason('Görüntü yüklenemedi.')
+                setOverlay('error')
+                setOverlayMsg('Görüntü yüklenemedi.')
               }}
             />
-          ) : (
-            <div className="lightbox__offline">
-              <p>Yükleniyor…</p>
+          ) : externalOnly && isVideo ? (
+            <div className="lightbox__empty" aria-live="polite">
+              <div>
+                <strong>
+                  {externalHint || 'Harici oynatıcıda açıldı / açılıyor…'}
+                </strong>
+                <p style={{ marginTop: '0.5rem', opacity: 0.8, fontSize: '0.85rem' }}>
+                  Dönüştürme yok — dosya doğrudan sistem oynatıcısına verildi.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {overlay && !(externalOnly && !failed) && (
+            <div className="lightbox__empty" aria-live="polite">
+              <div>
+                <strong>{overlayMsg}</strong>
+              </div>
             </div>
           )}
         </div>
+
+        {isVideo && (
+          <div className="lightbox__controls">
+            {useHtml5Video && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  disabled={!url || failed}
+                  onClick={() => void playFromStart()}
+                >
+                  Oynat
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  disabled={!url}
+                  onClick={() => void toggleFullscreen()}
+                >
+                  Tam ekran
+                </button>
+              </>
+            )}
+            {windowsDesktop && playExternally && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() =>
+                    launchExternal(wmplayerAvailable ? 'wmplayer' : 'system')
+                  }
+                >
+                  Medya Player
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => launchExternal('vlc')}
+                  title={vlcAvailable ? 'VLC’de aç' : 'VLC kurulu değilse açılamayabilir'}
+                >
+                  VLC’de aç
+                </button>
+              </>
+            )}
+            {mobile && (
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={openOnDevice}
+                disabled={!url}
+              >
+                Cihazda aç
+              </button>
+            )}
+            {externalHint && (
+              <span className="lightbox__controls-hint">{externalHint}</span>
+            )}
+          </div>
+        )}
+
+        {failed && isVideo && windowsDesktop && playExternally && (
+          <div className="lightbox__actions">
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() =>
+                launchExternal(wmplayerAvailable ? 'wmplayer' : 'system')
+              }
+            >
+              Medya Player’da aç
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => launchExternal('vlc')}
+            >
+              VLC’de aç
+            </button>
+          </div>
+        )}
+
+        {failed && isVideo && mobile && (
+          <div className="lightbox__actions">
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={openOnDevice}
+              disabled={!url}
+            >
+              Cihazda aç
+            </button>
+          </div>
+        )}
+
         <p className="lightbox__meta">
           {item.takenAt && (
             <span className="lightbox__meta-item lightbox__meta-item--date">

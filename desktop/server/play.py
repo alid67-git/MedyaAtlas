@@ -1,4 +1,4 @@
-"""Sistem oynatıcı ile video açma (VLC zorunlu değil)."""
+"""Sistem / VLC / Windows Media Player ile video açma."""
 
 from __future__ import annotations
 
@@ -26,16 +26,44 @@ def _find_vlc() -> str | None:
     return None
 
 
+def _find_wmplayer() -> str | None:
+    if sys.platform != "win32":
+        return None
+    candidates = [
+        Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
+        / "Windows Media Player"
+        / "wmplayer.exe",
+        Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
+        / "Windows Media Player"
+        / "wmplayer.exe",
+    ]
+    for path in candidates:
+        if path.is_file():
+            return str(path)
+    return None
+
+
+def players_available() -> dict:
+    return {
+        "vlc": bool(_find_vlc()),
+        "wmplayer": bool(_find_wmplayer()),
+        "system": True,
+    }
+
+
 def play_file(path: Path, prefer: str | None = None) -> dict:
     """
     Dosyayı oynatır.
-    Varsayılan: Windows ilişkilendirmesi (Movies & TV / Fotoğraflar / ne kuruluysa).
-    prefer=vlc ise VLC dener; yoksa yine sisteme düşer.
+    prefer: system | vlc | wmplayer
+    Varsayılan: Windows ilişkilendirmesi / startfile.
     """
     if not path.is_file():
         return {"ok": False, "error": "Dosya bulunamadı."}
 
     prefer = (prefer or os.environ.get("MEDIAATLAS_PLAYER") or "system").lower()
+    creation = 0
+    if sys.platform == "win32":
+        creation = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
 
     if prefer == "vlc":
         exe = _find_vlc()
@@ -44,9 +72,6 @@ def play_file(path: Path, prefer: str | None = None) -> dict:
                 "ok": False,
                 "error": "VLC bulunamadı. Kuruluysa PATH’e ekleyin veya VLC_PATH ortam değişkenini ayarlayın.",
             }
-        creation = 0
-        if sys.platform == "win32":
-            creation = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
         subprocess.Popen(
             [exe, "--started-from-file", str(path)],
             close_fds=True,
@@ -54,7 +79,17 @@ def play_file(path: Path, prefer: str | None = None) -> dict:
         )
         return {"ok": True, "engine": "vlc", "path": str(path)}
 
-    # Windows: varsayılan uygulama (kurulum gerekmez)
+    if prefer in ("wmplayer", "wmp", "mediaplayer"):
+        exe = _find_wmplayer()
+        if exe:
+            subprocess.Popen(
+                [exe, str(path)],
+                close_fds=True,
+                creationflags=creation,
+            )
+            return {"ok": True, "engine": "wmplayer", "path": str(path)}
+        prefer = "system"
+
     if sys.platform == "win32":
         try:
             os.startfile(str(path))  # type: ignore[attr-defined]

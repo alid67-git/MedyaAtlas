@@ -289,7 +289,10 @@ async def reveal(request: Request):
     path = None
     raw = body.get("path")
     if isinstance(raw, str) and raw.strip():
-        candidate = Path(raw.strip())
+        cleaned = raw.strip().replace("/", "\\")
+        if len(cleaned) == 2 and cleaned[1] == ":":
+            cleaned = cleaned + "\\"
+        candidate = Path(cleaned)
         try:
             if candidate.exists():
                 path = candidate
@@ -324,20 +327,38 @@ async def reveal(request: Request):
         return _json({"error": "Media not found.", "tried": raw}, 404)
 
     if sys.platform == "win32":
+        # resolve() sürücü kökünde bazen tuhaflaşır; mutlak Windows yolunu koru
         try:
-            target = path.resolve()
+            if path.is_absolute() and len(str(path)) >= 2 and str(path)[1] == ":":
+                target = path
+            else:
+                target = path.resolve()
         except OSError:
             target = path
-        # Dosya seçili: explorer /select,C:\...\file.jpg  (liste args — tırnak tuzağı yok)
+        abs_path = str(target).replace("/", "\\")
+        if len(abs_path) == 2 and abs_path[1] == ":":
+            abs_path = abs_path + "\\"
         if target.is_file():
             subprocess.Popen(
-                ["explorer.exe", f"/select,{target}"],
-                shell=False,
+                ["explorer.exe", f"/select,{abs_path}"],
                 close_fds=True,
             )
         else:
-            folder = target if target.is_dir() else target.parent
-            subprocess.Popen(["explorer.exe", str(folder)], shell=False)
+            folder = abs_path if target.is_dir() else str(target.parent).replace("/", "\\")
+            if len(folder) == 2 and folder[1] == ":":
+                folder = folder + "\\"
+            # Sürücü kökü: start "" "E:\" tırnak kaçışına takılır
+            if len(folder) == 3 and folder[1] == ":" and folder[2] == "\\":
+                subprocess.Popen(
+                    ["explorer.exe", f"/e,/root,{folder}"],
+                    close_fds=True,
+                )
+            else:
+                folder = folder.rstrip("\\/")
+                subprocess.Popen(
+                    ["explorer.exe", folder],
+                    close_fds=True,
+                )
     else:
         folder = path if path.is_dir() else path.parent
         subprocess.Popen(["xdg-open", str(folder)])
@@ -360,6 +381,13 @@ async def play(request: Request):
     return _json(result, status)
 
 
+@app.get("/api/players")
+async def players():
+    from .play import players_available
+
+    return players_available()
+
+
 @app.post("/api/preview")
 async def preview_start(request: Request):
     """libVLC donanım decode — lightbox stage üzerine (viewport göreli) yerleşir."""
@@ -369,6 +397,15 @@ async def preview_start(request: Request):
         return _json({"error": "Media not found."}, 404)
     bounds = None
     viewport = body.get("viewport", True) is not False
+    dpr = None
+    try:
+        raw_dpr = body.get("dpr")
+        if raw_dpr is not None:
+            dpr = float(raw_dpr)
+            if dpr <= 0:
+                dpr = None
+    except (TypeError, ValueError):
+        dpr = None
     try:
         x, y, w, h = (
             int(body.get("x")),
@@ -380,7 +417,7 @@ async def preview_start(request: Request):
             bounds = (x, y, w, h)
     except (TypeError, ValueError):
         bounds = None
-    result = get_preview().play(path, bounds=bounds, viewport=viewport)
+    result = get_preview().play(path, bounds=bounds, viewport=viewport, dpr=dpr)
     status = 200 if result.get("ok") else 500
     return _json(result, status)
 
@@ -389,6 +426,15 @@ async def preview_start(request: Request):
 async def preview_bounds(request: Request):
     body = await request.json()
     viewport = body.get("viewport", True) is not False
+    dpr = None
+    try:
+        raw_dpr = body.get("dpr")
+        if raw_dpr is not None:
+            dpr = float(raw_dpr)
+            if dpr <= 0:
+                dpr = None
+    except (TypeError, ValueError):
+        dpr = None
     try:
         x, y, w, h = (
             int(body.get("x")),
@@ -398,7 +444,7 @@ async def preview_bounds(request: Request):
         )
     except (TypeError, ValueError):
         return _json({"error": "Invalid bounds."}, 400)
-    return get_preview().set_bounds(x, y, w, h, viewport=viewport)
+    return get_preview().set_bounds(x, y, w, h, viewport=viewport, dpr=dpr)
 
 
 @app.post("/api/preview/stop")

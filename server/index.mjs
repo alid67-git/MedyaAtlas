@@ -1,17 +1,33 @@
 import { createServer } from 'node:http'
 import { createReadStream, createWriteStream } from 'node:fs'
-import { access, mkdir, open, readdir, rename, stat, unlink } from 'node:fs/promises'
+import { access, mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, relative, resolve, sep } from 'node:path'
-import { execFile, spawn } from 'node:child_process'
+import { execFile, exec, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createHash } from 'node:crypto'
-import { tmpdir } from 'node:os'
+import { tmpdir, cpus } from 'node:os'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import exifr from 'exifr'
 import ffmpegPath from 'ffmpeg-static'
+import {
+  extractWithLocationWorker,
+  flushLocationCache,
+  listMediaFilesWithWorker,
+  locationWorkerAvailable,
+  locationWorkerStatus,
+  siblingExtractorAvailable,
+} from './locationWorker.mjs'
+
+process.on('uncaughtException', (err) => {
+  console.error('[api] uncaughtException — süreç açık tutuluyor:', err)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('[api] unhandledRejection — süreç açık tutuluyor:', reason)
+})
 
 const execFileAsync = promisify(execFile)
+const execAsync = promisify(exec)
 
 /** Windows sürücülerini birim adıyla listeler. */
 async function listDrives() {
@@ -67,17 +83,20 @@ async function listDrives() {
 
 const media = new Map()
 const jobs = new Map()
+/** jobId → GPS yeniden okuma işi (Konum Bulucu worker) */
+const gpsRetryJobs = new Map()
 /** key → Promise<outputPath> — aynı dosya için tek ffmpeg süreci */
 const transcodePromises = new Map()
 /** jobId → { key, phase, done, url, error, percent } */
 const transcodeJobs = new Map()
 const transcodeDir = resolve(tmpdir(), 'MediaAtlas-transcodes')
 const thumbDir = resolve(tmpdir(), 'MediaAtlas-thumbs')
-const photoExt = new Set('jpg jpeg jpe png webp heic heif tif tiff dng gpr arw cr2 cr3 nef nrw orf raf rw2 pef srw x3f 3fr iiQ rwl avif gif bmp jxl'.split(' '))
+const photoExt = new Set('jpg jpeg jpe png webp heic heif tif tiff dng gpr arw cr2 cr3 nef nrw orf raf rw2 pef srw x3f 3fr iiQ rwl avif gif bmp jxl insp'.split(' '))
 const videoExt = new Set('mp4 mov m4v avi mkv webm 360 insv ts mts m2ts 3gp 3g2 wmv flv mpg mpeg m2v mod tod divx'.split(' '))
-const skipDirs = new Set(['$recycle.bin', 'system volume information', 'windows', 'program files', 'programdata', '.git', 'node_modules'])
 /** id → jpeg path */
 const thumbs = new Map()
+/** Konum Bulucu ile aynı: 100 KB altı atlanır */
+const MIN_MEDIA_BYTES = 100_000
 
 function kindFor(name) {
   const ext = extname(name).slice(1).toLowerCase()
@@ -96,13 +115,34 @@ function mimeFor(path) {
 async function streamMedia(req, res, path) {
   const info = await stat(path)
   const range = req.headers.range
-  const baseHeaders = { 'Content-Type': mimeFor(path), 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-store' }
-  if (!range) { res.writeHead(200, { ...baseHeaders, 'Content-Length': info.size }); createReadStream(path).pipe(res); return }
+  const origin = corsOrigin(req)
+  const baseHeaders = {
+    'Content-Type': mimeFor(path),
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET,OPTIONS',
+    'Access-Control-Expose-Headers': 'Content-Length,Content-Range,Accept-Ranges',
+    'Access-Control-Allow-Private-Network': 'true',
+  }
+  if (!range) {
+    res.writeHead(200, { ...baseHeaders, 'Content-Length': info.size })
+    createReadStream(path).pipe(res)
+    return
+  }
   const match = /bytes=(\d*)-(\d*)/.exec(range)
   const start = Math.min(Number(match?.[1] || 0), Math.max(0, info.size - 1))
   const end = Math.min(Number(match?.[2] || info.size - 1), info.size - 1)
-  if (start > end) { res.writeHead(416, { 'Content-Range': `bytes */${info.size}` }); res.end(); return }
-  res.writeHead(206, { ...baseHeaders, 'Content-Range': `bytes ${start}-${end}/${info.size}`, 'Content-Length': end - start + 1 })
+  if (start > end) {
+    res.writeHead(416, { ...baseHeaders, 'Content-Range': `bytes */${info.size}` })
+    res.end()
+    return
+  }
+  res.writeHead(206, {
+    ...baseHeaders,
+    'Content-Range': `bytes ${start}-${end}/${info.size}`,
+    'Content-Length': end - start + 1,
+  })
   createReadStream(path, { start, end }).pipe(res)
 }
 
@@ -153,6 +193,19 @@ function candidatePathsWithinRoot(rootPath, relativePath) {
     push(resolve(root, rel.slice(rootName.length + 1)))
   }
 
+  // Kök ile göreli yol örtüşmesi: root=E:\DCIM\Camera, rel=DCIM/Camera/a.mp4
+  const rootParts = normalizedRoot.split(/[\\/]/).filter(Boolean)
+  const relParts = rel.split('/').filter(Boolean)
+  const maxOverlap = Math.min(rootParts.length, relParts.length)
+  for (let k = 1; k <= maxOverlap; k++) {
+    const rootSuffix = rootParts.slice(-k).join('/').toLowerCase()
+    const relPrefix = relParts.slice(0, k).join('/').toLowerCase()
+    if (rootSuffix !== relPrefix) continue
+    const stripped = relParts.slice(k).join('/')
+    if (stripped) push(resolve(root, stripped))
+    else push(normalizedRoot)
+  }
+
   // Basename yedeği yalnızca göreli yollarda; başka sürücüdeki absolute path'i
   // aynı isimli dosyaya bağlama.
   if (!/^[a-zA-Z]:[\\/]/.test(raw) && !raw.startsWith('\\\\')) {
@@ -163,18 +216,176 @@ function candidatePathsWithinRoot(rootPath, relativePath) {
   return ordered
 }
 
-function resolveWithinRoot(rootPath, relativePath) {
-  return candidatePathsWithinRoot(rootPath, relativePath)[0] ?? null
+async function resolveExistingWithinRoot(rootPath, relativePath) {
+  const raw = String(relativePath ?? '').trim()
+
+  // Mutlak yol: kök dışında olsa bile diskte varsa kabul et (reveal / play)
+  if (/^[a-zA-Z]:[\\/]/.test(raw) || raw.startsWith('\\\\')) {
+    const abs = normalizeRevealPath(raw)
+    if (abs) {
+      try {
+        const info = await stat(abs)
+        if (info.isFile()) return abs
+      } catch {
+        /* adaylara düş */
+      }
+    }
+  }
+
+  if (rootPath) {
+    for (const candidate of candidatePathsWithinRoot(rootPath, relativePath)) {
+      try {
+        const info = await stat(candidate)
+        if (info.isFile()) return candidate
+      } catch {
+        /* sonraki aday */
+      }
+    }
+  }
+
+  return null
 }
 
-async function resolveExistingWithinRoot(rootPath, relativePath) {
-  for (const candidate of candidatePathsWithinRoot(rootPath, relativePath)) {
-    try {
-      const info = await stat(candidate)
-      if (info.isFile()) return candidate
-    } catch { /* sonraki aday */ }
+/**
+ * Windows Explorer için yolu normalize et.
+ * `path.resolve` mutlak `E:\...` yollarında cwd karıştırmasın; sürücü kökü `E:\` kalsın.
+ * UNC `\\server\share` öneki korunur (\\+ collapse bozmasın).
+ */
+function normalizeRevealPath(raw) {
+  let s = String(raw).trim()
+  if (!s) return null
+  s = s.replace(/\//g, '\\')
+
+  // UNC: \\server\share\... (fazla leading \ olsa bile tam iki bırak)
+  if (s.startsWith('\\\\')) {
+    const body = s.replace(/^\\+/, '').replace(/\\+/g, '\\').replace(/\\+$/, '')
+    return body ? `\\\\${body}` : null
   }
-  return null
+
+  // Sürücü: E: / E:\ / E:\Photos
+  const drive = /^([a-zA-Z]):(.*)$/.exec(s)
+  if (drive) {
+    const letter = drive[1].toUpperCase()
+    let rest = (drive[2] || '').replace(/\\+/g, '\\')
+    if (!rest || rest === '\\') return `${letter}:\\`
+    rest = rest.replace(/\\+$/, '')
+    if (!rest.startsWith('\\')) rest = `\\${rest}`
+    return `${letter}:${rest}`
+  }
+
+  return resolve(s)
+}
+
+/**
+ * Klasör/dosyayı Explorer’da aç.
+ * Boşluklu `/select,` tırnaksız → Belgeler. SHOpenFolderAndSelectItems bunu aşar.
+ * Yol UTF-8/Türkçe bozulmasın diye -TargetPath ile verilir (script içine gömülmez).
+ */
+async function openPathInExplorer(absPath, isFile) {
+  const abs = String(absPath).replace(/\//g, '\\').replace(/"/g, '')
+  let target = abs
+  if (!isFile) {
+    if (/^[a-zA-Z]:$/i.test(target)) target = `${target}\\`
+    else if (!/^[a-zA-Z]:\\$/i.test(target)) target = target.replace(/[\\/]+$/, '')
+  }
+
+  try {
+    await access(target)
+  } catch {
+    throw new Error(`Diskte yok: ${target}`)
+  }
+
+  const typeName = `NativeExplorer${Date.now().toString(36)}`
+  const ps1 = `
+param([Parameter(Mandatory=$true)][string]$TargetPath)
+$ErrorActionPreference = 'Stop'
+$p = $TargetPath
+if (-not (Test-Path -LiteralPath $p)) { throw "Yol yok: $p" }
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class ${typeName} {
+  [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+  public static extern IntPtr ILCreateFromPathW(string path);
+  [DllImport("shell32.dll")]
+  public static extern void ILFree(IntPtr pidl);
+  [DllImport("shell32.dll")]
+  public static extern int SHOpenFolderAndSelectItems(IntPtr pidlFolder, uint cidl, IntPtr apidl, uint dwFlags);
+}
+"@
+$pidl = [${typeName}]::ILCreateFromPathW($p)
+if ($pidl -eq [IntPtr]::Zero) { throw "PIDL olusturulamadi: $p" }
+try {
+  [void][${typeName}]::SHOpenFolderAndSelectItems($pidl, 0, [IntPtr]::Zero, 0)
+} finally {
+  [${typeName}]::ILFree($pidl)
+}
+`.trim()
+
+  const ps1Path = join(tmpdir(), `medyaatlas-reveal-${process.pid}-${Date.now()}.ps1`)
+  try {
+    await writeFile(ps1Path, `\uFEFF${ps1}`, 'utf8')
+    await execFileAsync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-STA',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        ps1Path,
+        '-TargetPath',
+        target,
+      ],
+      { windowsHide: true, timeout: 30000, encoding: 'utf8' },
+    )
+    return
+  } catch (err) {
+    console.error('SHOpenFolderAndSelectItems başarısız:', err?.stderr || err?.message || err)
+  } finally {
+    try {
+      await unlink(ps1Path)
+    } catch {
+      /* */
+    }
+  }
+
+  // Yedek: tırnaklı /select
+  const selectArg = isFile ? `/select,"${target}"` : `"${target}"`
+  try {
+    await execAsync(`explorer.exe ${selectArg}`, { windowsHide: false, timeout: 20000 })
+  } catch (err) {
+    const code = err && typeof err.code === 'number' ? err.code : null
+    if (code === 1) return
+    console.error('Explorer cmd yedek başarısız:', err?.message || err)
+    throw err
+  }
+}
+
+/** Windows klasör seçici — V2’de FSA yerine gerçek localPath almak için. */
+async function pickFolderWindows() {
+  const script = [
+    'Add-Type -AssemblyName System.Windows.Forms',
+    '$d = New-Object System.Windows.Forms.FolderBrowserDialog',
+    "$d.Description = 'Medya klasörü seç'",
+    '$d.ShowNewFolderButton = $true',
+    'try { $d.UseDescriptionForTitle = $true } catch {}',
+    'if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {',
+    '  [Console]::Out.Write($d.SelectedPath)',
+    '}',
+  ].join('; ')
+  try {
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-STA', '-Command', script],
+      { windowsHide: false, encoding: 'utf8', timeout: 300000, maxBuffer: 1024 * 1024 },
+    )
+    const chosen = String(stdout || '').trim()
+    return chosen || null
+  } catch {
+    return null
+  }
 }
 
 function parseFfmpegPercent(stderrChunk, durationSec) {
@@ -198,9 +409,6 @@ function runFfmpegTranscode(input, output, onProgress) {
       '-i', input,
       '-map', '0:v:0',
       '-map', '0:a:0?',
-      // Uygulama içindeki amaç tam kalite arşiv oynatıcı olmak değil; hızlı
-      // bir görsel önizleme vermek. 480p/24fps, GoPro ve iPhone HEVC
-      // videolarında dönüştürme süresini belirgin biçimde azaltır.
       '-vf', 'scale=854:480:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=24',
       '-c:v', 'libx264',
       '-preset', 'ultrafast',
@@ -394,8 +602,20 @@ function startTranscodeJob(input, key) {
   return { jobId, key }
 }
 
-async function chromeCompatibleFromPath(id, rootPath, relativePath) {
-  const input = await resolveExistingWithinRoot(rootPath, relativePath)
+async function chromeCompatibleFromPath(id, rootPath, relativePath, rawPath = null) {
+  let input = null
+  if (typeof rawPath === 'string' && rawPath.trim()) {
+    const candidate = resolve(rawPath.trim())
+    try {
+      const info = await stat(candidate)
+      if (info.isFile()) input = candidate
+    } catch { /* */ }
+  }
+  if (!input && id) input = media.get(id) || null
+  if (!input && rootPath && relativePath) {
+    input = await resolveExistingWithinRoot(rootPath, relativePath)
+    if (input && id) media.set(id, input)
+  }
   if (!id || !input) {
     throw new Error('Invalid media path.')
   }
@@ -420,32 +640,6 @@ function gps(lat, lon) {
   return { latitude: lat, longitude: lon }
 }
 
-function gpsFromText(text) {
-  const named = /(?:latitude|lat)\s*[:=]\s*([+-]?\d{1,2}(?:\.\d+)?)[\s\S]{0,160}?(?:longitude|long|lon)\s*[:=]\s*([+-]?\d{1,3}(?:\.\d+)?)/i.exec(text)
-  if (named) return gps(named[1], named[2])
-  const iso = /([+-]\d{1,2}\.\d{4,})([+-]\d{1,3}\.\d{4,})(?:[+-]\d+(?:\.\d+)?)?\//.exec(text)
-  return iso ? gps(iso[1], iso[2]) : null
-}
-
-/**
- * GoPro/MP4 creation_time — QuickTime spec: UTC.
- * Z yoksa UTC kabul et (yerel sanmak TR'de günü bir geri kaydırır).
- * Ham atomda bazen birden fazla etiket olur; 1970/epoch atlanır.
- */
-function creationTimeFromText(text) {
-  if (!text) return null
-  const re = /creation_time\s*[:=]\s*(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)/gi
-  let best = null
-  for (const match of text.matchAll(re)) {
-    const raw0 = match[1].includes('T') ? match[1] : match[1].replace(' ', 'T')
-    const iso = /Z$/i.test(raw0) ? raw0 : `${raw0}Z`
-    const date = new Date(iso)
-    if (Number.isNaN(date.getTime()) || date.getUTCFullYear() < 1990) continue
-    if (!best || date > best) best = date
-  }
-  return best
-}
-
 /**
  * Anı koruyan ISO. toISOString() + istemcide Z'siz yeniden parse
  * (veya yerel sanma) takvim gününü kaydırabiliyordu; offset ile yaz.
@@ -466,247 +660,266 @@ function takenAtToIso(takenAt) {
   return `${y}-${mo}-${d}T${h}:${mi}:${s}${sign}${hh}:${mm}`
 }
 
-async function readFfmpegMetaText(path) {
-  if (!ffmpegPath) return ''
+/**
+ * GPS: yalnızca Konum Bulucu location_extractor (fast / deep / full).
+ * @param {string} path
+ * @param {{ force?: boolean, mode?: 'fast' | 'deep' | 'full' }} [options]
+ */
+async function readLocationLikeKonumBulucu(path, options = {}) {
+  const workerUp = await locationWorkerAvailable()
+  if (!workerUp) {
+    return { point: null, takenAt: null, gpsExtractFailed: true, needsDeep: false }
+  }
   try {
-    return await new Promise((resolveText) => {
-      const child = spawn(ffmpegPath, ['-hide_banner', '-i', path], { windowsHide: true })
-      let stderr = ''
-      child.stderr.on('data', (chunk) => { stderr = (stderr + String(chunk)).slice(-12000) })
-      child.on('close', () => resolveText(stderr))
-      child.on('error', () => resolveText(''))
+    const loc = await extractWithLocationWorker(path, {
+      force: Boolean(options.force),
+      mode: options.mode || 'full',
     })
+    return {
+      point: loc.point,
+      takenAt: null,
+      gpsExtractFailed: loc.gpsExtractFailed,
+      needsDeep: loc.needsDeep,
+    }
   } catch {
-    return ''
+    return { point: null, takenAt: null, gpsExtractFailed: true, needsDeep: false }
   }
 }
 
-async function readGpsFromFfmpeg(path) {
-  return gpsFromText(await readFfmpegMetaText(path))
-}
-
-/** GoPro MP4 içinden ilk sabit GPS örneği (Node). Büyük dosyada yalnızca başı okur. */
-async function readGoProGpsFromFile(path) {
+async function readPhotoTakenAt(path) {
   try {
-    const [{ default: gpmfExtract }, goproTelemetry] = await Promise.all([
-      import('gpmf-extract'),
-      import('gopro-telemetry'),
-    ])
-    const info = await stat(path)
-    const maxBytes = Math.min(info.size, 48 * 1024 * 1024)
-    const fh = await open(path, 'r')
-    let buf
-    try {
-      buf = Buffer.alloc(maxBytes)
-      await fh.read(buf, 0, maxBytes, 0)
-    } finally {
-      await fh.close()
-    }
-    const file = new File([buf], basename(path), { type: 'video/mp4' })
-    const extracted = await gpmfExtract(file)
-    if (!extracted?.rawData) return null
-    const parsed = await goproTelemetry.default(extracted, { stream: 'GPS5', append: false })
-    const devices = parsed?.['1'] ? [parsed['1']] : Object.values(parsed || {})
-    for (const device of devices) {
-      const streams = device?.streams || {}
-      const gpsStream = streams.GPS5 || streams.GPS9 || streams.GPS
-      const samples = gpsStream?.samples
-      if (!Array.isArray(samples)) continue
-      for (const sample of samples) {
-        const value = sample?.value
-        let lat
-        let lon
-        if (Array.isArray(value) && value.length >= 2) {
-          lat = value[0]
-          lon = value[1]
-        } else if (value && typeof value === 'object') {
-          lat = value.latitude ?? value.lat
-          lon = value.longitude ?? value.lon ?? value.lng
-        }
-        const point = gps(lat, lon)
-        if (!point) continue
-        const takenAt =
-          sample.date instanceof Date
-            ? sample.date
-            : typeof sample.date === 'string'
-              ? new Date(sample.date)
-              : null
-        return { ...point, takenAt: takenAt && !Number.isNaN(takenAt.getTime()) ? takenAt : null }
-      }
+    const exif = await exifr
+      .parse(path, { pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate'] })
+      .catch(() => null)
+    const raw = exif?.DateTimeOriginal || exif?.CreateDate || exif?.ModifyDate
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw
+    if (typeof raw === 'string') {
+      const date = new Date(raw)
+      if (!Number.isNaN(date.getTime())) return date
     }
   } catch {
-    return null
+    /* */
   }
   return null
 }
 
-async function readPhotoMeta(path) {
-  try {
-    // pick kullanma: latitude/longitude türetilmiş alanlar; pick GPS'i düşürebilir.
-    const [pointRaw, exif] = await Promise.all([
-      exifr.gps(path).catch(() => null),
-      exifr.parse(path, { pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate'] }).catch(() => null),
-    ])
-    const point = gps(pointRaw?.latitude, pointRaw?.longitude)
-    let takenAt = null
-    const raw = exif?.DateTimeOriginal || exif?.CreateDate || exif?.ModifyDate
-    if (raw instanceof Date && !Number.isNaN(raw.getTime())) takenAt = raw
-    else if (typeof raw === 'string') {
-      const date = new Date(raw)
-      if (!Number.isNaN(date.getTime())) takenAt = date
-    }
-    return { point, takenAt }
-  } catch {
-    return { point: null, takenAt: null }
-  }
-}
-
-async function readVideoMeta(path, kind) {
-  let point = null
+/**
+ * @param {string} path
+ * @param {string | null} kind
+ * @param {{ force?: boolean, mode?: 'fast' | 'deep' | 'full' }} [options]
+ */
+async function readMediaMeta(path, kind, options = {}) {
+  const loc = await readLocationLikeKonumBulucu(path, options)
   let takenAt = null
-  try {
-    const info = await stat(path)
-    const part = 1024 * 1024
-    const file = await open(path, 'r')
-    try {
-      const headBytes = Math.min(part, info.size)
-      const headBuffer = Buffer.alloc(headBytes)
-      await file.read(headBuffer, 0, headBytes, 0)
-      let text = headBuffer.toString('latin1')
-      if (info.size > part) {
-        const tailBytes = Math.min(part, info.size - headBytes)
-        const tailBuffer = Buffer.alloc(tailBytes)
-        await file.read(tailBuffer, 0, tailBytes, info.size - tailBytes)
-        text += tailBuffer.toString('latin1')
-      }
-      point = gpsFromText(text)
-      takenAt = creationTimeFromText(text)
-    } finally {
-      await file.close()
-    }
-  } catch { /* yok say */ }
-
-  // GoPro: GPMF telemetri (binary metin taraması yetmez)
-  if (!point && kind === 'gopro') {
-    try {
-      const gopro = await readGoProGpsFromFile(path)
-      if (gopro) {
-        point = gps(gopro.latitude, gopro.longitude)
-        // Tarih için creation_time tercih; GPS örneği yalnızca yedek
-        takenAt = takenAt || gopro.takenAt || null
-      }
-    } catch { /* yok say */ }
-  }
-
-  // creation_time atomda yoksa ffmpeg etiketinden al (takvim günü için kritik)
-  if (!takenAt && ffmpegPath) {
-    try {
-      takenAt = creationTimeFromText(await readFfmpegMetaText(path))
-    } catch { /* yok say */ }
-  }
-
-  // DJI: ISO6709 bazen yalnızca ffmpeg etiketinde
-  if (!point && kind === 'drone' && ffmpegPath) {
-    try {
-      const ff = await readFfmpegMetaText(path)
-      point = point || gpsFromText(ff)
-      takenAt = takenAt || creationTimeFromText(ff)
-    } catch { /* yok say */ }
-  }
-  return { point, takenAt }
-}
-
-async function readGps(path, kind) {
-  try {
-    if (kind === 'photo') {
-      const meta = await readPhotoMeta(path)
-      return meta.point
-    }
-    const meta = await readVideoMeta(path, kind)
-    return meta.point
-  } catch { return null }
-}
-
-async function readTakenAt(path, kind) {
-  try {
-    if (kind === 'photo') {
-      const meta = await readPhotoMeta(path)
-      return meta.takenAt
-    }
-    const meta = await readVideoMeta(path, kind)
-    return meta.takenAt
-  } catch {
-    return null
+  if (kind === 'photo') takenAt = await readPhotoTakenAt(path)
+  return {
+    point: loc.point,
+    takenAt,
+    gpsExtractFailed: loc.gpsExtractFailed,
+    needsDeep: loc.needsDeep,
   }
 }
 
-async function walk(dir, files) {
-  let entries
-  try { entries = await readdir(dir, { withFileTypes: true }) } catch { return }
-  for (const entry of entries) {
-    const path = resolve(dir, entry.name)
-    if (entry.isDirectory() && !entry.name.startsWith('.') && !skipDirs.has(entry.name.toLowerCase())) await walk(path, files)
-    else if (entry.isFile() && kindFor(entry.name)) files.push(path)
-  }
+function pushScanItem(job, { id, path, rel, sourceId, kind, point, takenAt, info, gpsExtractFailed }) {
+  media.set(id, path)
+  job.items.push({
+    id,
+    name: basename(path),
+    relativePath: rel,
+    sourceId,
+    kind,
+    available: true,
+    latitude: point?.latitude ?? 0,
+    longitude: point?.longitude ?? 0,
+    locationMissing: !point,
+    gpsExtractFailed: !point && Boolean(gpsExtractFailed),
+    takenAt: takenAtToIso(takenAt ?? new Date(info.mtimeMs)),
+    url: `/api/media/${encodeURIComponent(id)}`,
+  })
 }
 
-async function scan(root, sourceId, job) {
+async function scan(root, sourceId, job, known = null, opts = null) {
+  const forceRetry = Boolean(opts?.forceGoProRetry)
   root = resolve(root)
-  const files = []; await walk(root, files)
-  // LRV: düşük çözünürlüklü proxy — hiç indeksleme
-  const scanFiles = files.filter((path) => extname(path).slice(1).toLowerCase() !== 'lrv')
-  // Asıl amaç GoPro konumları: onları ve drone videolarını önce işle.
+  job.phase = 'discovering'
+
+  const workerUp = await locationWorkerAvailable()
+  if (!workerUp) {
+    job.error = 'Konum Bulucu worker açılamadı — baslat-v2.bat ve kardeş proje (video daki konum neresi) gerekli.'
+    job.phase = 'error'
+    job.done = true
+    return
+  }
+
+  let scanFiles
+  try {
+    scanFiles = await listMediaFilesWithWorker(root, {
+      recursive: true,
+      includeInsv: Boolean(opts?.includeInsv),
+    })
+  } catch (err) {
+    job.error = err instanceof Error ? err.message : 'Medya listesi alınamadı.'
+    job.phase = 'error'
+    job.done = true
+    return
+  }
+
+  // Min boyut yedeği (worker zaten 100KB; Node kind’sız uzantı elensin)
+  const filtered = []
+  for (const path of scanFiles) {
+    if (job.cancelled) break
+    if (!kindFor(basename(path))) continue
+    if (extname(path).slice(1).toLowerCase() === 'lrv') continue
+    filtered.push(path)
+    job.total = filtered.length
+  }
+  scanFiles = filtered
+
   const priority = (path) => {
     const kind = kindFor(basename(path))
     return kind === 'gopro' ? 0 : kind === 'drone' ? 1 : kind === 'photo' ? 2 : 3
   }
   scanFiles.sort((a, b) => priority(a) - priority(b))
+
   if (job.cancelled) {
     job.phase = 'cancelled'
     job.done = true
     return
   }
+
   job.total = scanFiles.length
-  job.phase = 'scanning'
+  job.phase = 'scanning_fast'
+
+  /** @type {Array<{ path: string, kind: string, info: import('node:fs').Stats, rel: string, id: string, itemIndex: number, needsDeep: boolean }>} */
+  const deepQueue = []
+  const cpuCount = cpus()?.length ?? 4
+  const workers = Math.min(8, Math.max(4, cpuCount), scanFiles.length || 1)
+
+  // —— Pass 1: fast ——
   let next = 0
-  const workers = Math.min(12, Math.max(4, scanFiles.length))
   await Promise.all(Array.from({ length: workers }, async () => {
     while (next < scanFiles.length) {
       if (job.cancelled) return
-      const path = scanFiles[next++], kind = kindFor(basename(path))
+      const path = scanFiles[next++]
+      const kind = kindFor(basename(path)) || 'video'
+      let info
+      try {
+        info = await stat(path)
+      } catch {
+        job.processed += 1
+        job.missing += 1
+        continue
+      }
+      if (info.size < MIN_MEDIA_BYTES) {
+        job.processed += 1
+        job.missing += 1
+        continue
+      }
+      const rel = relative(root, path).replaceAll('\\', '/')
+      const relKey = rel.toLowerCase()
+      const id = `${sourceId}|${rel}|${info.size}|${info.mtimeMs}`
+
+      const prev = known && typeof known === 'object' ? known[relKey] : null
       let point = null
       let takenAt = null
-      if (kind === 'photo') {
-        const meta = await readPhotoMeta(path)
-        point = meta.point
-        takenAt = meta.takenAt
-      } else {
-        const meta = await readVideoMeta(path, kind)
-        point = meta.point
-        takenAt = meta.takenAt
+      let gpsExtractFailed = false
+      let needsDeep = false
+      const unchanged =
+        prev &&
+        Number(prev.size) === info.size &&
+        Number(prev.mtimeMs) === info.mtimeMs
+      if (unchanged && prev.locationMissing === false && !forceRetry) {
+        const kept = gps(prev.latitude, prev.longitude)
+        const keep =
+          kept &&
+          !(
+            kind === 'drone' &&
+            (Math.abs(kept.latitude) < 0.5 || Math.abs(kept.longitude) < 0.5)
+          )
+        if (keep) {
+          point = kept
+          takenAt = prev.takenAt ? new Date(prev.takenAt) : null
+          if (takenAt && Number.isNaN(takenAt.getTime())) takenAt = null
+        }
       }
+
+      if (!point) {
+        const meta = await readMediaMeta(path, kind, {
+          mode: 'fast',
+          force: forceRetry,
+        })
+        point = meta.point
+        takenAt = meta.takenAt
+        gpsExtractFailed = Boolean(meta.gpsExtractFailed)
+        needsDeep = Boolean(meta.needsDeep) && !point && !gpsExtractFailed
+      }
+
       if (job.cancelled) return
       job.processed += 1
       if (point) job.located += 1
       else job.missing += 1
-      const info = await stat(path), rel = relative(root, path).replaceAll('\\', '/')
-      const id = `${sourceId}|${rel}|${info.size}|${info.mtimeMs}`
-      media.set(id, path)
-      job.items.push({
+
+      const itemIndex = job.items.length
+      pushScanItem(job, {
         id,
-        name: basename(path),
-        relativePath: rel,
+        path,
+        rel,
         sourceId,
         kind,
-        available: true,
-        latitude: point?.latitude ?? 0,
-        longitude: point?.longitude ?? 0,
-        locationMissing: !point,
-        takenAt: takenAtToIso(takenAt ?? new Date(info.mtimeMs)),
-        url: `/api/media/${encodeURIComponent(id)}`,
+        point,
+        takenAt,
+        info,
+        gpsExtractFailed,
       })
+      if (needsDeep) {
+        deepQueue.push({ path, kind, info, rel, id, itemIndex, needsDeep: true })
+      }
     }
   }))
+
+  if (job.cancelled) {
+    job.phase = 'cancelled'
+    job.done = true
+    return
+  }
+
+  // —— Pass 2: deep (yalnızca needs_deep) ——
+  if (deepQueue.length > 0) {
+    job.phase = 'scanning_deep'
+    // processed sayacı deep için toplamın üstüne binmesin; located/missing güncelle
+    let deepNext = 0
+    const deepWorkers = Math.min(workers, deepQueue.length)
+    await Promise.all(Array.from({ length: deepWorkers }, async () => {
+      while (deepNext < deepQueue.length) {
+        if (job.cancelled) return
+        const entry = deepQueue[deepNext++]
+        const meta = await readMediaMeta(entry.path, entry.kind, {
+          mode: 'deep',
+          force: forceRetry,
+        })
+        const item = job.items[entry.itemIndex]
+        if (!item) continue
+        const hadPoint = !item.locationMissing
+        if (meta.point) {
+          item.latitude = meta.point.latitude
+          item.longitude = meta.point.longitude
+          item.locationMissing = false
+          item.gpsExtractFailed = false
+          if (!hadPoint) {
+            job.located += 1
+            job.missing = Math.max(0, job.missing - 1)
+          }
+        } else {
+          item.gpsExtractFailed = Boolean(meta.gpsExtractFailed)
+          item.locationMissing = true
+        }
+        if (meta.takenAt) item.takenAt = takenAtToIso(meta.takenAt)
+      }
+    }))
+  }
+
+  await flushLocationCache()
+
   if (job.cancelled) {
     job.phase = 'cancelled'
     job.done = true
@@ -716,13 +929,71 @@ async function scan(root, sourceId, job) {
   job.done = true
 }
 
-function send(res, code, value) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': 'http://localhost:5173' }); res.end(JSON.stringify(value)) }
-async function readBody(req) { const chunks = []; for await (const c of req) chunks.push(c); return JSON.parse(Buffer.concat(chunks).toString()) }
+function corsOrigin(req) {
+  const origin = req.headers.origin
+  if (!origin) return '*'
+  // Yerel Vite V1/V2 + LAN (telefon aynı Wi‑Fi)
+  if (
+    /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(origin) ||
+    /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(origin)
+  ) {
+    return origin
+  }
+  return 'http://localhost:5173'
+}
+
+function send(res, code, value, req) {
+  res.writeHead(code, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': req ? corsOrigin(req) : '*',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Private-Network': 'true',
+  })
+  res.end(JSON.stringify(value))
+}
+async function readBody(req) {
+  const chunks = []
+  for await (const c of req) chunks.push(c)
+  const raw = Buffer.concat(chunks).toString()
+  if (!raw.trim()) return {}
+  return JSON.parse(raw)
+}
 
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`)
-    if (req.method === 'GET' && url.pathname === '/api/health') return send(res, 200, { ok: true })
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': corsOrigin(req),
+        'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type,Range',
+        'Access-Control-Allow-Private-Network': 'true',
+      })
+      return res.end()
+    }
+    if (req.method === 'GET' && url.pathname === '/api/health') {
+      const workerUp = await locationWorkerAvailable()
+      const sibling = await siblingExtractorAvailable()
+      const status = locationWorkerStatus()
+      return send(
+        res,
+        workerUp ? 200 : 503,
+        {
+          ok: workerUp,
+          locationWorker: {
+            ...status,
+            sibling,
+            required: true,
+            engine: 'konum-bulucu',
+          },
+          error: workerUp
+            ? null
+            : 'Konum Bulucu worker yok — baslat-v2.bat ve “video daki konum neresi” gerekli.',
+        },
+        req,
+      )
+    }
     if (req.method === 'GET' && url.pathname === '/api/drives') {
       return send(res, 200, { drives: await listDrives() })
     }
@@ -739,8 +1010,19 @@ createServer(async (req, res) => {
       return send(res, 200, { available })
     }
     if (req.method === 'POST' && url.pathname === '/api/scan') {
-      const { path, sourceId } = await readBody(req)
+      const { path, sourceId, known, forceGoProRetry, includeInsv } = await readBody(req)
       if (!path || !sourceId) return send(res, 400, { error: 'Klasör yolu gerekli.' })
+      if (!(await locationWorkerAvailable())) {
+        return send(
+          res,
+          503,
+          {
+            error:
+              'Konum Bulucu worker açılamadı. baslat-v2.bat ve kardeş proje “video daki konum neresi” gerekli.',
+          },
+          req,
+        )
+      }
       const jobId = `${sourceId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       const job = {
         phase: 'discovering',
@@ -754,12 +1036,147 @@ createServer(async (req, res) => {
         cancelled: false,
       }
       jobs.set(jobId, job)
-      scan(path, sourceId, job).catch((error) => {
+      scan(
+        path,
+        sourceId,
+        job,
+        known && typeof known === 'object' ? known : null,
+        {
+          forceGoProRetry: Boolean(forceGoProRetry),
+          includeInsv: Boolean(includeInsv),
+        },
+      ).catch((error) => {
         job.error = error instanceof Error ? error.message : 'Scan failed.'
         job.done = true
         job.phase = 'error'
       })
       return send(res, 202, { jobId })
+    }
+    if (req.method === 'POST' && (url.pathname === '/api/gps-retry' || url.pathname === '/api/gopro-gps')) {
+      const { paths } = await readBody(req)
+      if (!Array.isArray(paths) || paths.length === 0) {
+        return send(res, 400, { error: 'paths gerekli.' }, req)
+      }
+      if (!(await locationWorkerAvailable())) {
+        return send(
+          res,
+          503,
+          {
+            error:
+              'Konum Bulucu worker açılamadı. baslat-v2.bat ve “video daki konum neresi” gerekli.',
+          },
+          req,
+        )
+      }
+      const list = [...new Set(
+        paths
+          .filter((p) => typeof p === 'string' && p.trim())
+          .map((p) => String(p).trim())
+          .slice(0, 2000),
+      )]
+      const jobId = `gps-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const job = {
+        phase: 'running',
+        total: list.length,
+        processed: 0,
+        located: 0,
+        missing: 0,
+        failed: 0,
+        /** @type {Array<{ path: string, ok: boolean, latitude?: number, longitude?: number, locationMissing?: boolean, takenAt?: string | null, error?: string }>} */
+        results: [],
+        done: false,
+        error: null,
+        cancelled: false,
+      }
+      gpsRetryJobs.set(jobId, job)
+
+      const extractOne = async (filePath) => {
+        const loc = await extractWithLocationWorker(filePath, {
+          force: true,
+          mode: 'full',
+        })
+        if (loc.gpsExtractFailed) {
+          return {
+            path: filePath,
+            ok: false,
+            error: 'Konum Bulucu GPS okuyamadı',
+          }
+        }
+        if (loc.point) {
+          return {
+            path: filePath,
+            ok: true,
+            latitude: loc.point.latitude,
+            longitude: loc.point.longitude,
+            locationMissing: false,
+          }
+        }
+        return { path: filePath, ok: true, locationMissing: true }
+      }
+
+      void (async () => {
+        let next = 0
+        const workers = Math.min(6, list.length || 1)
+        await Promise.all(Array.from({ length: workers }, async () => {
+          while (next < list.length) {
+            if (job.cancelled) return
+            const i = next++
+            const filePath = list[i]
+            let row
+            try {
+              await access(filePath)
+            } catch {
+              row = { path: filePath, ok: false, error: 'Dosya bulunamadı.' }
+            }
+            if (!row) {
+              try {
+                row = await extractOne(filePath)
+              } catch (err) {
+                row = {
+                  path: filePath,
+                  ok: false,
+                  error: err instanceof Error ? err.message : 'GPS okunamadı',
+                }
+              }
+            }
+            job.results.push(row)
+            job.processed += 1
+            if (row.ok && !row.locationMissing) job.located += 1
+            else if (row.ok) job.missing += 1
+            else job.failed += 1
+          }
+        }))
+        await flushLocationCache()
+        job.done = true
+        job.phase = job.cancelled ? 'cancelled' : 'done'
+        // Bellekte birikmesin — 30 dk sonra sil
+        setTimeout(() => gpsRetryJobs.delete(jobId), 30 * 60 * 1000).unref?.()
+      })().catch((error) => {
+        job.error = error instanceof Error ? error.message : 'GPS yeniden okuma başarısız.'
+        job.done = true
+        job.phase = 'error'
+      })
+
+      return send(res, 202, { jobId }, req)
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/api/gps-retry/')) {
+      const jobId = decodeURIComponent(url.pathname.slice('/api/gps-retry/'.length))
+      const job = gpsRetryJobs.get(jobId)
+      if (!job) return send(res, 404, { error: 'GPS işi bulunamadı (API yeniden başladıysa tekrar dene).' }, req)
+      const after = Math.max(0, Number(url.searchParams.get('after') ?? '0') || 0)
+      return send(res, 200, {
+        phase: job.phase,
+        total: job.total,
+        processed: job.processed,
+        located: job.located,
+        missing: job.missing,
+        failed: job.failed,
+        results: job.results.slice(after),
+        resultCount: job.results.length,
+        done: job.done,
+        error: job.error,
+        cancelled: Boolean(job.cancelled),
+      }, req)
     }
     if (req.method === 'POST' && url.pathname.startsWith('/api/scan/') && url.pathname.endsWith('/cancel')) {
       const jobId = decodeURIComponent(url.pathname.slice('/api/scan/'.length, -'/cancel'.length))
@@ -787,23 +1204,27 @@ createServer(async (req, res) => {
         cancelled: Boolean(job.cancelled),
       })
     }
+    if (req.method === 'POST' && url.pathname === '/api/pick-folder') {
+      const chosen = await pickFolderWindows()
+      if (!chosen) return send(res, 200, { cancelled: true }, req)
+      return send(res, 200, { path: chosen }, req)
+    }
     if (req.method === 'POST' && url.pathname === '/api/open') {
       const { id } = await readBody(req)
       const path = media.get(id)
-      if (!path) return send(res, 404, { error: 'Media not found.' })
-      const child = spawn('cmd.exe', ['/c', 'start', '', path], { detached: true, stdio: 'ignore' })
-      child.unref()
-      return send(res, 200, { ok: true })
+      if (!path) return send(res, 404, { error: 'Media not found.' }, req)
+      await openPathInExplorer(path, true)
+      return send(res, 200, { ok: true }, req)
     }
-    if (req.method === 'POST' && url.pathname === '/api/reveal') {
-      const { id, path: rawPath, rootPath, relativePath } = await readBody(req)
+    if (req.method === 'POST' && url.pathname === '/api/play') {
+      const body = await readBody(req)
+      const { id, path: rawPath, rootPath, relativePath, player } = body
       let path = null
       if (typeof rawPath === 'string' && rawPath.trim()) {
         const candidate = resolve(rawPath.trim())
         try {
           const info = await stat(candidate)
-          path = candidate
-          if (!info.isFile() && !info.isDirectory()) path = null
+          if (info.isFile()) path = candidate
         } catch {
           path = null
         }
@@ -813,24 +1234,218 @@ createServer(async (req, res) => {
         path = await resolveExistingWithinRoot(rootPath, relativePath)
         if (path && id) media.set(id, path)
       }
-      if (!path) return send(res, 404, { error: 'Media not found.' })
-      const info = await stat(path)
-      const folder = info.isDirectory() ? path : dirname(path)
-      // Dosya seçili gelsin (Explorer /select,PATH — ayrı argüman)
-      if (info.isFile()) {
-        spawn('explorer.exe', [`/select,${path}`], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-        }).unref()
-      } else {
-        spawn('explorer.exe', [folder], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-        }).unref()
+      if (!path) {
+        return send(res, 404, {
+          ok: false,
+          error: 'Dosya yolu bulunamadı. Sürücü bağlı mı?',
+        })
       }
-      return send(res, 200, { ok: true, path, folder, selected: info.isFile() })
+      try {
+        await access(path)
+      } catch {
+        return send(res, 404, { ok: false, error: 'Dosya diskte yok.' })
+      }
+      const prefer = String(player || 'system').toLowerCase()
+      if (prefer === 'vlc') {
+        const vlcCandidates = [
+          process.env.VLC_PATH,
+          'C:\\Program Files\\VideoLAN\\VLC\\vlc.exe',
+          'C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe',
+        ].filter(Boolean)
+        let vlc = null
+        for (const c of vlcCandidates) {
+          try {
+            await access(c)
+            vlc = c
+            break
+          } catch {
+            /* */
+          }
+        }
+        if (!vlc) {
+          return send(res, 500, { ok: false, error: 'VLC bulunamadı.' })
+        }
+        spawn(vlc, ['--started-from-file', path], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+        }).unref()
+        return send(res, 200, { ok: true, engine: 'vlc', path })
+      }
+      if (prefer === 'wmplayer' || prefer === 'wmp' || prefer === 'mediaplayer') {
+        const wmpCandidates = [
+          'C:\\Program Files\\Windows Media Player\\wmplayer.exe',
+          'C:\\Program Files (x86)\\Windows Media Player\\wmplayer.exe',
+        ]
+        let wmp = null
+        for (const c of wmpCandidates) {
+          try {
+            await access(c)
+            wmp = c
+            break
+          } catch {
+            /* */
+          }
+        }
+        if (wmp) {
+          spawn(wmp, [path], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true,
+          }).unref()
+          return send(res, 200, { ok: true, engine: 'wmplayer', path })
+        }
+      }
+      // Varsayılan: Windows dosya ilişkilendirmesi (Films & TV / Photos / …)
+      spawn('cmd.exe', ['/c', 'start', '', path], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+      }).unref()
+      return send(res, 200, { ok: true, engine: 'system', path })
+    }
+    if (req.method === 'GET' && url.pathname === '/api/players') {
+      let vlc = false
+      let wmplayer = false
+      for (const c of [
+        process.env.VLC_PATH,
+        'C:\\Program Files\\VideoLAN\\VLC\\vlc.exe',
+        'C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe',
+      ].filter(Boolean)) {
+        try {
+          await access(c)
+          vlc = true
+          break
+        } catch {
+          /* */
+        }
+      }
+      for (const c of [
+        'C:\\Program Files\\Windows Media Player\\wmplayer.exe',
+        'C:\\Program Files (x86)\\Windows Media Player\\wmplayer.exe',
+      ]) {
+        try {
+          await access(c)
+          wmplayer = true
+          break
+        } catch {
+          /* */
+        }
+      }
+      return send(res, 200, { vlc, wmplayer, system: true })
+    }
+    if (req.method === 'POST' && url.pathname === '/api/reveal') {
+      const { id, path: rawPath, rootPath, relativePath } = await readBody(req)
+      let path = null
+      let missingOnDisk = false
+
+      // Önce oynatma / resolve ile bilinen gerçek yol (yanlış client path Belgeler'e düşmesin)
+      if (id) path = media.get(id) || null
+
+      if (!path && rootPath && relativePath) {
+        path = await resolveExistingWithinRoot(rootPath, relativePath)
+        if (path && id) media.set(id, path)
+      }
+
+      // Client'ın verdiği yol yalnızca diskte varsa
+      if (!path && typeof rawPath === 'string' && rawPath.trim()) {
+        const candidate = normalizeRevealPath(rawPath)
+        if (candidate) {
+          try {
+            const info = await stat(candidate)
+            if (info.isFile() || info.isDirectory()) path = candidate
+          } catch {
+            /* aday yok — aşağıda üst klasöre düş */
+          }
+        }
+      }
+
+      // Dosya yoksa üst klasörü aç (varsa); yoksa Explorer Belgeler'e düşmesin
+      let openTarget = path
+      let isFile = false
+      if (path) {
+        try {
+          const info = await stat(path)
+          isFile = info.isFile()
+          openTarget = path
+        } catch {
+          missingOnDisk = true
+          const parent = dirname(path)
+          try {
+            const parentInfo = await stat(parent)
+            if (parentInfo.isDirectory()) {
+              openTarget = parent
+              isFile = false
+            } else {
+              path = null
+            }
+          } catch {
+            path = null
+            openTarget = null
+          }
+        }
+      }
+
+      // Son çare: yanlış client rawPath üst klasörünü AÇMA —
+      // var olmayan /select yolu Windows’ta Belgeler’e düşer.
+      // Yalnızca diskte doğrulanmış openTarget ile devam.
+
+      if (!openTarget) {
+        return send(
+          res,
+          404,
+          {
+            error:
+              'Klasör yolu bulunamadı. Kaynağı “+ Sürücü ekle” veya klasör seçici ile ekleyin (FSA tek başına Explorer açamaz).',
+          },
+          req,
+        )
+      }
+
+      // Açmadan önce bir kez daha doğrula
+      try {
+        const info = await stat(openTarget)
+        isFile = info.isFile()
+        if (!isFile && !info.isDirectory()) {
+          return send(res, 404, { error: `Geçersiz yol: ${openTarget}` }, req)
+        }
+      } catch {
+        return send(
+          res,
+          404,
+          { error: `Dosya/klasör diskte yok: ${openTarget}` },
+          req,
+        )
+      }
+
+      try {
+        await openPathInExplorer(openTarget, isFile)
+      } catch (err) {
+        return send(
+          res,
+          500,
+          {
+            error:
+              err instanceof Error
+                ? `Explorer açılamadı: ${err.message}`
+                : 'Explorer açılamadı.',
+            path: path || openTarget,
+          },
+          req,
+        )
+      }
+      return send(
+        res,
+        200,
+        {
+          ok: true,
+          path: path || openTarget,
+          folder: isFile ? dirname(openTarget) : openTarget,
+          selected: isFile,
+          missingOnDisk,
+        },
+        req,
+      )
     }
     if (req.method === 'POST' && url.pathname === '/api/resolve') {
       const { id, rootPath, relativePath } = await readBody(req)
@@ -871,10 +1486,16 @@ createServer(async (req, res) => {
       return
     }
     if (req.method === 'POST' && url.pathname === '/api/transcode') {
-      const { id, rootPath, relativePath } = await readBody(req)
-      const result = await chromeCompatibleFromPath(id, rootPath, relativePath)
-      if (result.cached) return send(res, 200, { url: result.url, key: result.key, cached: true })
-      return send(res, 202, { jobId: result.jobId, key: result.key })
+      const { id, rootPath, relativePath, path: rawPath } = await readBody(req)
+      try {
+        const result = await chromeCompatibleFromPath(id, rootPath, relativePath, rawPath)
+        if (result.cached) return send(res, 200, { url: result.url, key: result.key, cached: true })
+        return send(res, 202, { jobId: result.jobId, key: result.key })
+      } catch (error) {
+        return send(res, 400, {
+          error: error instanceof Error ? error.message : 'Transcode failed.',
+        })
+      }
     }
     if (req.method === 'GET' && url.pathname.startsWith('/api/transcode/')) {
       const jobId = decodeURIComponent(url.pathname.slice('/api/transcode/'.length))
@@ -933,7 +1554,9 @@ createServer(async (req, res) => {
       return send(res, 202, { jobId: started.jobId, key })
     }
     if (req.method === 'GET' && url.pathname.startsWith('/api/transcoded/')) {
-      const fileName = decodeURIComponent(url.pathname.slice('/api/transcoded/'.length))
+      // pathname %2F'yi / yapabilir; ham req.url kullan
+      const rawPath = String(req.url || '').split('?')[0]
+      const fileName = decodeURIComponent(rawPath.slice('/api/transcoded/'.length))
       const key = fileName.replace(/\.mp4$/i, '')
       if (!/^[a-f0-9]{40}$/i.test(key)) return send(res, 400, { error: 'Invalid transcode key.' })
       const path = resolve(transcodeDir, `${key}.mp4`)
@@ -946,13 +1569,30 @@ createServer(async (req, res) => {
       return
     }
     if (req.method === 'GET' && url.pathname.startsWith('/api/media/')) {
-      const path = media.get(decodeURIComponent(url.pathname.slice(11)))
+      // Önemli: URL.pathname %2F → / çevirir; id içindeki klasör ayracı kaybolur.
+      // Ham req.url ile id'yi çöz (sourceId|DCIM/foo.mp4|size|mtime).
+      const rawPath = String(req.url || '').split('?')[0]
+      const id = decodeURIComponent(rawPath.slice('/api/media/'.length))
+      const path = media.get(id)
       if (!path) return send(res, 404, { error: 'Medya bulunamadı.' })
-      await streamMedia(req, res, path); return
+      await streamMedia(req, res, path)
+      return
     }
     return send(res, 404, { error: 'Bulunamadı.' })
   } catch (error) { return send(res, 500, { error: error instanceof Error ? error.message : 'Tarama hatası.' }) }
 }).listen(Number(process.env.MEDIAATLAS_API_PORT || 5174), '127.0.0.1', () => {
   const port = Number(process.env.MEDIAATLAS_API_PORT || 5174)
   console.log(`MedyaAtlas yerel servis: ${port}`)
+  void locationWorkerAvailable().then(async (ok) => {
+    const sibling = await siblingExtractorAvailable()
+    console.log(
+      ok
+        ? `[api] Konum Bulucu hazır${sibling ? ' (kardeş location_extractor)' : ' (yedek kopya — kardeş proje önerilir)'}`
+        : '[api] Konum Bulucu worker açılamadı — tarama çalışmaz',
+    )
+  })
+}).on('error', (err) => {
+  console.error('[api] listen hatası:', err)
+  // Gözcü yeniden başlatsın
+  process.exit(1)
 })

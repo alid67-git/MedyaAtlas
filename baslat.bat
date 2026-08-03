@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
-title MedyaAtlas
-echo MedyaAtlas masaustu baslatiliyor...
+title MedyaAtlas V1
+echo MedyaAtlas V1 (masaüstü) baslatiliyor...
 echo.
 
 where node >nul 2>&1
@@ -45,8 +45,9 @@ for %%P in (5173 5174 5175) do (
   )
 )
 
-echo Vite arayuz sunucusu aciliyor...
-start "MedyaAtlas-Vite" /b cmd /c "npm run dev"
+echo Vite V1 arayuz sunucusu aciliyor (port 5173)...
+set VITE_MEDIAATLAS_EDITION=v1
+start "MedyaAtlas-V1-Vite" /b cmd /c "npm run dev:v1"
 
 echo Vite bekleniyor...
 powershell -NoProfile -Command "for ($i=0; $i -lt 60; $i++) { try { $r = Invoke-WebRequest -Uri 'http://localhost:5173/' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -ge 200) { exit 0 } } catch {} ; Start-Sleep -Milliseconds 500 }; exit 1"
@@ -56,9 +57,9 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Masaustu penceresi aciliyor (tarayici degil^)...
-python desktop\main.py --ui http://localhost:5173/
+echo Masaustu penceresi aciliyor (V1^)...
+python desktop\main.py --ui http://localhost:5173/?edition=v1
 
 echo.
-echo MedyaAtlas kapandi.
+echo MedyaAtlas V1 kapandi.
 pause

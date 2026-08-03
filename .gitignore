@@ -16,6 +16,8 @@ desktop/**/__pycache__/
 *.py[cod]
 build/
 *.spec.bak
+release/
+desktop/build/
 
 # Editor directories and files
 .vscode/*

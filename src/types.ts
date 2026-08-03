@@ -19,6 +19,11 @@ export interface MediaItem {
   height?: number
   /** GPS etiketi bulunamadı; haritada değil ayrı galeride gösterilir. */
   locationMissing?: boolean
+  /**
+   * GoPro GPMF okuması API/IO yüzünden yapılamadı — kesin "konum yok" değil.
+   * false = tarama tamamlandı, kilitli GPS yok; true/undefined(eski) = yeniden dene.
+   */
+  gpsExtractFailed?: boolean
 }
 
 export interface LocationCluster {

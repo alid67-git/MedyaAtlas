@@ -86,6 +86,45 @@ def _client_to_screen(hwnd: int, x: int, y: int) -> tuple[int, int]:
     return int(pt.x), int(pt.y)
 
 
+def _dpi_scale(hwnd: int | None) -> float:
+    """JS getBoundingClientRect = CSS px; Win32 ClientToScreen = fiziksel px."""
+    import ctypes
+
+    try:
+        if hwnd:
+            dpi = int(ctypes.windll.user32.GetDpiForWindow(int(hwnd)))
+            if dpi > 0:
+                return dpi / 96.0
+    except Exception:
+        pass
+    try:
+        dpi = int(ctypes.windll.user32.GetDpiForSystem())
+        if dpi > 0:
+            return dpi / 96.0
+    except Exception:
+        pass
+    return 1.0
+
+
+def _scale_css_bounds(
+    hwnd: int | None,
+    left: int,
+    top: int,
+    width: int,
+    height: int,
+    dpr: float | None = None,
+) -> tuple[int, int, int, int]:
+    scale = float(dpr) if dpr and dpr > 0 else _dpi_scale(hwnd)
+    if abs(scale - 1.0) < 0.01:
+        return int(left), int(top), int(width), int(height)
+    return (
+        int(round(left * scale)),
+        int(round(top * scale)),
+        int(round(width * scale)),
+        int(round(height * scale)),
+    )
+
+
 def _window_class(hwnd: int) -> str:
     import ctypes
 
@@ -124,15 +163,23 @@ def _find_browser_hwnd(root: int) -> int:
 
 
 def _map_viewport_bounds(
-    left: int, top: int, width: int, height: int
+    left: int,
+    top: int,
+    width: int,
+    height: int,
+    dpr: float | None = None,
 ) -> tuple[int, int, int, int, int | None]:
-    """JS rect → (screenX, screenY, w, h, parent_hwnd)."""
-    w, h = _clamp_size(width, height)
+    """JS rect (CSS px) → (screenX, screenY, w, h, parent_hwnd)."""
     host = _find_mediaatlas_hwnd()
     if host and sys.platform == "win32":
         browser = _find_browser_hwnd(host)
+        left, top, width, height = _scale_css_bounds(
+            browser, left, top, width, height, dpr
+        )
+        w, h = _clamp_size(width, height)
         sx, sy = _client_to_screen(browser, left, top)
         return sx, sy, w, h, browser
+    w, h = _clamp_size(width, height)
     return int(left), int(top), w, h, None
 
 
@@ -224,13 +271,24 @@ class VlcPreviewController:
             else:
                 player.set_xwindow(handle)
 
-        def apply_bounds(left: int, top: int, width: int, height: int, viewport: bool) -> None:
-            w, h = _clamp_size(width, height)
+        def apply_bounds(
+            left: int,
+            top: int,
+            width: int,
+            height: int,
+            viewport: bool,
+            dpr: float | None = None,
+        ) -> None:
             host = _find_mediaatlas_hwnd()
             if viewport and host and sys.platform == "win32":
                 # WebView2 çocuğuna SetParent → siyah kare (VLC çizemez).
                 # Ekran koordinatında kenarlıksız katman olarak stage üzerine oturt.
+                css_left, css_top, css_width, css_height = left, top, width, height
                 browser = _find_browser_hwnd(host)
+                left, top, width, height = _scale_css_bounds(
+                    browser, left, top, width, height, dpr
+                )
+                w, h = _clamp_size(width, height)
                 try:
                     sx, sy = _client_to_screen(browser, left, top)
                     root.geometry(f"{w}x{h}+{sx}+{sy}")
@@ -243,35 +301,50 @@ class VlcPreviewController:
                         pass
                     return
                 except Exception:
-                    sx, sy, w, h, _parent = _map_viewport_bounds(left, top, width, height)
+                    sx, sy, w, h, _parent = _map_viewport_bounds(
+                        css_left, css_top, css_width, css_height, dpr
+                    )
                     root.geometry(f"{w}x{h}+{sx}+{sy}")
                     return
             if viewport:
-                sx, sy, w, h, _parent = _map_viewport_bounds(left, top, width, height)
+                sx, sy, w, h, _parent = _map_viewport_bounds(
+                    left, top, width, height, dpr
+                )
                 root.geometry(f"{w}x{h}+{sx}+{sy}")
             else:
+                w, h = _clamp_size(width, height)
                 root.geometry(f"{w}x{h}+{int(left)}+{int(top)}")
 
         def do_play(
             path: str,
             bounds: tuple[int, int, int, int] | None,
             viewport: bool,
+            dpr: float | None = None,
         ) -> None:
             media = instance.media_new(path)
             player.set_media(media)
             root.deiconify()
             root.update_idletasks()
             if bounds:
-                apply_bounds(bounds[0], bounds[1], bounds[2], bounds[3], viewport)
+                apply_bounds(
+                    bounds[0], bounds[1], bounds[2], bounds[3], viewport, dpr
+                )
             bind_video()
             player.play()
             with self._lock:
                 self._playing_path = path
 
-        def do_bounds(left: int, top: int, w: int, h: int, viewport: bool) -> None:
+        def do_bounds(
+            left: int,
+            top: int,
+            w: int,
+            h: int,
+            viewport: bool,
+            dpr: float | None = None,
+        ) -> None:
             if root.state() == "withdrawn":
                 return
-            apply_bounds(left, top, w, h, viewport)
+            apply_bounds(left, top, w, h, viewport, dpr)
 
         def do_stop() -> None:
             try:
@@ -292,9 +365,17 @@ class VlcPreviewController:
                             cmd[1],
                             cmd[2] if len(cmd) > 2 else None,
                             bool(cmd[3]) if len(cmd) > 3 else True,
+                            float(cmd[4]) if len(cmd) > 4 and cmd[4] else None,
                         )
                     elif op == "bounds":
-                        do_bounds(cmd[1], cmd[2], cmd[3], cmd[4], bool(cmd[5]))
+                        do_bounds(
+                            cmd[1],
+                            cmd[2],
+                            cmd[3],
+                            cmd[4],
+                            bool(cmd[5]),
+                            float(cmd[6]) if len(cmd) > 6 and cmd[6] else None,
+                        )
                     elif op == "stop":
                         do_stop()
                     elif op == "quit":
@@ -322,13 +403,14 @@ class VlcPreviewController:
         bounds: tuple[int, int, int, int] | None = None,
         *,
         viewport: bool = True,
+        dpr: float | None = None,
     ) -> dict:
         if not path.is_file():
             return {"ok": False, "error": "Dosya bulunamadı."}
         self._ensure_thread()
         if self._error:
             return {"ok": False, "error": self._error}
-        self._q.put(("play", str(path.resolve()), bounds, viewport))
+        self._q.put(("play", str(path.resolve()), bounds, viewport, dpr))
         return {"ok": True, "engine": "libvlc", "path": str(path), "hw": True, "embedded": True}
 
     def set_bounds(
@@ -339,9 +421,10 @@ class VlcPreviewController:
         h: int,
         *,
         viewport: bool = True,
+        dpr: float | None = None,
     ) -> dict:
         if self._thread and self._thread.is_alive():
-            self._q.put(("bounds", x, y, w, h, viewport))
+            self._q.put(("bounds", x, y, w, h, viewport, dpr))
         return {"ok": True}
 
     def stop(self) -> dict:

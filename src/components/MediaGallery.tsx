@@ -38,17 +38,21 @@ export function loadGalleryScope(): GalleryScope {
 
 interface MediaGalleryProps {
   items: MediaItem[]
+  /** Filtre/kapsam değişince DOM’u sıfırla — GPS sayısı buraya bağlanmamalı. */
+  listKey?: string
   /** Kütüphanedeki GPS’li toplam (alan filtresinden bağımsız) */
   totalLocated: number
   locationMode: 'located' | 'missing'
   language: 'tr' | 'en'
   scope: GalleryScope
   onScopeChange: (scope: GalleryScope) => void
+  /** "bu alanda" yerine özel metin (ör. seçili konum) */
+  areaHint?: string
   selectedId?: string | null
   resolveThumb: (item: MediaItem) => Promise<ThumbInfo | null>
   pathForItem: (item: MediaItem) => string
   onSelect: (item: MediaItem) => void
-  onOpen: (item: MediaItem) => void
+  onOpen: (item: MediaItem, opts?: { autoPlay?: boolean }) => void
   onReconnect: (sourceId: string) => void
   onCopyPath: (item: MediaItem) => void
 }
@@ -107,7 +111,7 @@ function Thumb({
   resolveThumb: (item: MediaItem) => Promise<ThumbInfo | null>
   pathLabel: string
   onSelect: (item: MediaItem) => void
-  onOpen: (item: MediaItem) => void
+  onOpen: (item: MediaItem, opts?: { autoPlay?: boolean }) => void
   onReconnect: (sourceId: string) => void
   onCopyPath: (item: MediaItem) => void
 }) {
@@ -115,125 +119,55 @@ function Thumb({
     item.kind === 'video' || item.kind === 'gopro' || item.kind === 'drone'
   const [thumb, setThumb] = useState<ThumbInfo | null>(null)
   const [failed, setFailed] = useState(false)
-  const [nearView, setNearView] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
-  const cardRef = useRef<HTMLButtonElement | null>(null)
-
-  // Yalnızca görünen (veya yakındaki) kartlar için önizleme iste — kuyruk şişmesin
-  useEffect(() => {
-    const el = cardRef.current
-    if (!el) return
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) setNearView(true)
-      },
-      { root: el.closest('.gallery__rail'), rootMargin: '240px 0px', threshold: 0.01 },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
+  const rootRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    let alive = true
-    if (!nearView || !item.available) return
+    let cancelled = false
+    setThumb(null)
     setFailed(false)
-    void resolveThumb(item).then(
-      (t) => {
-        if (!alive) return
-        if (t) setThumb(t)
-        else setFailed(true)
-      },
-      () => {
-        if (alive) setFailed(true)
-      },
-    )
+    void (async () => {
+      try {
+        const next = await resolveThumb(item)
+        if (!cancelled) {
+          setThumb(next)
+          if (!next) setFailed(true)
+        }
+      } catch {
+        if (!cancelled) setFailed(true)
+      }
+    })()
     return () => {
-      alive = false
+      cancelled = true
     }
-  }, [nearView, item, resolveThumb])
+  }, [item, resolveThumb])
 
   useEffect(() => {
     if (!menu) return
     const close = () => setMenu(null)
     window.addEventListener('click', close)
-    window.addEventListener('scroll', close, true)
-    return () => {
-      window.removeEventListener('click', close)
-      window.removeEventListener('scroll', close, true)
-    }
+    return () => window.removeEventListener('click', close)
   }, [menu])
-
-  useEffect(() => {
-    if (!selected || !cardRef.current) return
-    cardRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }, [selected])
-
-  const onContextMenu = (e: MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setMenu({ x: e.clientX, y: e.clientY })
-  }
-
-  const tip = pathLabel
-    ? `${item.name}\n${pathLabel}`
-    : item.name
-
-  if (!item.available) {
-    return (
-      <button
-        ref={cardRef}
-        type="button"
-        className={`gallery-card gallery-card--offline${selected ? ' is-selected' : ''}`}
-        onClick={() => onReconnect(item.sourceId)}
-        onContextMenu={onContextMenu}
-        title={`${tip}\n(disk bağlı değil)`}
-        aria-current={selected ? 'true' : undefined}
-      >
-        <span className="gallery-card__offline-icon" aria-hidden>
-          ⛁
-        </span>
-        <span className={`gallery-card__badge kind-${item.kind}`}>
-          {KIND_LABEL[item.kind]} · {item.locationMissing ? 'Konum yok' : 'GPS'}
-        </span>
-        <span className="gallery-card__label">
-          {item.takenAt && (
-            <span className="gallery-card__date">
-              {formatDate(item.takenAt)} · {formatTime(item.takenAt)}
-            </span>
-          )}
-          <span className="gallery-card__name">{item.name}</span>
-        </span>
-        {pathLabel && (
-          <span className="gallery-card__path" title={pathLabel}>
-            {pathLabel}
-          </span>
-        )}
-        <span className="gallery-card__offline-note">Disk bağlı değil</span>
-        {menu && (
-          <PathMenu
-            x={menu.x}
-            y={menu.y}
-            pathLabel={pathLabel}
-            onCopy={() => {
-              onCopyPath(item)
-              setMenu(null)
-            }}
-          />
-        )}
-      </button>
-    )
-  }
 
   return (
     <button
-      ref={cardRef}
+      ref={rootRef}
       type="button"
-      className={`gallery-card${selected ? ' is-selected' : ''}`}
-      onClick={() => onSelect(item)}
-      onDoubleClick={() => onOpen(item)}
-      onContextMenu={onContextMenu}
-      title={`${tip}\nTek tık: haritada göster · Çift tık: aç`}
-      aria-current={selected ? 'true' : undefined}
+      className={`gallery-card ${selected ? 'is-selected' : ''} ${
+        item.available === false ? 'is-offline' : ''
+      }`}
+      onClick={() => {
+        onSelect(item)
+        if (item.available === false) onReconnect(item.sourceId)
+      }}
+      onDoubleClick={() => {
+        if (item.available !== false) onOpen(item, { autoPlay: isVideo })
+      }}
+      onContextMenu={(e: MouseEvent) => {
+        e.preventDefault()
+        setMenu({ x: e.clientX, y: e.clientY })
+      }}
+      title={`${item.name} · Tek tık: haritada göster · Çift tık: aç`}
     >
       {thumb ? (
         <img
@@ -251,7 +185,12 @@ function Thumb({
         <span className="gallery-card__loading" aria-hidden />
       )}
       <span className={`gallery-card__badge kind-${item.kind}`}>
-        {KIND_LABEL[item.kind]} · {item.locationMissing ? 'Konum yok' : 'GPS'}
+        {KIND_LABEL[item.kind]} ·{' '}
+        {item.locationMissing
+          ? item.gpsExtractFailed
+            ? 'GPS okunamadı'
+            : 'Konum yok'
+          : 'GPS'}
       </span>
       <span className="gallery-card__label">
         {item.takenAt && (
@@ -313,20 +252,20 @@ function PathMenu({
       >
         Yolu kopyala
       </button>
-      <p className="gallery-menu__note">
-        Sağ tık menüsü
-      </p>
+      <p className="gallery-menu__note">Sağ tık menüsü</p>
     </div>
   )
 }
 
 export function MediaGallery({
   items,
+  listKey,
   totalLocated,
   locationMode,
   language,
   scope,
   onScopeChange,
+  areaHint,
   selectedId,
   resolveThumb,
   pathForItem,
@@ -337,10 +276,15 @@ export function MediaGallery({
 }: MediaGalleryProps) {
   const [size, setSize] = useState<ThumbSize>(loadThumbSize)
   const [limit, setLimit] = useState(PAGE_SIZE)
+  const railRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setLimit(PAGE_SIZE)
-  }, [scope, locationMode])
+  }, [scope, locationMode, listKey])
+
+  useEffect(() => {
+    railRef.current?.scrollTo({ top: 0 })
+  }, [listKey])
 
   const changeSize = (next: ThumbSize) => {
     setSize(next)
@@ -369,7 +313,7 @@ export function MediaGallery({
               {locationMode === 'missing'
                 ? 'en yeni üstte'
                 : scope === 'area'
-                  ? `bu alanda · kütüphane ${totalLocated}`
+                  ? `${areaHint ?? 'bu alanda'} · kütüphane ${totalLocated}`
                   : `tümü · en yeni üstte`}
             </span>
           </h2>
@@ -415,14 +359,19 @@ export function MediaGallery({
         </div>
       </header>
       <div
+        key={listKey || 'gallery-rail'}
+        ref={railRef}
         className={`gallery__rail gallery__rail--${size}`}
         style={{ '--thumb-size': `${THUMB_PX[size]}px` } as CSSProperties}
       >
         {shown.map((item, index) => {
           const key = locationMode === 'missing' ? item.kind : dayKey(item.takenAt)
-          const previousKey = index > 0
-            ? (locationMode === 'missing' ? shown[index - 1].kind : dayKey(shown[index - 1].takenAt))
-            : null
+          const previousKey =
+            index > 0
+              ? locationMode === 'missing'
+                ? shown[index - 1].kind
+                : dayKey(shown[index - 1].takenAt)
+              : null
           return (
             <Fragment key={item.id}>
               {key !== previousKey && (

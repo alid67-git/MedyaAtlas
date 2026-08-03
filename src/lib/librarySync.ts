@@ -50,6 +50,11 @@ function normalizeItems(raw: unknown): LibraryItem[] {
       width: typeof entry.width === 'number' ? entry.width : undefined,
       height: typeof entry.height === 'number' ? entry.height : undefined,
       locationMissing: entry.locationMissing === true,
+      gpsExtractFailed: entry.gpsExtractFailed === true
+        ? true
+        : entry.gpsExtractFailed === false
+          ? false
+          : undefined,
     })
   }
   return out
