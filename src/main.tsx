@@ -6,7 +6,7 @@ import App from './App.tsx'
 
 // gopro-telemetry bazı ortamlarda Buffer bekler
 ;(window as unknown as { Buffer: typeof Buffer }).Buffer = Buffer
-globalThis.Buffer = Buffer
+;(globalThis as typeof globalThis & { Buffer: typeof Buffer }).Buffer = Buffer
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

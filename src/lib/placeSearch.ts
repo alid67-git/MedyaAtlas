@@ -42,35 +42,35 @@ export async function searchPlaces(
   })
   if (!res.ok) return []
   const data = (await res.json()) as NominatimResult[]
-  return data
-    .map((row) => {
-      const latitude = Number(row.lat)
-      const longitude = Number(row.lon)
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
-      let bbox: PlaceHit['bbox']
-      if (row.boundingbox?.length === 4) {
-        const south = Number(row.boundingbox[0])
-        const north = Number(row.boundingbox[1])
-        const west = Number(row.boundingbox[2])
-        const east = Number(row.boundingbox[3])
-        if (
-          Number.isFinite(south) &&
-          Number.isFinite(north) &&
-          Number.isFinite(west) &&
-          Number.isFinite(east)
-        ) {
-          bbox = [south, north, west, east]
-        }
+  const hits: PlaceHit[] = []
+  for (const row of data) {
+    const latitude = Number(row.lat)
+    const longitude = Number(row.lon)
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue
+    let bbox: PlaceHit['bbox']
+    if (row.boundingbox?.length === 4) {
+      const south = Number(row.boundingbox[0])
+      const north = Number(row.boundingbox[1])
+      const west = Number(row.boundingbox[2])
+      const east = Number(row.boundingbox[3])
+      if (
+        Number.isFinite(south) &&
+        Number.isFinite(north) &&
+        Number.isFinite(west) &&
+        Number.isFinite(east)
+      ) {
+        bbox = [south, north, west, east]
       }
-      return {
-        id: `place-${row.place_id}`,
-        label: row.display_name,
-        latitude,
-        longitude,
-        bbox,
-      } satisfies PlaceHit
+    }
+    hits.push({
+      id: `place-${row.place_id}`,
+      label: row.display_name,
+      latitude,
+      longitude,
+      bbox,
     })
-    .filter((h): h is PlaceHit => h != null)
+  }
+  return hits
 }
 
 /** Yer sonuçlarını yerel metin skoruyla sırala (normalize). */
