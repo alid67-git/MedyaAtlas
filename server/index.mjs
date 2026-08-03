@@ -1,11 +1,11 @@
 import { createServer } from 'node:http'
 import { createReadStream, createWriteStream } from 'node:fs'
-import { access, mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
-import { basename, dirname, extname, relative, resolve, sep } from 'node:path'
+import { access, mkdir, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { execFile, exec, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createHash } from 'node:crypto'
-import { tmpdir, cpus } from 'node:os'
+import { tmpdir, cpus, homedir } from 'node:os'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import exifr from 'exifr'
@@ -91,6 +91,42 @@ const transcodePromises = new Map()
 const transcodeJobs = new Map()
 const transcodeDir = resolve(tmpdir(), 'MediaAtlas-transcodes')
 const thumbDir = resolve(tmpdir(), 'MediaAtlas-thumbs')
+const RIDE_EXTS = new Set(['.gpx', '.kml', '.kmz'])
+
+/** Belgelerim\\MedyaAtlas — V2 yerel veri kökü. */
+function documentsMedyaAtlasDir() {
+  return join(homedir(), 'Documents', 'MedyaAtlas')
+}
+
+async function ensureMedyaAtlasDirs() {
+  const root = documentsMedyaAtlasDir()
+  const ridesDir = join(root, 'rides')
+  const stateDir = join(root, 'state')
+  await mkdir(ridesDir, { recursive: true })
+  await mkdir(stateDir, { recursive: true })
+  return { root, ridesDir, stateDir }
+}
+
+function safeRideFileName(name) {
+  const base = basename(String(name || '').trim())
+  if (!base || base === '.' || base === '..') return null
+  if (base.includes('\0')) return null
+  const ext = extname(base).toLowerCase()
+  if (!RIDE_EXTS.has(ext)) return null
+  return base
+}
+
+async function uniqueRidePath(ridesDir, fileName) {
+  let dest = join(ridesDir, fileName)
+  try {
+    await access(dest)
+  } catch {
+    return dest
+  }
+  const ext = extname(fileName)
+  const stem = basename(fileName, ext)
+  return join(ridesDir, `${stem}-${Date.now()}${ext}`)
+}
 const photoExt = new Set('jpg jpeg jpe png webp heic heif tif tiff dng gpr arw cr2 cr3 nef nrw orf raf rw2 pef srw x3f 3fr iiQ rwl avif gif bmp jxl insp'.split(' '))
 const videoExt = new Set('mp4 mov m4v avi mkv webm 360 insv ts mts m2ts 3gp 3g2 wmv flv mpg mpeg m2v mod tod divx'.split(' '))
 /** id → jpeg path */
@@ -997,6 +1033,115 @@ createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/drives') {
       return send(res, 200, { drives: await listDrives() })
     }
+
+    if (req.method === 'GET' && url.pathname === '/api/data-dir') {
+      const dirs = await ensureMedyaAtlasDirs()
+      return send(
+        res,
+        200,
+        {
+          ok: true,
+          root: dirs.root,
+          ridesDir: dirs.ridesDir,
+          stateDir: dirs.stateDir,
+        },
+        req,
+      )
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/rides') {
+      const { root, ridesDir } = await ensureMedyaAtlasDirs()
+      const names = await readdir(ridesDir)
+      const rides = []
+      for (const name of names) {
+        if (!safeRideFileName(name)) continue
+        const full = join(ridesDir, name)
+        try {
+          const st = await stat(full)
+          if (!st.isFile()) continue
+          rides.push({
+            fileName: name,
+            path: full,
+            size: st.size,
+            mtimeMs: st.mtimeMs,
+          })
+        } catch {
+          /* atla */
+        }
+      }
+      rides.sort((a, b) => a.fileName.localeCompare(b.fileName, 'tr'))
+      return send(res, 200, { ok: true, root, ridesDir, rides }, req)
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/rides/raw') {
+      const fileName = safeRideFileName(url.searchParams.get('name') || '')
+      if (!fileName) return send(res, 400, { error: 'name gerekli (gpx/kml/kmz).' }, req)
+      const { ridesDir } = await ensureMedyaAtlasDirs()
+      const full = join(ridesDir, fileName)
+      if (resolve(full) !== resolve(join(ridesDir, fileName))) {
+        return send(res, 400, { error: 'Geçersiz dosya adı.' }, req)
+      }
+      try {
+        await access(full)
+      } catch {
+        return send(res, 404, { error: 'Ride dosyası yok.' }, req)
+      }
+      const st = await stat(full)
+      const ext = extname(fileName).toLowerCase()
+      const type =
+        ext === '.gpx'
+          ? 'application/gpx+xml'
+          : ext === '.kml'
+            ? 'application/vnd.google-earth.kml+xml'
+            : 'application/vnd.google-earth.kmz'
+      res.writeHead(200, {
+        'Content-Type': type,
+        'Content-Length': st.size,
+        'Access-Control-Allow-Origin': corsOrigin(req),
+        'Access-Control-Allow-Private-Network': 'true',
+        'Cache-Control': 'no-store',
+      })
+      return createReadStream(full).pipe(res)
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/rides/import') {
+      const body = await readBody(req)
+      const fileName = safeRideFileName(body?.fileName)
+      const contentBase64 = typeof body?.contentBase64 === 'string' ? body.contentBase64 : ''
+      if (!fileName) {
+        return send(res, 400, { error: 'fileName gerekli (gpx/kml/kmz).' }, req)
+      }
+      if (!contentBase64) {
+        return send(res, 400, { error: 'contentBase64 gerekli.' }, req)
+      }
+      let buf
+      try {
+        buf = Buffer.from(contentBase64, 'base64')
+      } catch {
+        return send(res, 400, { error: 'contentBase64 geçersiz.' }, req)
+      }
+      if (buf.length === 0) {
+        return send(res, 400, { error: 'Dosya boş.' }, req)
+      }
+      if (buf.length > 80 * 1024 * 1024) {
+        return send(res, 413, { error: 'Ride dosyası çok büyük (max 80 MB).' }, req)
+      }
+      const { root, ridesDir } = await ensureMedyaAtlasDirs()
+      const dest = await uniqueRidePath(ridesDir, fileName)
+      await writeFile(dest, buf)
+      return send(
+        res,
+        200,
+        {
+          ok: true,
+          root,
+          path: dest,
+          fileName: basename(dest),
+          size: buf.length,
+        },
+        req,
+      )
+    }
     if (req.method === 'POST' && url.pathname === '/api/availability') {
       const { sources } = await readBody(req)
       const available = []
@@ -1583,6 +1728,9 @@ createServer(async (req, res) => {
 }).listen(Number(process.env.MEDIAATLAS_API_PORT || 5174), '127.0.0.1', () => {
   const port = Number(process.env.MEDIAATLAS_API_PORT || 5174)
   console.log(`MedyaAtlas yerel servis: ${port}`)
+  void ensureMedyaAtlasDirs().then((dirs) => {
+    console.log(`[api] Veri klasörü: ${dirs.root}`)
+  })
   void locationWorkerAvailable().then(async (ok) => {
     const sibling = await siblingExtractorAvailable()
     console.log(

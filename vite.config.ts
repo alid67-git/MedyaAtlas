@@ -7,13 +7,11 @@ import { fileURLToPath } from 'node:url'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string }
-const base = process.env.GITHUB_ACTIONS ? '/MedyaAtlas/' : '/'
 const edition = process.env.VITE_MEDIAATLAS_EDITION === 'v1' ? 'v1' : 'v2'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // GitHub Pages proje adresi: /MedyaAtlas/
-  base,
+  base: '/',
   plugins: [
     react(),
     VitePWA({

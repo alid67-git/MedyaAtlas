@@ -1,10 +1,10 @@
 @echo off
 cd /d "%~dp0"
 title MedyaAtlas V2
-echo MedyaAtlas V2 (web / PWA / telefon) baslatiliyor...
+echo MedyaAtlas V2 baslatiliyor (yerel uygulama)...
 echo.
+echo Bu program PC'de calisir: surucu tarama + GPS + harita.
 echo Telefon: ayni Wi-Fi'de asagidaki adresi Safari/Chrome'da ac.
-echo Surucu eklemek icin yerel API de acilir.
 echo.
 
 where node >nul 2>&1

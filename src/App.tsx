@@ -40,6 +40,11 @@ import {
   type MapTrack,
 } from './lib/tracks'
 import {
+  fetchDataDir,
+  importRideFileToDisk,
+  syncRidesFromDisk,
+} from './lib/ridesStore'
+import {
   clearLibrary,
   clearStoredTracks,
   deleteLibraryItems,
@@ -102,7 +107,7 @@ function friendlyError(e: unknown, fallback: string): string {
   ) {
     return (
       'Yerel API’ye ulaşılamadı — tarama başlatılamadı. ' +
-      'baslat-v2.bat’ı yeniden başlat ve http://127.0.0.1:5183 aç (5173 / GitHub Pages değil).'
+      'baslat-v2.bat’ı yeniden başlat ve http://127.0.0.1:5183 aç (V1 portu 5173 değil).'
     )
   }
   if (/unexpected token|is not valid json|json\.parse/i.test(msg)) {
@@ -1182,6 +1187,8 @@ export default function App() {
   const [viewerAutoPlay, setViewerAutoPlay] = useState(false)
   const [tracks, setTracks] = useState<MapTrack[]>([])
   const [tracksHydrated, setTracksHydrated] = useState(false)
+  const tracksRef = useRef<MapTrack[]>([])
+  const [dataDirRoot, setDataDirRoot] = useState<string | null>(null)
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null)
   const [ridesOpen, setRidesOpen] = useState(false)
   const appEdition = getAppEdition()
@@ -1251,6 +1258,7 @@ export default function App() {
   const enabledKindsRef = useRef(enabledKinds)
   const sourcesRef = useRef<SourceUi[]>([])
   itemsRef.current = items
+  tracksRef.current = tracks
   enabledKindsRef.current = enabledKinds
   sourcesRef.current = sources
 
@@ -1764,6 +1772,37 @@ export default function App() {
     if (!tracksHydrated) return
     void putStoredTracks(tracks)
   }, [tracks, tracksHydrated])
+
+  // Yerel API: Documents\\MedyaAtlas\\rides ile senkron + veri yolu bilgisi
+  useEffect(() => {
+    if (!tracksHydrated || !localApiAvailable) return
+    let cancelled = false
+    void (async () => {
+      const dir = await fetchDataDir()
+      if (!cancelled && dir) setDataDirRoot(dir.root)
+      const added = await syncRidesFromDisk(tracksRef.current)
+      if (cancelled || added.length === 0) return
+      setTracks((prev) => {
+        const names = new Set(
+          prev.map((t) => t.name.replace(/^.*[/\\]/, '').toLowerCase()),
+        )
+        const fresh = added.filter(
+          (t) => !names.has(t.name.replace(/^.*[/\\]/, '').toLowerCase()),
+        )
+        return fresh.length > 0 ? [...prev, ...fresh] : prev
+      })
+      if (!cancelled) {
+        setRidesOpen(true)
+        setError(
+          `Belgelerim\\MedyaAtlas\\rides: ${added.length} ride yüklendi.`,
+          'info',
+        )
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tracksHydrated, localApiAvailable, setError])
 
   useEffect(() => {
     let alive = true
@@ -2677,14 +2716,28 @@ export default function App() {
 
       if (trackFiles.length > 0) {
         const parsed: MapTrack[] = []
+        let diskOk = 0
         for (const file of trackFiles) {
           const track = await parseTrackFile(file, sourceId)
-          if (track) parsed.push(track)
+          if (!track) continue
+          if (localApiAvailable) {
+            const saved = await importRideFileToDisk(file)
+            if (saved) {
+              diskOk += 1
+              parsed.push({ ...track, diskPath: saved.path, name: saved.fileName })
+              continue
+            }
+          }
+          parsed.push(track)
         }
         if (parsed.length > 0) {
           setTracks((prev) => [...prev, ...parsed])
           setRidesOpen(true)
-          setError(`${parsed.length} ride dosyası eklendi.`, 'info')
+          const diskHint =
+            diskOk > 0
+              ? ` · ${diskOk} Belgelerim\\MedyaAtlas\\rides’a kopyalandı`
+              : ''
+          setError(`${parsed.length} ride dosyası eklendi${diskHint}.`, 'info')
         } else if (mediaList.length === 0) {
           setError('GPX/KML/KMZ okunamadı veya yeterli nokta yok.')
           return
@@ -2807,7 +2860,7 @@ export default function App() {
         }
       }
     },
-    [],
+    [localApiAvailable],
   )
 
   const addFolder = useCallback(async () => {
@@ -5537,9 +5590,19 @@ export default function App() {
     }
     const sourceId = `ride-${Date.now()}`
     const parsed: MapTrack[] = []
+    let diskOk = 0
     for (const file of trackFiles) {
       const track = await parseTrackFile(file, sourceId)
-      if (track) parsed.push(track)
+      if (!track) continue
+      if (localApiAvailable) {
+        const saved = await importRideFileToDisk(file)
+        if (saved) {
+          diskOk += 1
+          parsed.push({ ...track, diskPath: saved.path, name: saved.fileName })
+          continue
+        }
+      }
+      parsed.push(track)
     }
     if (parsed.length === 0) {
       setError('GPX/KML/KMZ okunamadı veya yeterli nokta yok.')
@@ -5550,8 +5613,10 @@ export default function App() {
     setSelectedTrackId(parsed[0].id)
     setPinItems(null)
     setShowLocationMissing(false)
-    setError(`${parsed.length} ride dosyası eklendi.`, 'info')
-  }, [])
+    const diskHint =
+      diskOk > 0 ? ` · ${diskOk} Belgelerim\\MedyaAtlas\\rides’a kopyalandı` : ''
+    setError(`${parsed.length} ride dosyası eklendi${diskHint}.`, 'info')
+  }, [localApiAvailable, setError])
 
   const selectRideTrack = useCallback((track: MapTrack) => {
     const range = trackDateRange(track)
@@ -5639,7 +5704,7 @@ export default function App() {
           </p>
           <p className="brand__tag">
             {editionV2
-              ? 'Tarayıcıda GPS medya haritan — kurulum yok'
+              ? 'PC’de baslat-v2.bat — sürücü tarama + GPS harita'
               : 'Dünya haritasında medya izlerin'}
           </p>
           {editionV2 && showDriveAdd && !localApiAvailable && !busy && (
@@ -5656,6 +5721,11 @@ export default function App() {
                   <code>http://127.0.0.1:5183</code> (5173 değil).
                 </>
               )}
+            </p>
+          )}
+          {editionV2 && localApiAvailable && dataDirRoot && !busy && (
+            <p className="brand__data-hint" role="status">
+              Veri: <code>{dataDirRoot}</code>
             </p>
           )}
         </div>

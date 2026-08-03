@@ -22,6 +22,8 @@ export interface MapTrack {
   /** false ise menüden gizlenmiş */
   visible?: boolean
   addedAt?: number
+  /** Belgelerim\\MedyaAtlas\\rides altındaki kopya (yerel API) */
+  diskPath?: string
 }
 
 /** Leaflet’i kilitlememek için üst sınır */

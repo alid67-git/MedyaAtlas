@@ -84,6 +84,6 @@ export function localApiMissingHint(edition: 'v1' | 'v2' = 'v2'): string {
   }
   return (
     'Yerel API yok. PC’de baslat-v2.bat’ı yeniden başlat ve ' +
-    'http://127.0.0.1:5183 aç (V1 portu 5173 değil; GitHub Pages / eski sekme yetmez).'
+    'http://127.0.0.1:5183 aç (V1 portu 5173 değil).'
   )
 }
