@@ -23,6 +23,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      # Windows-only optional deps (exiftool-vendored.exe) are skipped on Linux.
       - run: npm ci
       - run: npm run build
         env:
