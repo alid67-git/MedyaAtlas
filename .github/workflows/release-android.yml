@@ -40,7 +40,16 @@ jobs:
         run: flutter pub get
 
       - name: Build release APK
-        run: flutter build apk --release
+        env:
+          GOOGLE_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
+        run: |
+          if [ -n "$GOOGLE_SERVER_CLIENT_ID" ]; then
+            flutter build apk --release \
+              --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
+          else
+            echo "UYARI: GOOGLE_SERVER_CLIENT_ID secret yok; Drive Sign-In için SHA-1 + OAuth gerekir."
+            flutter build apk --release
+          fi
 
       - name: Resolve tag and copy APK
         id: meta
