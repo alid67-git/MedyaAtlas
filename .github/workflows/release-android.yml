@@ -67,7 +67,7 @@ jobs:
             v*) ;;
             *) TAG="v$TAG" ;;
           esac
-          NAME="MedyaAtlas-${TAG#v}-android.apk"
+          NAME="MedyaAtlas.apk"
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk "dist/$NAME"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -78,8 +78,8 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.meta.outputs.apk_name }}
-          path: dist/${{ steps.meta.outputs.apk_name }}
+          name: MedyaAtlas-apk
+          path: dist/MedyaAtlas.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -87,16 +87,16 @@ jobs:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: MedyaAtlas ${{ steps.meta.outputs.tag }}
           generate_release_notes: true
-          files: dist/${{ steps.meta.outputs.apk_name }}
+          files: dist/MedyaAtlas.apk
           body: |
             ## Android APK
-            Telefona indir → kur (bilinmeyen kaynaklara izin gerekebilir).
+            Sabit indirme linki (sürüm dosya adında yok):
+            https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
 
-            Dosya: `${{ steps.meta.outputs.apk_name }}`
+            Uygulama açılışta güncellemeyi kontrol eder.
 
             ### Not
-            - Sideload APK (Play Store imzası değil; debug imza ile release derleme)
-            - Windows için ayrı zip release ileride eklenecek
+            - Sideload APK (Play Store imzası değil)
             - Kaynak: https://github.com/alid67-git/MedyaAtlas
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

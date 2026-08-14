@@ -59,16 +59,14 @@ if errorlevel 1 (
 )
 
 if not exist "dist" mkdir "dist"
-set "OUT=dist\MedyaAtlas-%MA_VER%-android.apk"
+set "OUT=dist\MedyaAtlas.apk"
 copy /y "build\app\outputs\flutter-apk\app-release.apk" "%OUT%" >nul
 echo.
-echo APK hazir:
+echo APK hazir (sabit ad):
 echo   %CD%\%OUT%
 echo.
-echo GitHub'a yuklemek icin:
-echo   1. Actions → "Release Android APK" → Run workflow
-echo   veya
-echo   2. git tag v%MA_VER% ^&^& git push origin v%MA_VER%
+echo Indirme linki:
+echo   https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
 echo.
 explorer "dist"
 

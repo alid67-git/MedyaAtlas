@@ -17,6 +17,7 @@ import 'package:path/path.dart' as p;
 import '../app_version.dart';
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
+import '../services/app_updater.dart';
 import '../services/cluster.dart';
 import '../services/exif_gps.dart';
 import '../services/folder_picker.dart';
@@ -31,6 +32,7 @@ import '../widgets/cluster_dot.dart';
 import '../widgets/media_viewer.dart';
 import '../widgets/photo_source.dart';
 import '../services/photo_orient.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 const _worldCenter = LatLng(20, 0);
 
@@ -88,6 +90,75 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   void _endBusy() {
     _busy = false;
     _mapClusters = _safeClusters(context.read<MediaRepository>());
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdates();
+    });
+  }
+
+  Future<void> _checkForUpdates({bool manual = false}) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      if (manual && mounted) {
+        setState(() => _status = 'Otomatik güncelleme yalnızca Android’de.');
+      }
+      return;
+    }
+    if (manual && mounted) {
+      setState(() => _status = 'Güncelleme kontrol ediliyor…');
+    }
+    final info = await fetchLatestRelease();
+    if (!mounted) return;
+    if (info == null) {
+      if (manual) setState(() => _status = 'Sürüm kontrolü başarısız (ağ).');
+      return;
+    }
+    if (!info.isNewer) {
+      if (manual) {
+        setState(() => _status = 'Güncelsiniz — v$appVersion');
+      }
+      return;
+    }
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Yeni sürüm: v${info.latestVersion}'),
+        content: Text(
+          'Şu an v$appVersion.\n'
+          'Güncelleme indirilip kurulum açılacak.\n'
+          '(Dosya adı her zaman MedyaAtlas.apk)',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Sonra'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Güncelle'),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    await Permission.requestInstallPackages.request();
+    setState(() => _status = 'Güncelleme indiriliyor…');
+    final err = await downloadAndInstallApk(
+      info.downloadUrl,
+      onProgress: (p) {
+        if (!mounted) return;
+        setState(() => _status = 'Güncelleme %${(p * 100).round()}…');
+      },
+    );
+    if (!mounted) return;
+    setState(() {
+      _status = err == null
+          ? 'Kurulum ekranı açıldı — Güncelle’ye bas.'
+          : err;
+    });
   }
 
   @override
@@ -876,12 +947,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
               child: const Text('İptal'),
             )
-          else
+          else ...[
+            if (!_isDesktop)
+              IconButton(
+                tooltip: 'Güncelleme kontrol',
+                onPressed: () => _checkForUpdates(manual: true),
+                icon: const Icon(Icons.system_update_alt),
+              ),
             IconButton(
               tooltip: 'Tüm pinler',
               onPressed: hasPins ? _fitVisible : null,
               icon: const Icon(Icons.zoom_out_map),
             ),
+          ],
         ],
       ),
     );

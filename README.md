@@ -4,15 +4,16 @@ Windows ve Android uygulaması: fotoğraf/video GPS konumlarını dünya haritas
 
 Dağıtım: GitHub **Releases** (Android APK; Windows zip yakında). Web / GitHub Pages yok.
 
-## Android — GitHub’dan kur
+## Android — GitHub’dan kur / güncelle
 
-1. Aç: https://github.com/alid67-git/MedyaAtlas/releases  
-2. En son **`MedyaAtlas-*-android.apk`** indir / kur  
-3. İlk taramada **Fotoğraf/Video** ve **medya konumu** izinlerini ver  
-4. **+ Google Drive** ile Drive hesabına bağlan (kurulum: [GOOGLE_DRIVE.md](GOOGLE_DRIVE.md))  
-5. Yerel DCIM / Dosyalar da çalışır — Google Fotoğraflar bulut albümü değil  
+**Sabit indirme linki** (dosya adı sürüm içermez):  
+https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
 
-Direkt APK: Releases sayfasındaki son sürüm.
+- Uygulama açılışta yeni sürümü kontrol eder → Güncelle  
+- Elle: üst çubuktaki güncelleme ikonu  
+- Google Drive: [GOOGLE_DRIVE.md](GOOGLE_DRIVE.md)  
+
+Eski sürümü kaldırıp yeniden kurmak şart değil; üzerine kurulum olur.
 
 ## Kurulum (Windows) — yerel disk
 
@@ -32,12 +33,10 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
 
-## Ne var (0.6.8)
+## Ne var (0.7.0)
 
-- **Google Drive** bağlantısı (OAuth + Drive API; konumlu foto metadata)
-- Android: `ACCESS_MEDIA_LOCATION` + tarama öncesi izin
-- GitHub Actions Android APK Release
-- Klasör / galeri / dosya tarama; EXIF + video başlık GPS
+- Sabit APK adı `MedyaAtlas.apk` + uygulama içi otomatik güncelleme
+- MedyaAtlas ikonu; Google Drive; Android EXIF medya konum izni
 - PC: `C:\src\MedyaAtlas`
 
 GoPro GPMF telemetrisi henüz yok. GPX/KML ride çizgileri henüz yok.
