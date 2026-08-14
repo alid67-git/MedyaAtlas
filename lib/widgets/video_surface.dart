@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../models/library_media.dart';
+import '../services/photo_orient.dart';
 
 IconData kindVideoIcon(MediaKind kind) =>
     kind == MediaKind.drone ? Icons.flight : Icons.videocam;
@@ -138,11 +140,16 @@ class VideoPlaybackPane extends StatefulWidget {
     required this.path,
     required this.name,
     required this.kind,
+    this.posterBytes,
+    this.preferExternal = false,
   });
 
   final String? path;
   final String name;
   final MediaKind kind;
+  final Uint8List? posterBytes;
+  /// GoPro/DJI HEVC sık sık texture/codec kırılır — sistem oynatıcı.
+  final bool preferExternal;
 
   @override
   State<VideoPlaybackPane> createState() => _VideoPlaybackPaneState();
@@ -152,10 +159,14 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   VideoPlayerController? _controller;
   String? _error;
   var _loading = true;
+  var _openedExternal = false;
 
   @override
   void initState() {
     super.initState();
+    if (widget.preferExternal) {
+      _openExternally();
+    }
     _open();
   }
 
@@ -166,6 +177,10 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       _disposeController();
       _error = null;
       _loading = true;
+      _openedExternal = false;
+      if (widget.preferExternal) {
+        _openExternally();
+      }
       _open();
     }
   }
@@ -191,6 +206,16 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       }
       return;
     }
+    // GoPro/drone: önce dış oynatıcı; uygulama içinde poster yeter.
+    if (widget.preferExternal) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = null;
+        });
+      }
+      return;
+    }
     final controller = VideoPlayerController.file(file);
     try {
       await controller.initialize();
@@ -209,12 +234,12 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       await controller.play();
     } catch (e) {
       await controller.dispose();
+      await _openExternally();
       if (mounted) {
         setState(() {
           _loading = false;
           _error =
-              'Video açılamadı. Windows codec desteği gerekebilir '
-              '(ör. K-Lite).\n$e';
+              'Uygulama içi oynatma olmadı; Windows oynatıcıya gönderildi.\n$e';
         });
       }
     }
@@ -243,9 +268,27 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
     setState(() {});
   }
 
+  Future<void> _openExternally() async {
+    final path = widget.path;
+    if (path == null || path.isEmpty) return;
+    if (_openedExternal && widget.preferExternal) {
+      // Tekrar tıklamada yine açılabilir.
+    }
+    try {
+      await Process.start(
+        'cmd',
+        ['/c', 'start', '', path],
+        runInShell: false,
+      );
+      _openedExternal = true;
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
+    final poster = widget.posterBytes;
+    if (_loading && poster == null) {
       return const Center(child: CircularProgressIndicator());
     }
     final c = _controller;
@@ -265,7 +308,10 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                       : c.value.aspectRatio,
                   child: Stack(
                     alignment: Alignment.center,
+                    fit: StackFit.expand,
                     children: [
+                      if (poster != null)
+                        OrientedMemoryImage(poster, fit: BoxFit.contain),
                       VideoPlayer(c),
                       if (!c.value.isPlaying)
                         const Icon(
@@ -319,8 +365,14 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(kindVideoIcon(widget.kind), size: 56, color: Colors.white70),
-            const SizedBox(height: 12),
+            if (poster != null) ...[
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: OrientedMemoryImage(poster, fit: BoxFit.contain),
+              ),
+              const SizedBox(height: 16),
+            ] else
+              Icon(kindVideoIcon(widget.kind), size: 56, color: Colors.white70),
             Text(
               widget.name,
               textAlign: TextAlign.center,
@@ -328,39 +380,25 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
             ),
             const SizedBox(height: 8),
             Text(
-              _error ?? 'Video önizlemesi yok.',
+              _error ??
+                  (widget.preferExternal
+                      ? (_openedExternal
+                          ? 'Windows oynatıcıda açıldı.'
+                          : 'Windows oynatıcıda açılıyor…')
+                      : 'Video önizlemesi yok.'),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white54),
             ),
-            if (widget.path != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                widget.path!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white38, fontSize: 12),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.tonalIcon(
-                onPressed: _openExternally,
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Windows’ta aç'),
-              ),
-            ],
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: _openExternally,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Windows’ta oynat'),
+            ),
           ],
         ),
       ),
     );
   }
-
-  Future<void> _openExternally() async {
-    final path = widget.path;
-    if (path == null || path.isEmpty) return;
-    try {
-      await Process.start(
-        'cmd',
-        ['/c', 'start', '', path],
-        runInShell: false,
-      );
-    } catch (_) {}
-  }
 }
+

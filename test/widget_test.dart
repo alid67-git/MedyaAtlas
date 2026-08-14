@@ -7,6 +7,7 @@ import 'package:medyaatlas/services/cluster.dart';
 import 'package:medyaatlas/services/geo.dart';
 import 'package:medyaatlas/services/header_gps.dart';
 import 'package:medyaatlas/services/media_kind.dart';
+import 'package:medyaatlas/services/video_preview.dart';
 
 LibraryMedia _photo({
   required String id,
@@ -191,5 +192,23 @@ void main() {
     final copy = MapTrack.fromJson(track.toJson());
     expect(copy.id, 't1');
     expect(copy.points.single.latitude, 41);
+  });
+
+  test('largestJpegIn gömülü kapak bulur', () {
+    final jpeg = Uint8List.fromList([
+      0xFF, 0xD8, 0xFF, 0xE0,
+      ...List<int>.filled(3000, 1),
+      0xFF, 0xD9,
+    ]);
+    final padded = Uint8List.fromList([
+      0, 1, 2, 3,
+      ...jpeg,
+      9, 9, 9,
+    ]);
+    final found = largestJpegIn(padded, minBytes: 100);
+    expect(found, isNotNull);
+    expect(found!.first, 0xFF);
+    expect(found[1], 0xD8);
+    expect(found.last, 0xD9);
   });
 }

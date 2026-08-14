@@ -308,6 +308,13 @@ class MediaRepository extends ChangeNotifier {
     return media;
   }
 
+  /// Tarama / sonradan çıkarılan video önizleme JPEG’i.
+  Future<void> putPreviewBytes(String id, Uint8List bytes) async {
+    if (bytes.isEmpty) return;
+    await _bytesBox!.put(id, bytes);
+    _bytesCache[id] = bytes;
+  }
+
   Future<void> updateLocation({
     required String id,
     double? lat,

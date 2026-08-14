@@ -23,10 +23,11 @@ import '../services/folder_picker.dart';
 import '../services/header_gps.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
+import '../services/video_preview.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/media_viewer.dart';
 import '../widgets/photo_source.dart';
-import '../widgets/video_surface.dart';
+import '../services/photo_orient.dart';
 
 const _worldCenter = LatLng(20, 0);
 
@@ -304,6 +305,24 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           size: file.size,
         );
         if (existing != null) {
+          // Eski kayıtta video önizlemesi yoksa tarama sırasında doldur.
+          if (existing.isVideo) {
+            final hasPreview = repo.cachedBytes(existing.id) != null ||
+                await repo.bytesOf(existing.id) != null;
+            if (!hasPreview) {
+              Uint8List? head;
+              try {
+                head = await file.readHead(videoHeadBytes);
+              } catch (_) {}
+              final preview = await extractVideoPreviewBytes(
+                localPath: file.localPath,
+                head: head,
+              );
+              if (preview != null) {
+                await repo.putPreviewBytes(existing.id, preview);
+              }
+            }
+          }
           added++;
           kindCounts[existing.kind] = (kindCounts[existing.kind] ?? 0) + 1;
           if (existing.hasLocation) {
@@ -350,10 +369,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         } else {
           missing++;
         }
-        final preview =
-            isPhoto && head != null && file.size <= previewStoreBytes
-                ? head
-                : null;
+        final preview = isPhoto
+            ? (head != null && file.size <= previewStoreBytes ? head : null)
+            : await extractVideoPreviewBytes(
+                localPath: file.localPath,
+                head: head,
+              );
         await repo.add(
           name: file.name,
           kind: kind,
@@ -1228,6 +1249,7 @@ class _MissingList extends StatelessWidget {
       separatorBuilder: (context, index) => const Divider(height: 1),
       itemBuilder: (context, i) {
         final item = items[i];
+        final repo = context.read<MediaRepository>();
         return ListTile(
           leading: SizedBox(
             width: 56,
@@ -1235,7 +1257,7 @@ class _MissingList extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: item.isVideo
-                  ? VideoThumb(path: item.localPath, kind: item.kind)
+                  ? _VideoThumbCached(item: item, repo: repo)
                   : (photoFromPath(item.localPath, fit: BoxFit.cover) ??
                       const ColoredBox(
                         color: Colors.black26,
@@ -1330,13 +1352,13 @@ class _Thumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (item.isVideo) {
-      return VideoThumb(path: item.localPath, kind: item.kind);
+      return _VideoThumbCached(item: item, repo: repo);
     }
     final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
     if (fromDisk != null) return fromDisk;
     final cached = repo.cachedBytes(item.id);
     if (cached != null) {
-      return Image.memory(cached, fit: BoxFit.cover);
+      return OrientedMemoryImage(cached, fit: BoxFit.cover);
     }
     return FutureBuilder(
       future: repo.bytesOf(item.id),
@@ -1348,8 +1370,108 @@ class _Thumb extends StatelessWidget {
             child: Icon(Icons.photo_outlined),
           );
         }
-        return Image.memory(bytes, fit: BoxFit.cover);
+        return OrientedMemoryImage(bytes, fit: BoxFit.cover);
       },
+    );
+  }
+}
+
+/// Tarama sırasında kaydedilen JPEG; yoksa bir kez çıkarır (video_player yok).
+class _VideoThumbCached extends StatefulWidget {
+  const _VideoThumbCached({required this.item, required this.repo});
+
+  final LibraryMedia item;
+  final MediaRepository repo;
+
+  @override
+  State<_VideoThumbCached> createState() => _VideoThumbCachedState();
+}
+
+class _VideoThumbCachedState extends State<_VideoThumbCached> {
+  Uint8List? _bytes;
+  var _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoThumbCached oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id) {
+      _bytes = null;
+      _loading = true;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final cached = widget.repo.cachedBytes(widget.item.id) ??
+        await widget.repo.bytesOf(widget.item.id);
+    if (cached != null && cached.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _bytes = cached;
+          _loading = false;
+        });
+      }
+      return;
+    }
+    final extracted = await extractVideoPreviewBytes(
+      localPath: widget.item.localPath,
+    );
+    if (extracted != null && extracted.isNotEmpty) {
+      await widget.repo.putPreviewBytes(widget.item.id, extracted);
+      if (mounted) {
+        setState(() {
+          _bytes = extracted;
+          _loading = false;
+        });
+      }
+      return;
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = _bytes;
+    if (bytes != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          OrientedMemoryImage(bytes, fit: BoxFit.cover),
+          const Align(
+            alignment: Alignment.bottomRight,
+            child: Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(
+                Icons.play_circle_fill,
+                size: 22,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return ColoredBox(
+      color: Colors.black26,
+      child: Center(
+        child: _loading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(
+                widget.item.kind == MediaKind.drone
+                    ? Icons.flight
+                    : Icons.videocam,
+              ),
+      ),
     );
   }
 }

@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
 import '../services/media_kind.dart';
+import '../services/photo_orient.dart';
+import '../services/video_preview.dart';
 import 'photo_source.dart';
 import 'video_surface.dart';
 
@@ -70,6 +72,7 @@ class _MediaViewerState extends State<MediaViewer> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
+        automaticallyImplyLeading: false,
         title: Text(media.name, overflow: TextOverflow.ellipsis),
         actions: [
           if (widget.items.length > 1)
@@ -79,6 +82,11 @@ class _MediaViewerState extends State<MediaViewer> {
                 child: Text('${_index + 1}/${widget.items.length}'),
               ),
             ),
+          IconButton(
+            tooltip: 'Kapat',
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close),
+          ),
         ],
       ),
       body: Column(
@@ -129,14 +137,7 @@ class _Page extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (media.isVideo) {
-      if (!active) {
-        return VideoThumb(path: media.localPath, kind: media.kind);
-      }
-      return VideoPlaybackPane(
-        path: media.localPath,
-        name: media.name,
-        kind: media.kind,
-      );
+      return _VideoPage(media: media, active: active);
     }
 
     final fromDisk = photoFromPath(media.localPath);
@@ -173,6 +174,68 @@ class _Page extends StatelessWidget {
   }
 }
 
+class _VideoPage extends StatefulWidget {
+  const _VideoPage({required this.media, required this.active});
+
+  final LibraryMedia media;
+  final bool active;
+
+  @override
+  State<_VideoPage> createState() => _VideoPageState();
+}
+
+class _VideoPageState extends State<_VideoPage> {
+  Uint8List? _poster;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPoster();
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.media.id != widget.media.id) {
+      _poster = null;
+      _loadPoster();
+    }
+  }
+
+  Future<void> _loadPoster() async {
+    final repo = context.read<MediaRepository>();
+    var bytes = repo.cachedBytes(widget.media.id) ??
+        await repo.bytesOf(widget.media.id);
+    if (bytes == null || bytes.isEmpty) {
+      bytes = await extractVideoPreviewBytes(
+        localPath: widget.media.localPath,
+      );
+      if (bytes != null && bytes.isNotEmpty) {
+        await repo.putPreviewBytes(widget.media.id, bytes);
+      }
+    }
+    if (mounted) setState(() => _poster = bytes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.active) {
+      if (_poster != null) {
+        return OrientedMemoryImage(_poster!, fit: BoxFit.contain);
+      }
+      return const Center(child: CircularProgressIndicator());
+    }
+    return VideoPlaybackPane(
+      path: widget.media.localPath,
+      name: widget.media.name,
+      kind: widget.media.kind,
+      posterBytes: _poster,
+      preferExternal: widget.media.kind == MediaKind.gopro ||
+          widget.media.kind == MediaKind.drone,
+    );
+  }
+}
+
 class _ZoomPhoto extends StatelessWidget {
   const _ZoomPhoto({required this.bytes});
 
@@ -184,7 +247,7 @@ class _ZoomPhoto extends StatelessWidget {
       minScale: 1,
       maxScale: 5,
       child: Center(
-        child: Image.memory(bytes, fit: BoxFit.contain),
+        child: OrientedMemoryImage(bytes, fit: BoxFit.contain),
       ),
     );
   }
