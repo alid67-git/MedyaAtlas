@@ -21,11 +21,14 @@ import '../services/cluster.dart';
 import '../services/exif_gps.dart';
 import '../services/folder_picker.dart';
 import '../services/header_gps.dart';
+import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
+import '../services/video_preview.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/media_viewer.dart';
 import '../widgets/photo_source.dart';
+import '../services/photo_orient.dart';
 
 const _worldCenter = LatLng(20, 0);
 
@@ -58,6 +61,33 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   LocationCluster? _panelCluster;
   final Set<MediaKind> _kinds = {...MediaKind.values};
 
+  /// Tarama sırasında harita pinlerini dondur — ara notifyListeners NaN pin
+  /// ile MarkerLayer'ı düşürmesin.
+  List<LocationCluster> _mapClusters = const [];
+
+  List<LocationCluster> _safeClusters(MediaRepository repo) {
+    try {
+      return [
+        for (final c in _clustersOf(repo))
+          if (c.latitude.isFinite && c.longitude.isFinite) c,
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  void _beginBusy() {
+    final repo = context.read<MediaRepository>();
+    _mapClusters = _safeClusters(repo);
+    _busy = true;
+    _cancel = false;
+  }
+
+  void _endBusy() {
+    _busy = false;
+    _mapClusters = _safeClusters(context.read<MediaRepository>());
+  }
+
   @override
   void dispose() {
     _searchDebounce?.cancel();
@@ -65,10 +95,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     super.dispose();
   }
 
+  Future<bool> _ensureAndroidMediaAccess() async {
+    final result = await ensureAndroidMediaAccess();
+    if (!result.ok) {
+      if (mounted) {
+        setState(() => _status = result.message);
+      }
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _importGallery() async {
+    if (!await _ensureAndroidMediaAccess()) return;
     setState(() {
-      _busy = true;
-      _cancel = false;
+      _beginBusy();
       _status = null;
     });
     try {
@@ -105,11 +146,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       if (!mounted) return;
       setState(() => _status = 'Galeri açılamadı: $e');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(_endBusy);
     }
   }
 
   Future<void> _importFolder() async {
+    if (!await _ensureAndroidMediaAccess()) return;
     FolderPickResult? picked;
     try {
       picked = await pickMediaFolder();
@@ -124,16 +166,20 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   Future<void> _importFiles() async {
+    if (!await _ensureAndroidMediaAccess()) return;
+    // Windows’ta uzun uzantı listeli FileType.custom bazen yalnızca
+    // görüntü filtreler — any alıp istemci tarafında medya süzüyoruz.
     final picked = await FilePicker.platform.pickFiles(
       allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: [...photoExt, ...videoExt],
+      type: FileType.any,
+      withData: false,
     );
     if (!mounted || picked == null || picked.files.isEmpty) return;
     final refs = <FolderMediaRef>[];
     for (final file in picked.files) {
       final path = file.path;
       if (path == null) continue;
+      if (!isMediaName(file.name)) continue;
       refs.add(
         FolderMediaRef(
           name: file.name,
@@ -153,7 +199,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         ),
       );
     }
-    if (refs.isEmpty) return;
+    if (refs.isEmpty) {
+      setState(() {
+        _status =
+            'Seçilenlerde foto/video yok. Desteklenen: JPG, PNG, MP4, MOV, GoPro, DJI…';
+      });
+      return;
+    }
     await _ingestPick(
       FolderPickResult(
         folderName: refs.length == 1 ? refs.first.name : '${refs.length} dosya',
@@ -169,10 +221,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       });
       return;
     }
+    final videoCount = result.items.where((f) => f.isVideo).length;
+    final photoCount = result.items.length - videoCount;
     setState(() {
-      _busy = true;
-      _cancel = false;
-      _status = '"${result.folderName}" okunuyor…';
+      _beginBusy();
+      _status =
+          '"${result.folderName}" okunuyor… ($photoCount foto · $videoCount video)';
     });
     try {
       final repo = context.read<MediaRepository>();
@@ -180,9 +234,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       await _ingest(result.items, source: source);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = 'Klasör okunamadı: $e');
+      final msg = '$e';
+      setState(() {
+        _status = msg.contains('encodable') || msg.contains('NaN')
+            ? 'Bazı dosyalarda bozuk GPS vardı; geçerli medya yine eklendi. Uygulama 0.6.2+ olmalı.'
+            : 'Klasör okunamadı: $e';
+      });
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(_endBusy);
     }
   }
 
@@ -238,27 +297,50 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     var withGps = 0;
     var added = 0;
     var missing = 0;
+    var failed = 0;
+    final kindCounts = {for (final k in MediaKind.values) k: 0};
+
+    // Tür filtresi yalnızca harita/liste görünümünü etkiler — tarama her
+    // zaman foto + video + GoPro + drone ekler.
     for (var i = 0; i < files.length; i++) {
       if (_cancel) break;
       final file = files[i];
       if (mounted && i % 4 == 0) {
         setState(
           () => _status =
-              '${source.label}: ${i + 1}/${files.length} · $withGps GPS · $missing yok',
+              '${source.label}: ${i + 1}/${files.length} · $withGps GPS · $missing yok · ${kindCountsLabel(kindCounts)}',
         );
       }
+      final kind = detectKind(file.name) ??
+          (file.isVideo ? MediaKind.video : MediaKind.photo);
+      final rel = file.relativePath ?? file.name;
       try {
-        final kind = detectKind(file.name) ??
-            (file.isVideo ? MediaKind.video : MediaKind.photo);
-        if (!_kinds.contains(kind)) continue;
-        final rel = file.relativePath ?? file.name;
         final existing = repo.findByIndex(
           sourceId: source.id,
           relativePath: rel,
           size: file.size,
         );
         if (existing != null) {
+          // Eski kayıtta video önizlemesi yoksa tarama sırasında doldur.
+          if (existing.isVideo) {
+            final hasPreview = repo.cachedBytes(existing.id) != null ||
+                await repo.bytesOf(existing.id) != null;
+            if (!hasPreview) {
+              Uint8List? head;
+              try {
+                head = await file.readHead(videoHeadBytes);
+              } catch (_) {}
+              final preview = await extractVideoPreviewBytes(
+                localPath: file.localPath,
+                head: head,
+              );
+              if (preview != null) {
+                await repo.putPreviewBytes(existing.id, preview);
+              }
+            }
+          }
           added++;
+          kindCounts[existing.kind] = (kindCounts[existing.kind] ?? 0) + 1;
           if (existing.hasLocation) {
             withGps++;
           } else {
@@ -270,17 +352,45 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         final headLimit = isPhoto
             ? (file.size <= previewStoreBytes ? file.size : photoHeadBytes)
             : videoHeadBytes;
-        final head = await file.readHead(headLimit);
-        final gps = isPhoto ? await extractExifGps(head) : extractHeaderGps(head);
-        final taken = isPhoto
-            ? await extractExifTakenAt(head) ?? file.lastModified
-            : file.lastModified;
+
+        Uint8List? head;
+        try {
+          head = await file.readHead(headLimit);
+        } catch (_) {
+          head = null;
+        }
+
+        LatLng? gps;
+        DateTime? taken = file.lastModified;
+        if (head != null && head.isNotEmpty) {
+          try {
+            if (isPhoto) {
+              gps = await extractExifGps(head);
+              taken = await extractExifTakenAt(head) ?? taken;
+            } else {
+              gps = extractHeaderGps(head);
+            }
+          } catch (_) {
+            // GPS okunamasa da dosya kütüphaneye girer.
+          }
+        }
+        // NaN/Infinity asla Hive/jsonEncode veya MarkerLayer'a girmesin.
+        if (gps != null &&
+            !(gps.latitude.isFinite && gps.longitude.isFinite)) {
+          gps = null;
+        }
+
         if (gps != null) {
           withGps++;
         } else {
           missing++;
         }
-        final preview = isPhoto && file.size <= previewStoreBytes ? head : null;
+        final preview = isPhoto
+            ? (head != null && file.size <= previewStoreBytes ? head : null)
+            : await extractVideoPreviewBytes(
+                localPath: file.localPath,
+                head: head,
+              );
         await repo.add(
           name: file.name,
           kind: kind,
@@ -293,20 +403,27 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           lng: gps?.longitude,
           takenAt: taken,
           persist: i == files.length - 1 || i % 8 == 7,
+          // Tarama bitene kadar haritayı yenileme — NaN pin anında çökertmesin.
+          notify: false,
         );
         added++;
+        kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
       } catch (_) {
-        missing++;
+        failed++;
       }
     }
-    await repo.flush();
+    await repo.flush(notify: true);
     if (!mounted) return;
+    final kindsText = kindCountsLabel(kindCounts);
+    final failText = failed > 0 ? ' · $failed okunamadı' : '';
     setState(() {
       _showMissing = false;
       _panelCluster = null;
+      // Yeni eklenen türler haritada görünsün diye filtreyi aç.
+      _kinds.addAll(MediaKind.values);
       _status = _cancel
-          ? 'Tarama durdu: $added medya · $withGps GPS · $missing konum yok'
-          : '"${source.label}": $added medya · $withGps GPS · $missing konum yok';
+          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText'
+          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText';
     });
     _fitVisible();
   }
@@ -316,8 +433,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final targets = _missingOf(repo);
     if (targets.isEmpty) return;
     setState(() {
-      _busy = true;
-      _cancel = false;
+      _beginBusy();
       _status = 'GPS yeniden okunuyor…';
     });
     var found = 0;
@@ -366,15 +482,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             lng: gps.longitude,
             takenAt: taken,
             persist: false,
+            notify: false,
           );
           found++;
         } catch (_) {}
       }
-      await repo.flush();
+      await repo.flush(notify: true);
     } finally {
       if (mounted) {
         setState(() {
-          _busy = false;
+          _endBusy();
           _status = _cancel
               ? 'GPS durdu: $found konum bulundu'
               : 'GPS yeniden: $found konum bulundu · $checked dosya okundu';
@@ -427,18 +544,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final repo = context.read<MediaRepository>();
     final clusters = _clustersOf(repo);
     if (clusters.isEmpty) return;
+    final points = [
+      for (final c in clusters)
+        if (c.latLng.latitude.isFinite && c.latLng.longitude.isFinite) c.latLng,
+    ];
+    if (points.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
-        if (clusters.length == 1) {
-          _map.move(clusters.first.latLng, 13);
+        if (points.length == 1) {
+          _map.move(points.first, 13);
           return;
         }
         _map.fitCamera(
           CameraFit.bounds(
-            bounds: LatLngBounds.fromPoints([
-              for (final c in clusters) c.latLng,
-            ]),
+            bounds: LatLngBounds.fromPoints(points),
             padding: const EdgeInsets.all(48),
             maxZoom: 15,
           ),
@@ -548,7 +668,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<MediaRepository>();
-    final clusters = _clustersOf(repo);
+    // Tarama sürerken dondurulmuş (sonlu) pinler; bitince taze liste.
+    final clusters = _busy ? _mapClusters : _safeClusters(repo);
     final missing = _missingOf(repo);
     final visible = _filtered(repo);
     final wide = MediaQuery.sizeOf(context).width >= 960;
@@ -908,18 +1029,31 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       color: const Color(0xF00A1C28),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 6,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final kind in MediaKind.values)
-              FilterChip(
-                selected: _kinds.contains(kind),
-                label: Text(
-                  '${_kindTitle(kind)} ${pool.where((m) => m.kind == kind).length}',
-                ),
-                onSelected: (on) => _toggleKind(kind, on),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                for (final kind in MediaKind.values)
+                  FilterChip(
+                    selected: _kinds.contains(kind),
+                    label: Text(
+                      '${_kindTitle(kind)} ${pool.where((m) => m.kind == kind).length}',
+                    ),
+                    onSelected: (on) => _toggleKind(kind, on),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Filtre yalnızca görünümü etkiler — tarama foto + video + GoPro + drone ekler.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.45),
               ),
+            ),
           ],
         ),
       ),
@@ -1000,18 +1134,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     userAgentPackageName: 'com.medyaatlas.app',
                   ),
                   MarkerLayer(
-                    markers: [
-                      for (final cluster in clusters)
-                        Marker(
-                          point: cluster.latLng,
-                          width: 44,
-                          height: 44,
-                          child: GestureDetector(
-                            onTap: () => _openCluster(cluster),
-                            child: ClusterDot(count: cluster.items.length),
-                          ),
-                        ),
-                    ],
+                    markers: _markersFor(clusters),
                   ),
                 ],
               ),
@@ -1039,6 +1162,28 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           ),
       ],
     );
+  }
+
+  List<Marker> _markersFor(List<LocationCluster> clusters) {
+    final out = <Marker>[];
+    for (final cluster in clusters) {
+      final lat = cluster.latitude;
+      final lng = cluster.longitude;
+      if (!lat.isFinite || !lng.isFinite) continue;
+      if (lat.abs() > 90 || lng.abs() > 180) continue;
+      out.add(
+        Marker(
+          point: LatLng(lat, lng),
+          width: 44,
+          height: 44,
+          child: GestureDetector(
+            onTap: () => _openCluster(cluster),
+            child: ClusterDot(count: cluster.items.length),
+          ),
+        ),
+      );
+    }
+    return out;
   }
 }
 
@@ -1120,11 +1265,21 @@ class _MissingList extends StatelessWidget {
       separatorBuilder: (context, index) => const Divider(height: 1),
       itemBuilder: (context, i) {
         final item = items[i];
+        final repo = context.read<MediaRepository>();
         return ListTile(
-          leading: Icon(
-            item.kind == MediaKind.photo
-                ? Icons.photo_outlined
-                : Icons.videocam_outlined,
+          leading: SizedBox(
+            width: 56,
+            height: 56,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: item.isVideo
+                  ? _VideoThumbCached(item: item, repo: repo)
+                  : (photoFromPath(item.localPath, fit: BoxFit.cover) ??
+                      const ColoredBox(
+                        color: Colors.black26,
+                        child: Icon(Icons.photo_outlined),
+                      )),
+            ),
           ),
           title: Text(item.name, overflow: TextOverflow.ellipsis),
           subtitle: Text(
@@ -1212,19 +1367,14 @@ class _Thumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (item.kind != MediaKind.photo) {
-      return ColoredBox(
-        color: Colors.black26,
-        child: Icon(
-          item.kind == MediaKind.drone ? Icons.flight : Icons.videocam,
-        ),
-      );
+    if (item.isVideo) {
+      return _VideoThumbCached(item: item, repo: repo);
     }
     final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
     if (fromDisk != null) return fromDisk;
     final cached = repo.cachedBytes(item.id);
     if (cached != null) {
-      return Image.memory(cached, fit: BoxFit.cover);
+      return OrientedMemoryImage(cached, fit: BoxFit.cover);
     }
     return FutureBuilder(
       future: repo.bytesOf(item.id),
@@ -1236,8 +1386,108 @@ class _Thumb extends StatelessWidget {
             child: Icon(Icons.photo_outlined),
           );
         }
-        return Image.memory(bytes, fit: BoxFit.cover);
+        return OrientedMemoryImage(bytes, fit: BoxFit.cover);
       },
+    );
+  }
+}
+
+/// Tarama sırasında kaydedilen JPEG; yoksa bir kez çıkarır (video_player yok).
+class _VideoThumbCached extends StatefulWidget {
+  const _VideoThumbCached({required this.item, required this.repo});
+
+  final LibraryMedia item;
+  final MediaRepository repo;
+
+  @override
+  State<_VideoThumbCached> createState() => _VideoThumbCachedState();
+}
+
+class _VideoThumbCachedState extends State<_VideoThumbCached> {
+  Uint8List? _bytes;
+  var _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoThumbCached oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id) {
+      _bytes = null;
+      _loading = true;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final cached = widget.repo.cachedBytes(widget.item.id) ??
+        await widget.repo.bytesOf(widget.item.id);
+    if (cached != null && cached.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _bytes = cached;
+          _loading = false;
+        });
+      }
+      return;
+    }
+    final extracted = await extractVideoPreviewBytes(
+      localPath: widget.item.localPath,
+    );
+    if (extracted != null && extracted.isNotEmpty) {
+      await widget.repo.putPreviewBytes(widget.item.id, extracted);
+      if (mounted) {
+        setState(() {
+          _bytes = extracted;
+          _loading = false;
+        });
+      }
+      return;
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = _bytes;
+    if (bytes != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          OrientedMemoryImage(bytes, fit: BoxFit.cover),
+          const Align(
+            alignment: Alignment.bottomRight,
+            child: Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(
+                Icons.play_circle_fill,
+                size: 22,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return ColoredBox(
+      color: Colors.black26,
+      child: Center(
+        child: _loading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(
+                widget.item.kind == MediaKind.drone
+                    ? Icons.flight
+                    : Icons.videocam,
+              ),
+      ),
     );
   }
 }

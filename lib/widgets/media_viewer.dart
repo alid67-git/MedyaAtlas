@@ -7,17 +7,22 @@ import 'package:provider/provider.dart';
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
 import '../services/media_kind.dart';
+import '../services/photo_orient.dart';
+import '../services/video_preview.dart';
 import 'photo_source.dart';
+import 'video_surface.dart';
 
 Future<void> openMediaViewer(
   BuildContext context, {
   required List<LibraryMedia> items,
   int initialIndex = 0,
 }) {
+  if (items.isEmpty) return Future<void>.value();
+  final index = initialIndex.clamp(0, items.length - 1);
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
       fullscreenDialog: true,
-      builder: (_) => MediaViewer(items: items, initialIndex: initialIndex),
+      builder: (_) => MediaViewer(items: items, initialIndex: index),
     ),
   );
 }
@@ -27,7 +32,7 @@ class MediaViewer extends StatefulWidget {
     super.key,
     required this.items,
     this.initialIndex = 0,
-  });
+  }) : assert(items.length > 0, 'MediaViewer boş liste ile açılamaz');
 
   final List<LibraryMedia> items;
   final int initialIndex;
@@ -57,7 +62,6 @@ class _MediaViewerState extends State<MediaViewer> {
 
   @override
   Widget build(BuildContext context) {
-    final repo = context.watch<MediaRepository>();
     final media = _current;
     final taken = media.takenAt;
     final dateText = taken == null
@@ -68,6 +72,7 @@ class _MediaViewerState extends State<MediaViewer> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
+        automaticallyImplyLeading: false,
         title: Text(media.name, overflow: TextOverflow.ellipsis),
         actions: [
           if (widget.items.length > 1)
@@ -78,13 +83,9 @@ class _MediaViewerState extends State<MediaViewer> {
               ),
             ),
           IconButton(
-            tooltip: 'Sil',
-            onPressed: () async {
-              await repo.remove(media.id);
-              if (!context.mounted) return;
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Kapat',
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close),
           ),
         ],
       ),
@@ -95,7 +96,10 @@ class _MediaViewerState extends State<MediaViewer> {
               controller: _pages,
               itemCount: widget.items.length,
               onPageChanged: (i) => setState(() => _index = i),
-              itemBuilder: (context, i) => _Page(media: widget.items[i]),
+              itemBuilder: (context, i) => _Page(
+                media: widget.items[i],
+                active: i == _index,
+              ),
             ),
           ),
           SafeArea(
@@ -125,49 +129,15 @@ class _MediaViewerState extends State<MediaViewer> {
 }
 
 class _Page extends StatelessWidget {
-  const _Page({required this.media});
+  const _Page({required this.media, required this.active});
 
   final LibraryMedia media;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
-    if (media.kind != MediaKind.photo) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                media.kind == MediaKind.drone
-                    ? Icons.flight
-                    : Icons.videocam,
-                size: 56,
-                color: Colors.white70,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                media.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                media.relativePath ?? media.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white54),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Dosya kopyalanmadı — MedyaAtlas gibi yerinde duruyor. '
-                'GoPro GPMF için PC API gerekir.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54),
-              ),
-            ],
-          ),
-        ),
-      );
+    if (media.isVideo) {
+      return _VideoPage(media: media, active: active);
     }
 
     final fromDisk = photoFromPath(media.localPath);
@@ -204,6 +174,68 @@ class _Page extends StatelessWidget {
   }
 }
 
+class _VideoPage extends StatefulWidget {
+  const _VideoPage({required this.media, required this.active});
+
+  final LibraryMedia media;
+  final bool active;
+
+  @override
+  State<_VideoPage> createState() => _VideoPageState();
+}
+
+class _VideoPageState extends State<_VideoPage> {
+  Uint8List? _poster;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPoster();
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.media.id != widget.media.id) {
+      _poster = null;
+      _loadPoster();
+    }
+  }
+
+  Future<void> _loadPoster() async {
+    final repo = context.read<MediaRepository>();
+    var bytes = repo.cachedBytes(widget.media.id) ??
+        await repo.bytesOf(widget.media.id);
+    if (bytes == null || bytes.isEmpty) {
+      bytes = await extractVideoPreviewBytes(
+        localPath: widget.media.localPath,
+      );
+      if (bytes != null && bytes.isNotEmpty) {
+        await repo.putPreviewBytes(widget.media.id, bytes);
+      }
+    }
+    if (mounted) setState(() => _poster = bytes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.active) {
+      if (_poster != null) {
+        return OrientedMemoryImage(_poster!, fit: BoxFit.contain);
+      }
+      return const Center(child: CircularProgressIndicator());
+    }
+    return VideoPlaybackPane(
+      path: widget.media.localPath,
+      name: widget.media.name,
+      kind: widget.media.kind,
+      posterBytes: _poster,
+      preferExternal: widget.media.kind == MediaKind.gopro ||
+          widget.media.kind == MediaKind.drone,
+    );
+  }
+}
+
 class _ZoomPhoto extends StatelessWidget {
   const _ZoomPhoto({required this.bytes});
 
@@ -215,7 +247,7 @@ class _ZoomPhoto extends StatelessWidget {
       minScale: 1,
       maxScale: 5,
       child: Center(
-        child: Image.memory(bytes, fit: BoxFit.contain),
+        child: OrientedMemoryImage(bytes, fit: BoxFit.contain),
       ),
     );
   }

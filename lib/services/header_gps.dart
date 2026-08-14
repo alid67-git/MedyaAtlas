@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:latlong2/latlong.dart';
 
+import 'geo.dart';
+
 /// MedyaAtlas `fastLocationExtract` hızlı kademesi: dosyanın tamamı değil,
 /// başındaki etiketler (ISO6709 / ©xyz). GoPro GPMF bu yolda yok.
 final _iso6709 = RegExp(
@@ -24,10 +26,13 @@ LatLng? parseIso6709(String value) {
 LatLng? _gps(String? latRaw, String? lonRaw) {
   final lat = double.tryParse(latRaw ?? '');
   final lon = double.tryParse(lonRaw ?? '');
-  if (lat == null || lon == null) return null;
-  if (lat.abs() > 90 || lon.abs() > 180) return null;
-  if (lat.abs() < 0.01 && lon.abs() < 0.01) return null;
-  return LatLng(lat, lon);
+  final point = latLngOrNull(lat, lon);
+  if (point == null) return null;
+  // Video başlığı gürültüsü: 0'a çok yakın sahte koordinatları ele.
+  if (point.latitude.abs() < 0.01 && point.longitude.abs() < 0.01) {
+    return null;
+  }
+  return point;
 }
 
 LatLng? _fromIso6709Text(Uint8List bytes) {

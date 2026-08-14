@@ -1,63 +1,124 @@
 @echo off
 setlocal EnableExtensions
 title MedyaAtlas Windows
-cd /d "%~dp0"
 
-if /i not "%~1"=="_keep" (
-  start "MedyaAtlas Windows" /D "%~dp0" cmd /k call "%~f0" _keep
+REM Ilk cift tik: ayri pencere.
+if /i not "%~1"=="_go" (
+  start "MedyaAtlas Windows" cmd /k call "%~f0" _go
   exit /b 0
 )
 
+call "%~dp0_medyaatlas_paths.bat"
+call "%~dp0_flutter_env.bat"
+
 echo.
 echo === MedyaAtlas Windows ===
-echo Klasor: %CD%
+echo Hedef surum: v%MA_EXPECT%
+echo Yerel repo:  %MA_LOCAL%
 echo.
 
-call "%~dp0_flutter_env.bat"
+REM Google Drive'dan acildiysa uyar.
+echo %~dp0| find /i "google drive" >nul
+if not errorlevel 1 (
+  echo UYARI: Bu bat Google Drive kopyasindan acildi.
+  echo         Asil calisma: %MA_LOCAL%
+  echo         Bir kez tasi_c_src.bat calistirman yeterli.
+  echo.
+)
+
+where git >nul 2>&1
+if errorlevel 1 (
+  echo HATA: git yok.
+  goto :end
+)
+
+set "MA_REMOTE="
+for /f "delims=" %%U in ('git -C "%~dp0" remote get-url origin 2^>nul') do set "MA_REMOTE=%%U"
+if not defined MA_REMOTE set "MA_REMOTE=%MA_REMOTE_DEFAULT%"
+
+if not exist "C:\src" mkdir "C:\src"
+
+echo --- %MA_LOCAL% guncelle ---
+if not exist "%MA_LOCAL%\.git" (
+  echo Ilk kurulum: clone %MA_BRANCH% ...
+  if exist "%MA_LOCAL%" rmdir /s /q "%MA_LOCAL%" 2>nul
+  git clone --branch "%MA_BRANCH%" --single-branch "%MA_REMOTE%" "%MA_LOCAL%"
+  if errorlevel 1 (
+    echo HATA: clone basarisiz. Once tasi_c_src.bat dene.
+    goto :end
+  )
+  call "%MA_LOCAL%\kisayol_olustur.bat" _silent
+) else (
+  git -C "%MA_LOCAL%" remote set-url origin "%MA_REMOTE%" 2>nul
+  git -C "%MA_LOCAL%" fetch origin "%MA_BRANCH%"
+  if errorlevel 1 (
+    echo HATA: fetch basarisiz.
+    goto :end
+  )
+  git -C "%MA_LOCAL%" checkout -B "%MA_BRANCH%" "origin/%MA_BRANCH%"
+  git -C "%MA_LOCAL%" reset --hard "origin/%MA_BRANCH%"
+  if errorlevel 1 (
+    echo HATA: reset basarisiz.
+    goto :end
+  )
+)
+
+echo.
+git -C "%MA_LOCAL%" log -1 --oneline
+echo.
+
+set "MA_VER="
+if exist "%MA_LOCAL%\lib\app_version.dart" (
+  type "%MA_LOCAL%\lib\app_version.dart"
+  echo.
+  for /f "tokens=2 delims='" %%A in ('findstr /C:"appVersion" "%MA_LOCAL%\lib\app_version.dart"') do set "MA_VER=%%A"
+)
+
+if /i not "%MA_VER%"=="%MA_EXPECT%" (
+  echo HATA: Beklenen v%MA_EXPECT%, bulunan v%MA_VER%
+  goto :end
+)
+
+echo Surum dogrulandi: v%MA_VER%
+cd /d "%MA_LOCAL%"
+
 if not exist "%FLUTTER%" (
   echo HATA: Flutter bulunamadi.
-  echo Denenen:
-  echo   C:\src\flutter\bin\flutter.bat
-  echo   D:\indirilenler\flutter_windows_3.44.8-stable\flutter\bin\flutter.bat
-  echo   PATH icindeki flutter
   goto :end
 )
 
 echo Flutter: %FLUTTER%
-echo Engine:  %FLUTTER_PREBUILT_ENGINE_VERSION%
 echo.
 
-call "%~dp0_prepare_local_build.bat"
+call "%MA_LOCAL%\_prepare_local_build.bat"
 
-if exist "%~dp0.dart_tool\package_config.json" (
-  echo [1/2] pub get atlandi - bagimliliklar hazir.
-) else (
-  echo [1/2] pub get...
-  "%ComSpec%" /c call "%FLUTTER%" pub get
+echo [1/2] pub get...
+"%ComSpec%" /c call "%FLUTTER%" pub get
+if errorlevel 1 echo UYARI: pub get hata verdi; run denenecek.
+
+echo [2/2] Windows uygulamasi ^(v%MA_VER%^)...
+echo Impeller kapali. Cikis: q
+echo.
+"%ComSpec%" /c call "%FLUTTER%" run -d windows --no-enable-impeller
+if errorlevel 1 (
+  echo.
+  echo Ilk deneme basarisiz — eski CMake / Drive onbellegi temizlenip yeniden deneniyor...
+  call "%MA_LOCAL%\temizle_build.bat" _silent 2>nul
+  rmdir /s /q "%MA_LOCAL%\build\windows" 2>nul
+  rmdir /s /q "C:\src\medyaatlas_app_build" 2>nul
+  rmdir /s /q "C:\src\medyaatlas_build_local\windows" 2>nul
+  call "%MA_LOCAL%\_prepare_local_build.bat"
+  "%ComSpec%" /c call "%FLUTTER%" run -d windows --no-enable-impeller
   if errorlevel 1 (
     echo.
-    echo UYARI: pub get hata verdi. Yine de run denenecek.
-    echo.
+    echo HATA: Derleme yine basarisiz. Elle dene:
+    echo   %MA_LOCAL%\temizle_build.bat
+    echo   sonra tekrar run_windows.bat
+    echo Gelistirici Modu da gerekebilir.
+    start ms-settings:developers
   )
 )
 
-echo [2/2] Windows uygulaması baslatiliyor...
-echo Cikis icin bu pencerede q.
-echo.
-"%ComSpec%" /c call "%FLUTTER%" run -d windows
-if errorlevel 1 (
-  echo.
-  echo HATA: Flutter eklentileri icin Windows Gelistirici Modu lazim
-  echo       ^(sembolik baglanti / symlink^).
-  echo.
-  echo 1. Acilan pencerede "Gelistirici Modu"nu ac.
-  echo 2. Bu pencereyi kapat, run_windows.bat'a tekrar cift tikla.
-  echo.
-  start ms-settings:developers
-)
-echo.
-
 :end
 echo.
-echo Bitti. Bu pencereyi kapatabilirsin.
 pause

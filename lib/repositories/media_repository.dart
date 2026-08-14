@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -5,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/library_media.dart';
+import '../services/geo.dart';
 
 const _indexBoxName = 'medyaatlas_media';
 const _bytesBoxName = 'medyaatlas_media_bytes';
@@ -33,24 +35,38 @@ class MediaRepository extends ChangeNotifier {
     _indexBox = await Hive.openBox<String>(_indexBoxName);
     _bytesBox = await Hive.openBox<Uint8List>(_bytesBoxName);
     _sourcesBox = await Hive.openBox<String>(_sourcesBoxName);
-    final raw = _indexBox!.get(_indexKey);
-    final list = raw == null ? const [] : jsonDecode(raw) as List<dynamic>;
-    _items
-      ..clear()
-      ..addAll(
-        list.map(
-          (e) => LibraryMedia.fromJson(Map<String, dynamic>.from(e as Map)),
-        ),
-      );
-    final srcRaw = _sourcesBox!.get(_indexKey);
-    final srcList = srcRaw == null ? const [] : jsonDecode(srcRaw) as List<dynamic>;
-    _sources
-      ..clear()
-      ..addAll(
-        srcList.map(
-          (e) => MediaSource.fromJson(Map<String, dynamic>.from(e as Map)),
-        ),
-      );
+    try {
+      final raw = _indexBox!.get(_indexKey);
+      final list = raw == null ? const [] : jsonDecode(raw) as List<dynamic>;
+      _items
+        ..clear()
+        ..addAll(
+          list.map(
+            (e) => LibraryMedia.fromJson(Map<String, dynamic>.from(e as Map)),
+          ),
+        );
+    } catch (e) {
+      debugPrint('MedyaAtlas: medya indeksi okunamadı, sıfırlanıyor: $e');
+      _items.clear();
+      await _indexBox!.delete(_indexKey);
+    }
+    try {
+      final srcRaw = _sourcesBox!.get(_indexKey);
+      final srcList =
+          srcRaw == null ? const [] : jsonDecode(srcRaw) as List<dynamic>;
+      _sources
+        ..clear()
+        ..addAll(
+          srcList.map(
+            (e) => MediaSource.fromJson(Map<String, dynamic>.from(e as Map)),
+          ),
+        );
+    } catch (e) {
+      debugPrint('MedyaAtlas: kaynak indeksi okunamadı, sıfırlanıyor: $e');
+      _sources.clear();
+      await _sourcesBox!.delete(_indexKey);
+    }
+    _sanitizeLoadedGps();
     final sourceCount = _sources.length;
     _ensureOrphanSources();
     if (_sources.length != sourceCount) {
@@ -58,6 +74,49 @@ class MediaRepository extends ChangeNotifier {
     }
     _ready = true;
     notifyListeners();
+  }
+
+  /// Eski kayıtlardaki NaN/Infinity GPS → jsonEncode ve harita çökmesin.
+  int _stripInvalidGpsInMemory() {
+    var changed = 0;
+    for (var i = 0; i < _items.length; i++) {
+      final item = _items[i];
+      if (item.lat == null && item.lng == null) continue;
+      if (isValidGps(item.lat, item.lng)) continue;
+      _items[i] = item.copyWith(clearLocation: true, locationMissing: true);
+      changed++;
+    }
+    return changed;
+  }
+
+  void _sanitizeLoadedGps() {
+    if (_stripInvalidGpsInMemory() > 0) {
+      unawaited(_persistIndex());
+    }
+  }
+
+  /// jsonEncode NaN/Infinity kabul etmez — ağaçtaki bozuk sayıları temizle.
+  void _scrubNonFinite(Object? node) {
+    if (node is Map) {
+      final keys = List<Object?>.from(node.keys);
+      for (final key in keys) {
+        final value = node[key];
+        if (value is double && !value.isFinite) {
+          node[key] = null;
+        } else {
+          _scrubNonFinite(value);
+        }
+      }
+    } else if (node is List) {
+      for (var i = 0; i < node.length; i++) {
+        final value = node[i];
+        if (value is double && !value.isFinite) {
+          node[i] = null;
+        } else {
+          _scrubNonFinite(value);
+        }
+      }
+    }
   }
 
   void _ensureOrphanSources() {
@@ -115,17 +174,28 @@ class MediaRepository extends ChangeNotifier {
   }
 
   Future<void> _persistIndex() async {
-    await _indexBox!.put(
-      _indexKey,
-      jsonEncode(_items.map((m) => m.toJson()).toList()),
-    );
+    _stripInvalidGpsInMemory();
+    try {
+      final payload = <Map<String, dynamic>>[
+        for (final m in _items) m.toJson(),
+      ];
+      _scrubNonFinite(payload);
+      await _indexBox!.put(_indexKey, jsonEncode(payload));
+    } catch (e, st) {
+      // Tarama / harita ayakta kalsın — NaN yüzünden tüm klasör düşmesin.
+      debugPrint('MedyaAtlas: medya indeksi yazılamadı: $e\n$st');
+    }
   }
 
   Future<void> _persistSources() async {
-    await _sourcesBox!.put(
-      _indexKey,
-      jsonEncode(_sources.map((s) => s.toJson()).toList()),
-    );
+    try {
+      await _sourcesBox!.put(
+        _indexKey,
+        jsonEncode(_sources.map((s) => s.toJson()).toList()),
+      );
+    } catch (e, st) {
+      debugPrint('MedyaAtlas: kaynak indeksi yazılamadı: $e\n$st');
+    }
   }
 
   Future<MediaSource> ensureSource({
@@ -200,6 +270,7 @@ class MediaRepository extends ChangeNotifier {
     double? lng,
     DateTime? takenAt,
     bool persist = true,
+    bool notify = true,
   }) async {
     final rel = relativePath ?? name;
     final size = sizeBytes ?? 0;
@@ -208,7 +279,7 @@ class MediaRepository extends ChangeNotifier {
     if (existing >= 0) {
       return _items[existing];
     }
-    final hasGps = lat != null && lng != null && !(lat == 0 && lng == 0);
+    final hasGps = isValidGps(lat, lng);
     final media = LibraryMedia(
       id: id,
       name: name,
@@ -216,8 +287,8 @@ class MediaRepository extends ChangeNotifier {
       kind: kind,
       sourceId: sourceId,
       relativePath: rel,
-      lat: lat,
-      lng: lng,
+      lat: hasGps ? lat : null,
+      lng: hasGps ? lng : null,
       takenAt: takenAt,
       locationMissing: !hasGps,
       localPath: localPath,
@@ -230,9 +301,18 @@ class MediaRepository extends ChangeNotifier {
     }
     if (persist) {
       await _persistIndex();
+    }
+    if (notify) {
       notifyListeners();
     }
     return media;
+  }
+
+  /// Tarama / sonradan çıkarılan video önizleme JPEG’i.
+  Future<void> putPreviewBytes(String id, Uint8List bytes) async {
+    if (bytes.isEmpty) return;
+    await _bytesBox!.put(id, bytes);
+    _bytesCache[id] = bytes;
   }
 
   Future<void> updateLocation({
@@ -241,25 +321,34 @@ class MediaRepository extends ChangeNotifier {
     double? lng,
     DateTime? takenAt,
     bool persist = true,
+    bool notify = true,
   }) async {
     final i = _items.indexWhere((m) => m.id == id);
     if (i < 0) return;
-    final hasGps = lat != null && lng != null && !(lat == 0 && lng == 0);
-    _items[i] = _items[i].copyWith(
-      lat: lat,
-      lng: lng,
-      takenAt: takenAt,
-      locationMissing: !hasGps,
-    );
+    final hasGps = isValidGps(lat, lng);
+    _items[i] = hasGps
+        ? _items[i].copyWith(
+            lat: lat,
+            lng: lng,
+            takenAt: takenAt,
+            locationMissing: false,
+          )
+        : _items[i].copyWith(
+            clearLocation: true,
+            takenAt: takenAt,
+            locationMissing: true,
+          );
     if (persist) {
       await _persistIndex();
+    }
+    if (notify) {
       notifyListeners();
     }
   }
 
-  Future<void> flush() async {
+  Future<void> flush({bool notify = true}) async {
     await _persistIndex();
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   Future<void> remove(String id) async {
