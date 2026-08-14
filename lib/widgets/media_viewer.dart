@@ -14,10 +14,12 @@ Future<void> openMediaViewer(
   required List<LibraryMedia> items,
   int initialIndex = 0,
 }) {
+  if (items.isEmpty) return Future<void>.value();
+  final index = initialIndex.clamp(0, items.length - 1);
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
       fullscreenDialog: true,
-      builder: (_) => MediaViewer(items: items, initialIndex: initialIndex),
+      builder: (_) => MediaViewer(items: items, initialIndex: index),
     ),
   );
 }
@@ -27,7 +29,7 @@ class MediaViewer extends StatefulWidget {
     super.key,
     required this.items,
     this.initialIndex = 0,
-  });
+  }) : assert(items.length > 0, 'MediaViewer boş liste ile açılamaz');
 
   final List<LibraryMedia> items;
   final int initialIndex;

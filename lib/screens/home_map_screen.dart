@@ -469,18 +469,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final repo = context.read<MediaRepository>();
     final clusters = _clustersOf(repo);
     if (clusters.isEmpty) return;
+    final points = [
+      for (final c in clusters)
+        if (c.latLng.latitude.isFinite && c.latLng.longitude.isFinite) c.latLng,
+    ];
+    if (points.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
-        if (clusters.length == 1) {
-          _map.move(clusters.first.latLng, 13);
+        if (points.length == 1) {
+          _map.move(points.first, 13);
           return;
         }
         _map.fitCamera(
           CameraFit.bounds(
-            bounds: LatLngBounds.fromPoints([
-              for (final c in clusters) c.latLng,
-            ]),
+            bounds: LatLngBounds.fromPoints(points),
             padding: const EdgeInsets.all(48),
             maxZoom: 15,
           ),

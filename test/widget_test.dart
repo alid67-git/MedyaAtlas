@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:medyaatlas/models/library_media.dart';
 import 'package:medyaatlas/models/map_track.dart';
 import 'package:medyaatlas/services/cluster.dart';
+import 'package:medyaatlas/services/geo.dart';
 import 'package:medyaatlas/services/header_gps.dart';
 import 'package:medyaatlas/services/media_kind.dart';
 
@@ -55,6 +56,31 @@ void main() {
     expect(copy.locationMissing, isFalse);
   });
 
+  test('NaN/Infinity GPS jsonEncode kırılmaz ve hasLocation false', () {
+    final media = LibraryMedia(
+      id: 'bad',
+      name: 'x.jpg',
+      addedAt: DateTime.utc(2026, 8, 12),
+      kind: MediaKind.photo,
+      sourceId: 'gallery',
+      lat: double.nan,
+      lng: double.infinity,
+      locationMissing: false,
+    );
+    expect(media.hasLocation, isFalse);
+    expect(isValidGps(media.lat, media.lng), isFalse);
+    final json = media.toJson();
+    expect(json['lat'], isNull);
+    expect(json['lng'], isNull);
+  });
+
+  test('isValidGps 0,0 ve sınır dışı reddeder', () {
+    expect(isValidGps(0, 0), isFalse);
+    expect(isValidGps(91, 29), isFalse);
+    expect(isValidGps(41, 181), isFalse);
+    expect(isValidGps(41.0, 29.0), isTrue);
+  });
+
   test('MediaSource JSON roundtrip', () {
     final source = MediaSource(
       id: 's1',
@@ -77,6 +103,24 @@ void main() {
     final clusters = groupByLocation(items);
     expect(clusters.length, 2);
     expect(clusters.map((c) => c.items.length).toSet(), {2, 1});
+  });
+
+  test('groupByLocation NaN pin eklemez', () {
+    final items = [
+      LibraryMedia(
+        id: 'n',
+        name: 'n.jpg',
+        addedAt: DateTime.utc(2026, 8, 13),
+        kind: MediaKind.photo,
+        sourceId: 'gallery',
+        lat: double.nan,
+        lng: 29,
+      ),
+      _photo(id: 'ok', lat: 41, lng: 29),
+    ];
+    final clusters = groupByLocation(items);
+    expect(clusters.length, 1);
+    expect(clusters.single.items.single.id, 'ok');
   });
 
   test('detectKind GoPro ve DJI', () {

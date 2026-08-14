@@ -1,5 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
+import '../services/geo.dart';
+
 enum MediaKind { photo, video, gopro, drone }
 
 /// MedyaAtlas tarama kimliği: kaynak + göreli yol + boyut.
@@ -42,10 +44,7 @@ class LibraryMedia {
 
   bool get isVideo => kind != MediaKind.photo;
   bool get hasLocation =>
-      !locationMissing &&
-      lat != null &&
-      lng != null &&
-      !(lat == 0 && lng == 0);
+      !locationMissing && isValidGps(lat, lng);
   LatLng? get latLng => hasLocation ? LatLng(lat!, lng!) : null;
 
   LibraryMedia copyWith({
@@ -54,6 +53,7 @@ class LibraryMedia {
     DateTime? takenAt,
     bool? locationMissing,
     String? localPath,
+    bool clearLocation = false,
   }) =>
       LibraryMedia(
         id: id,
@@ -62,8 +62,8 @@ class LibraryMedia {
         kind: kind,
         sourceId: sourceId,
         relativePath: relativePath,
-        lat: lat ?? this.lat,
-        lng: lng ?? this.lng,
+        lat: clearLocation ? null : (lat ?? this.lat),
+        lng: clearLocation ? null : (lng ?? this.lng),
         takenAt: takenAt ?? this.takenAt,
         locationMissing: locationMissing ?? this.locationMissing,
         localPath: localPath ?? this.localPath,
@@ -77,10 +77,12 @@ class LibraryMedia {
         'kind': kind.name,
         'sourceId': sourceId,
         'relativePath': relativePath,
-        'lat': lat,
-        'lng': lng,
+        // NaN/Infinity jsonEncode'i "Converting object to an encodable object
+        // failed" ile düşürür — yalnızca sonlu koordinat yaz.
+        'lat': isValidGps(lat, lng) ? lat : null,
+        'lng': isValidGps(lat, lng) ? lng : null,
         'takenAt': takenAt?.toIso8601String(),
-        'locationMissing': locationMissing,
+        'locationMissing': locationMissing || !isValidGps(lat, lng),
         'localPath': localPath,
         'sizeBytes': sizeBytes,
       };
