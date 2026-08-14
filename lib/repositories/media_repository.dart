@@ -77,17 +77,45 @@ class MediaRepository extends ChangeNotifier {
   }
 
   /// Eski kayıtlardaki NaN/Infinity GPS → jsonEncode ve harita çökmesin.
-  void _sanitizeLoadedGps() {
-    var changed = false;
+  int _stripInvalidGpsInMemory() {
+    var changed = 0;
     for (var i = 0; i < _items.length; i++) {
       final item = _items[i];
       if (item.lat == null && item.lng == null) continue;
       if (isValidGps(item.lat, item.lng)) continue;
       _items[i] = item.copyWith(clearLocation: true, locationMissing: true);
-      changed = true;
+      changed++;
     }
-    if (changed) {
+    return changed;
+  }
+
+  void _sanitizeLoadedGps() {
+    if (_stripInvalidGpsInMemory() > 0) {
       unawaited(_persistIndex());
+    }
+  }
+
+  /// jsonEncode NaN/Infinity kabul etmez — ağaçtaki bozuk sayıları temizle.
+  void _scrubNonFinite(Object? node) {
+    if (node is Map) {
+      final keys = List<Object?>.from(node.keys);
+      for (final key in keys) {
+        final value = node[key];
+        if (value is double && !value.isFinite) {
+          node[key] = null;
+        } else {
+          _scrubNonFinite(value);
+        }
+      }
+    } else if (node is List) {
+      for (var i = 0; i < node.length; i++) {
+        final value = node[i];
+        if (value is double && !value.isFinite) {
+          node[i] = null;
+        } else {
+          _scrubNonFinite(value);
+        }
+      }
     }
   }
 
@@ -146,14 +174,16 @@ class MediaRepository extends ChangeNotifier {
   }
 
   Future<void> _persistIndex() async {
+    _stripInvalidGpsInMemory();
     try {
-      await _indexBox!.put(
-        _indexKey,
-        jsonEncode(_items.map((m) => m.toJson()).toList()),
-      );
-    } catch (e) {
-      debugPrint('MedyaAtlas: medya indeksi yazılamadı: $e');
-      rethrow;
+      final payload = <Map<String, dynamic>>[
+        for (final m in _items) m.toJson(),
+      ];
+      _scrubNonFinite(payload);
+      await _indexBox!.put(_indexKey, jsonEncode(payload));
+    } catch (e, st) {
+      // Tarama / harita ayakta kalsın — NaN yüzünden tüm klasör düşmesin.
+      debugPrint('MedyaAtlas: medya indeksi yazılamadı: $e\n$st');
     }
   }
 
@@ -163,9 +193,8 @@ class MediaRepository extends ChangeNotifier {
         _indexKey,
         jsonEncode(_sources.map((s) => s.toJson()).toList()),
       );
-    } catch (e) {
-      debugPrint('MedyaAtlas: kaynak indeksi yazılamadı: $e');
-      rethrow;
+    } catch (e, st) {
+      debugPrint('MedyaAtlas: kaynak indeksi yazılamadı: $e\n$st');
     }
   }
 

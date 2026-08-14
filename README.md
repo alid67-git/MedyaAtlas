@@ -11,10 +11,11 @@ Dağıtım RideAtlas gibi olacak: GitHub **Releases** (Windows zip + Android APK
 
 Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 
-## Ne var (0.6)
+## Ne var (0.6.1)
 
 - Klasör / dosya taraması — foto + video + GoPro + DJI (kopyalamaz, yalnızca indeks)
 - Tür filtresi yalnızca görünümü etkiler; tarama her zaman tüm medyayı ekler
+- Bozuk EXIF GPS (NaN) artık Hive/haritayı düşürmez
 - Fotoğraf EXIF GPS, videoda başlık ISO6709 / ©xyz
 - Harita kümesi ~40 m
 - GPS konumlu / konum bulunamayan sayaçları, kaynaklar, tür filtresi

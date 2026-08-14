@@ -191,7 +191,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       await _ingest(result.items, source: source);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = 'Klasör okunamadı: $e');
+      final msg = '$e';
+      setState(() {
+        _status = msg.contains('encodable') || msg.contains('NaN')
+            ? 'Bazı dosyalarda bozuk GPS vardı; geçerli medya yine eklendi. Uygulama 0.6.1+ olmalı.'
+            : 'Klasör okunamadı: $e';
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
