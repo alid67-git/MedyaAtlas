@@ -3,67 +3,83 @@ setlocal EnableExtensions
 title MedyaAtlas Windows
 cd /d "%~dp0"
 
-if /i not "%~1"=="_keep" (
+REM Ilk cift tik: ayri cmd penceresi ac.
+if /i not "%~1"=="_keep" if /i not "%~1"=="_ready" (
   start "MedyaAtlas Windows" /D "%~dp0" cmd /k call "%~f0" _keep
   exit /b 0
 )
 
 set "MA_BRANCH=cursor/recognize-all-media-6bc2"
-set "MA_EXPECT=0.6.4"
 
 echo.
 echo === MedyaAtlas Windows ===
 echo Klasor: %CD%
-echo Beklenen surum: v%MA_EXPECT%  ^|  dal: %MA_BRANCH%
+echo Dal: %MA_BRANCH%
 echo.
 
-REM --- Git: dogru dal + son commit ---
+REM --- _keep: git guncelle, sonra GUNCEL bat ile yeniden basla ---
+if /i "%~1"=="_keep" goto :do_git
+goto :after_git
+
+:do_git
 where git >nul 2>&1
 if errorlevel 1 (
-  echo UYARI: git yok. Manuel: git checkout %MA_BRANCH% ^&^& git pull
+  echo UYARI: git yok. Manuel: git fetch ^&^& git checkout %MA_BRANCH% ^&^& git reset --hard origin/%MA_BRANCH%
   echo.
-  goto :after_git
+  goto :relaunch
 )
 
-echo [git] remote guncelleniyor...
-git -C "%~dp0" fetch origin "%MA_BRANCH%" 2>nul
+echo [git] fetch origin %MA_BRANCH%...
+git -C "%~dp0" fetch origin "%MA_BRANCH%"
 if errorlevel 1 (
-  echo UYARI: git fetch basarisiz. Internet / remote kontrol et.
-) else (
-  echo [git] %MA_BRANCH% dalina geciliyor...
-  git -C "%~dp0" checkout "%MA_BRANCH%" 2>nul
-  if errorlevel 1 (
-    echo UYARI: checkout basarisiz. Mevcut dal kullanilacak.
-  ) else (
-    git -C "%~dp0" pull --ff-only origin "%MA_BRANCH%"
-    if errorlevel 1 echo UYARI: git pull basarisiz veya zaten guncel degil.
-  )
+  echo UYARI: git fetch basarisiz.
+  echo.
+  goto :relaunch
 )
 
+echo [git] %MA_BRANCH% = origin ^(zorunlu guncelleme^)...
+git -C "%~dp0" checkout -B "%MA_BRANCH%" "origin/%MA_BRANCH%"
+if errorlevel 1 (
+  echo UYARI: checkout basarisiz, reset deneniyor...
+  git -C "%~dp0" reset --hard "origin/%MA_BRANCH%"
+)
+git -C "%~dp0" reset --hard "origin/%MA_BRANCH%"
+if errorlevel 1 (
+  echo UYARI: reset basarisiz. Yerel dosyalar / Google Drive kilidi olabilir.
+) else (
+  echo [git] guncel: 
+  git -C "%~dp0" log -1 --oneline
+)
 echo.
+
+:relaunch
+echo Guncel bat yeniden baslatiliyor...
+echo.
+call "%~f0" _ready
+exit /b %ERRORLEVEL%
+
+:after_git
 echo --- git durum ---
-git -C "%~dp0" rev-parse --abbrev-ref HEAD 2>nul
-git -C "%~dp0" log -1 --oneline 2>nul
+where git >nul 2>&1
+if not errorlevel 1 (
+  git -C "%~dp0" rev-parse --abbrev-ref HEAD 2>nul
+  git -C "%~dp0" log -1 --oneline 2>nul
+)
 echo ----------------
 echo.
 
-:after_git
+set "MA_VER="
 if exist "%~dp0lib\app_version.dart" (
   echo --- lib\app_version.dart ---
   type "%~dp0lib\app_version.dart"
   echo -----------------------------
-  findstr /C:"'%MA_EXPECT%'" /C:"\"%MA_EXPECT%\"" "%~dp0lib\app_version.dart" >nul 2>&1
-  if errorlevel 1 (
-    echo.
-    echo UYARI: app_version.dart icinde v%MA_EXPECT% yok.
-    echo Yanlis klasor veya eski kod olabilir. Yukaridaki git adimlarini kontrol et.
-    echo.
-  ) else (
-    echo Surum dogrulandi: v%MA_EXPECT%
-    echo.
-  )
+  for /f "tokens=2 delims='" %%A in ('findstr /C:"appVersion" "%~dp0lib\app_version.dart"') do set "MA_VER=%%A"
+)
+if defined MA_VER (
+  echo Surum: v%MA_VER%
+  echo.
 ) else (
-  echo UYARI: lib\app_version.dart bulunamadi.
+  echo UYARI: app_version okunamadi.
   echo.
 )
 
@@ -83,30 +99,26 @@ echo.
 
 call "%~dp0_prepare_local_build.bat"
 
-echo [1/2] pub get ^(video_player / video_player_win dahil^)...
+echo [1/2] pub get...
 "%ComSpec%" /c call "%FLUTTER%" pub get
 if errorlevel 1 (
   echo.
   echo UYARI: pub get hata verdi ^(sikca Google Drive kilidi^).
-  echo         ephemeral yerel diske alinmaya calisildi; yine de run denenecek.
+  echo         Yine de run denenecek.
   echo.
 )
 
-echo [2/2] Windows uygulamasi baslatiliyor ^(kaynak koddan^)...
-echo Baslikta v%MA_EXPECT% gorunmeli.
-echo Impeller kapali ^(video texture icin --no-enable-impeller^).
-echo Cikis icin bu pencerede q.
+echo [2/2] Windows uygulamasi baslatiliyor...
+if defined MA_VER echo Baslikta v%MA_VER% gorunmeli.
+echo Impeller kapali ^(video texture^). Cikis: q
 echo.
-REM Impeller + video_player_win: "Could not create external texture" / siyah ekran.
 "%ComSpec%" /c call "%FLUTTER%" run -d windows --no-enable-impeller
 if errorlevel 1 (
   echo.
-  echo HATA: Flutter eklentileri icin Windows Gelistirici Modu lazim
-  echo       ^(sembolik baglanti / symlink^).
-  echo.
-  echo 1. Acilan pencerede "Gelistirici Modu"nu ac.
-  echo 2. Mumkunse projeyi Google Drive disinda C:\src\MedyaAtlas gibi yerelde tut.
-  echo 3. Bu pencereyi kapat, run_windows.bat'a tekrar cift tikla.
+  echo HATA: Windows Gelistirici Modu ^(symlink^) veya Google Drive kilidi.
+  echo 1. Gelistirici Modu ac.
+  echo 2. Mumkunse projeyi C:\src\MedyaAtlas gibi yerel klasore al.
+  echo 3. run_windows.bat'a tekrar cift tikla.
   echo.
   start ms-settings:developers
 )
