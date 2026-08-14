@@ -1,0 +1,272 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:uuid/uuid.dart';
+
+import '../models/library_media.dart';
+
+const _indexBoxName = 'medyaatlas_media';
+const _bytesBoxName = 'medyaatlas_media_bytes';
+const _sourcesBoxName = 'medyaatlas_sources';
+const _indexKey = 'index';
+const gallerySourceId = 'gallery';
+
+/// Bu cihazdaki kütüphane. RideAtlas gibi: küçük JSON indeks + ayrı kutuda
+/// fotoğraf baytları. Video Hive’a yazılmaz; varsa [LibraryMedia.localPath].
+class MediaRepository extends ChangeNotifier {
+  MediaRepository._();
+  static final MediaRepository instance = MediaRepository._();
+
+  final List<LibraryMedia> _items = [];
+  final List<MediaSource> _sources = [];
+  final Map<String, Uint8List> _bytesCache = {};
+  Box<String>? _indexBox;
+  Box<Uint8List>? _bytesBox;
+  Box<String>? _sourcesBox;
+  bool _ready = false;
+
+  bool get isReady => _ready;
+
+  Future<void> init() async {
+    if (_ready) return;
+    _indexBox = await Hive.openBox<String>(_indexBoxName);
+    _bytesBox = await Hive.openBox<Uint8List>(_bytesBoxName);
+    _sourcesBox = await Hive.openBox<String>(_sourcesBoxName);
+    final raw = _indexBox!.get(_indexKey);
+    final list = raw == null ? const [] : jsonDecode(raw) as List<dynamic>;
+    _items
+      ..clear()
+      ..addAll(
+        list.map(
+          (e) => LibraryMedia.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    final srcRaw = _sourcesBox!.get(_indexKey);
+    final srcList = srcRaw == null ? const [] : jsonDecode(srcRaw) as List<dynamic>;
+    _sources
+      ..clear()
+      ..addAll(
+        srcList.map(
+          (e) => MediaSource.fromJson(Map<String, dynamic>.from(e as Map)),
+        ),
+      );
+    final sourceCount = _sources.length;
+    _ensureOrphanSources();
+    if (_sources.length != sourceCount) {
+      await _persistSources();
+    }
+    _ready = true;
+    notifyListeners();
+  }
+
+  void _ensureOrphanSources() {
+    final known = _sources.map((s) => s.id).toSet();
+    final missing = <String, DateTime>{};
+    for (final item in _items) {
+      if (known.contains(item.sourceId)) continue;
+      final prev = missing[item.sourceId];
+      if (prev == null || item.addedAt.isBefore(prev)) {
+        missing[item.sourceId] = item.addedAt;
+      }
+    }
+    if (missing.isEmpty) return;
+    for (final entry in missing.entries) {
+      _sources.add(
+        MediaSource(
+          id: entry.key,
+          label: entry.key == gallerySourceId ? 'Galeri' : 'Kaynak',
+          addedAt: entry.value,
+        ),
+      );
+    }
+  }
+
+  List<LibraryMedia> get items => List.unmodifiable(_items);
+  List<MediaSource> get sources => List.unmodifiable(_sources);
+
+  Set<String> get hiddenSourceIds =>
+      _sources.where((s) => s.hidden).map((s) => s.id).toSet();
+
+  List<LibraryMedia> get visibleItems =>
+      _items.where((m) => !hiddenSourceIds.contains(m.sourceId)).toList();
+
+  List<LibraryMedia> get withLocation =>
+      visibleItems.where((m) => m.hasLocation).toList();
+
+  List<LibraryMedia> get locationMissing =>
+      visibleItems.where((m) => !m.hasLocation).toList();
+
+  MediaSource? sourceOf(String id) {
+    for (final s in _sources) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  Uint8List? cachedBytes(String id) => _bytesCache[id];
+
+  Future<Uint8List?> bytesOf(String id) async {
+    final cached = _bytesCache[id];
+    if (cached != null) return cached;
+    final bytes = _bytesBox?.get(id);
+    if (bytes != null) _bytesCache[id] = bytes;
+    return bytes;
+  }
+
+  Future<void> _persistIndex() async {
+    await _indexBox!.put(
+      _indexKey,
+      jsonEncode(_items.map((m) => m.toJson()).toList()),
+    );
+  }
+
+  Future<void> _persistSources() async {
+    await _sourcesBox!.put(
+      _indexKey,
+      jsonEncode(_sources.map((s) => s.toJson()).toList()),
+    );
+  }
+
+  Future<MediaSource> ensureSource({
+    String? id,
+    required String label,
+  }) async {
+    if (id != null) {
+      for (final s in _sources) {
+        if (s.id == id) return s;
+      }
+    }
+    for (final s in _sources) {
+      if (s.label == label) return s;
+    }
+    final source = MediaSource(
+      id: id ?? const Uuid().v4(),
+      label: label,
+      addedAt: DateTime.now(),
+    );
+    _sources.add(source);
+    await _persistSources();
+    notifyListeners();
+    return source;
+  }
+
+  Future<void> setSourceHidden(String id, bool hidden) async {
+    final i = _sources.indexWhere((s) => s.id == id);
+    if (i < 0) return;
+    _sources[i] = _sources[i].copyWith(hidden: hidden);
+    await _persistSources();
+    notifyListeners();
+  }
+
+  Future<void> removeSource(String id) async {
+    final ids = _items.where((m) => m.sourceId == id).map((m) => m.id).toList();
+    _items.removeWhere((m) => m.sourceId == id);
+    _sources.removeWhere((s) => s.id == id);
+    for (final mediaId in ids) {
+      _bytesCache.remove(mediaId);
+      await _bytesBox?.delete(mediaId);
+    }
+    await _persistIndex();
+    await _persistSources();
+    notifyListeners();
+  }
+
+  LibraryMedia? findByIndex({
+    required String sourceId,
+    required String relativePath,
+    required int size,
+  }) {
+    final id = mediaIndexId(
+      sourceId: sourceId,
+      relativePath: relativePath,
+      size: size,
+    );
+    for (final item in _items) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
+
+  Future<LibraryMedia> add({
+    required String name,
+    required MediaKind kind,
+    required String sourceId,
+    Uint8List? bytes,
+    String? relativePath,
+    String? localPath,
+    int? sizeBytes,
+    double? lat,
+    double? lng,
+    DateTime? takenAt,
+    bool persist = true,
+  }) async {
+    final rel = relativePath ?? name;
+    final size = sizeBytes ?? 0;
+    final id = mediaIndexId(sourceId: sourceId, relativePath: rel, size: size);
+    final existing = _items.indexWhere((m) => m.id == id);
+    if (existing >= 0) {
+      return _items[existing];
+    }
+    final hasGps = lat != null && lng != null && !(lat == 0 && lng == 0);
+    final media = LibraryMedia(
+      id: id,
+      name: name,
+      addedAt: DateTime.now(),
+      kind: kind,
+      sourceId: sourceId,
+      relativePath: rel,
+      lat: lat,
+      lng: lng,
+      takenAt: takenAt,
+      locationMissing: !hasGps,
+      localPath: localPath,
+      sizeBytes: sizeBytes,
+    );
+    _items.insert(0, media);
+    if (bytes != null && bytes.isNotEmpty) {
+      await _bytesBox!.put(media.id, bytes);
+      _bytesCache[media.id] = bytes;
+    }
+    if (persist) {
+      await _persistIndex();
+      notifyListeners();
+    }
+    return media;
+  }
+
+  Future<void> updateLocation({
+    required String id,
+    double? lat,
+    double? lng,
+    DateTime? takenAt,
+    bool persist = true,
+  }) async {
+    final i = _items.indexWhere((m) => m.id == id);
+    if (i < 0) return;
+    final hasGps = lat != null && lng != null && !(lat == 0 && lng == 0);
+    _items[i] = _items[i].copyWith(
+      lat: lat,
+      lng: lng,
+      takenAt: takenAt,
+      locationMissing: !hasGps,
+    );
+    if (persist) {
+      await _persistIndex();
+      notifyListeners();
+    }
+  }
+
+  Future<void> flush() async {
+    await _persistIndex();
+    notifyListeners();
+  }
+
+  Future<void> remove(String id) async {
+    _items.removeWhere((m) => m.id == id);
+    _bytesCache.remove(id);
+    await _persistIndex();
+    await _bytesBox?.delete(id);
+    notifyListeners();
+  }
+}

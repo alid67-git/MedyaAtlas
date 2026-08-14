@@ -1,0 +1,39 @@
+import 'dart:typed_data';
+
+import 'media_kind.dart';
+
+export 'media_kind.dart';
+
+const photoHeadBytes = 2 * 1024 * 1024;
+const videoHeadBytes = 4 * 1024 * 1024;
+const previewStoreBytes = 3 * 1024 * 1024;
+
+class FolderMediaRef {
+  const FolderMediaRef({
+    required this.name,
+    required this.size,
+    required this.readHead,
+    this.relativePath,
+    this.localPath,
+    this.lastModified,
+  });
+
+  final String name;
+  final int size;
+  final String? relativePath;
+  final String? localPath;
+  final DateTime? lastModified;
+  final Future<Uint8List> Function(int maxBytes) readHead;
+
+  bool get isVideo => isVideoName(name);
+}
+
+class FolderPickResult {
+  const FolderPickResult({
+    required this.folderName,
+    required this.items,
+  });
+
+  final String folderName;
+  final List<FolderMediaRef> items;
+}

@@ -1,0 +1,34 @@
+name: medyaatlas
+description: MedyaAtlas — Windows ve Android GPS medya haritası (yerel kayıt).
+publish_to: 'none'
+version: 0.6.0+6
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_map: ^8.3.1
+  latlong2: ^0.10.1
+  provider: ^6.1.5+1
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  uuid: ^4.6.0
+  image_picker: ^1.1.2
+  exif: ^3.3.0
+  file_picker: ^8.3.7
+  path: ^1.9.1
+  web: ^1.1.1
+  intl: ^0.20.2
+  http: ^1.2.2
+  desktop_drop: ^0.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
