@@ -1,51 +1,50 @@
 @echo off
 setlocal EnableExtensions
+title MedyaAtlas guncelle
 cd /d "%~dp0"
 
 set "MA_BRANCH=cursor/recognize-all-media-6bc2"
+set "MA_EXPECT=0.6.5"
+set "LOCAL_REPO=C:\src\MedyaAtlas"
 set "FROM_RUN=0"
 if /i "%~1"=="_from_run" set "FROM_RUN=1"
 
-if "%FROM_RUN%"=="0" title MedyaAtlas guncelle
-
 echo.
-echo === [0] MedyaAtlas kod guncelle ===
-echo Klasor: %CD%
-echo Dal: %MA_BRANCH%
+echo === MedyaAtlas kod guncelle → %LOCAL_REPO% ===
 echo.
 
 where git >nul 2>&1
 if errorlevel 1 (
-  echo HATA: git bulunamadi.
+  echo HATA: git yok.
   if "%FROM_RUN%"=="0" pause
   exit /b 1
 )
 
-git -C "%~dp0" fetch origin "%MA_BRANCH%"
+set "MA_REMOTE="
+for /f "delims=" %%U in ('git -C "%~dp0" remote get-url origin 2^>nul') do set "MA_REMOTE=%%U"
+if not defined MA_REMOTE set "MA_REMOTE=https://github.com/alid67-git/MedyaAtlas.git"
+
+if not exist "C:\src" mkdir "C:\src"
+
+if not exist "%LOCAL_REPO%\.git" (
+  if exist "%LOCAL_REPO%" rmdir /s /q "%LOCAL_REPO%" 2>nul
+  git clone --branch "%MA_BRANCH%" --single-branch "%MA_REMOTE%" "%LOCAL_REPO%"
+) else (
+  git -C "%LOCAL_REPO%" fetch origin "%MA_BRANCH%"
+  git -C "%LOCAL_REPO%" checkout -B "%MA_BRANCH%" "origin/%MA_BRANCH%"
+  git -C "%LOCAL_REPO%" reset --hard "origin/%MA_BRANCH%"
+)
+
 if errorlevel 1 (
-  echo HATA: fetch basarisiz.
-  if "%FROM_RUN%"=="0" pause
-  exit /b 1
-)
-
-git -C "%~dp0" checkout -B "%MA_BRANCH%" "origin/%MA_BRANCH%"
-git -C "%~dp0" reset --hard "origin/%MA_BRANCH%"
-if errorlevel 1 (
-  echo HATA: reset basarisiz. Google Drive kilidi olabilir.
+  echo HATA: guncelleme basarisiz.
   if "%FROM_RUN%"=="0" pause
   exit /b 1
 )
 
 echo.
-echo --- app_version.dart ---
-if exist "%~dp0lib\app_version.dart" type "%~dp0lib\app_version.dart"
+type "%LOCAL_REPO%\lib\app_version.dart" 2>nul
+git -C "%LOCAL_REPO%" log -1 --oneline
 echo.
-git -C "%~dp0" log -1 --oneline
-echo.
-echo Guncelleme tamam.
-if "%FROM_RUN%"=="0" (
-  echo Simdi run_windows.bat yeterli; o zaten bu adimi cagirir.
-  echo.
-  pause
-)
+echo Tamam. run_windows.bat bundan sonra hep %LOCAL_REPO% kullanir.
+if "%FROM_RUN%"=="0" pause
 exit /b 0
