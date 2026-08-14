@@ -13,6 +13,20 @@ echo === MedyaAtlas Android ===
 echo Klasor: %CD%
 echo.
 
+if exist "%~dp0lib\app_version.dart" (
+  echo --- lib\app_version.dart ---
+  type "%~dp0lib\app_version.dart"
+  echo -----------------------------
+  echo.
+)
+
+where git >nul 2>&1
+if not errorlevel 1 (
+  git -C "%~dp0" rev-parse --abbrev-ref HEAD 2>nul
+  git -C "%~dp0" log -1 --oneline 2>nul
+  echo.
+)
+
 call "%~dp0_flutter_env.bat"
 if not exist "%FLUTTER%" (
   echo HATA: Flutter bulunamadi.

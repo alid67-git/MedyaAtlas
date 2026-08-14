@@ -8,21 +8,62 @@ if /i not "%~1"=="_keep" (
   exit /b 0
 )
 
+set "MA_BRANCH=cursor/recognize-all-media-6bc2"
+set "MA_EXPECT=0.6.3"
+
 echo.
 echo === MedyaAtlas Windows ===
 echo Klasor: %CD%
+echo Beklenen surum: v%MA_EXPECT%  ^|  dal: %MA_BRANCH%
 echo.
 
-REM Surum / dal kontrolu — ekranda v0.6.0 goruyorsan bu dal degildir.
+REM --- Git: dogru dal + son commit ---
+where git >nul 2>&1
+if errorlevel 1 (
+  echo UYARI: git yok. Manuel: git checkout %MA_BRANCH% ^&^& git pull
+  echo.
+  goto :after_git
+)
+
+echo [git] remote guncelleniyor...
+git -C "%~dp0" fetch origin "%MA_BRANCH%" 2>nul
+if errorlevel 1 (
+  echo UYARI: git fetch basarisiz. Internet / remote kontrol et.
+) else (
+  echo [git] %MA_BRANCH% dalina geciliyor...
+  git -C "%~dp0" checkout "%MA_BRANCH%" 2>nul
+  if errorlevel 1 (
+    echo UYARI: checkout basarisiz. Mevcut dal kullanilacak.
+  ) else (
+    git -C "%~dp0" pull --ff-only origin "%MA_BRANCH%"
+    if errorlevel 1 echo UYARI: git pull basarisiz veya zaten guncel degil.
+  )
+)
+
+echo.
+echo --- git durum ---
+git -C "%~dp0" rev-parse --abbrev-ref HEAD 2>nul
+git -C "%~dp0" log -1 --oneline 2>nul
+echo ----------------
+echo.
+
+:after_git
 if exist "%~dp0lib\app_version.dart" (
   echo --- lib\app_version.dart ---
   type "%~dp0lib\app_version.dart"
   echo -----------------------------
-)
-where git >nul 2>&1
-if not errorlevel 1 (
-  git -C "%~dp0" rev-parse --abbrev-ref HEAD 2>nul
-  git -C "%~dp0" log -1 --oneline 2>nul
+  findstr /C:"'%MA_EXPECT%'" /C:"\"%MA_EXPECT%\"" "%~dp0lib\app_version.dart" >nul 2>&1
+  if errorlevel 1 (
+    echo.
+    echo UYARI: app_version.dart icinde v%MA_EXPECT% yok.
+    echo Yanlis klasor veya eski kod olabilir. Yukaridaki git adimlarini kontrol et.
+    echo.
+  ) else (
+    echo Surum dogrulandi: v%MA_EXPECT%
+    echo.
+  )
+) else (
+  echo UYARI: lib\app_version.dart bulunamadi.
   echo.
 )
 
@@ -42,7 +83,7 @@ echo.
 
 call "%~dp0_prepare_local_build.bat"
 
-echo [1/2] pub get...
+echo [1/2] pub get ^(video_player / video_player_win dahil^)...
 "%ComSpec%" /c call "%FLUTTER%" pub get
 if errorlevel 1 (
   echo.
@@ -50,8 +91,8 @@ if errorlevel 1 (
   echo.
 )
 
-echo [2/2] Windows uygulaması baslatiliyor (kaynak koddan)...
-echo Baslikta v0.6.3+ gorunmeli. Eski v0.6.0/v0.6.2 ise yanlis klasorden calisiyorsun.
+echo [2/2] Windows uygulamasi baslatiliyor ^(kaynak koddan^)...
+echo Baslikta v%MA_EXPECT% gorunmeli.
 echo Cikis icin bu pencerede q.
 echo.
 "%ComSpec%" /c call "%FLUTTER%" run -d windows
