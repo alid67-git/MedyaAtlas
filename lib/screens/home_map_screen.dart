@@ -21,6 +21,7 @@ import '../services/cluster.dart';
 import '../services/exif_gps.dart';
 import '../services/folder_picker.dart';
 import '../services/header_gps.dart';
+import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
 import '../services/video_preview.dart';
@@ -94,7 +95,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     super.dispose();
   }
 
+  Future<bool> _ensureAndroidMediaAccess() async {
+    final result = await ensureAndroidMediaAccess();
+    if (!result.ok) {
+      if (mounted) {
+        setState(() => _status = result.message);
+      }
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _importGallery() async {
+    if (!await _ensureAndroidMediaAccess()) return;
     setState(() {
       _beginBusy();
       _status = null;
@@ -138,6 +151,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   Future<void> _importFolder() async {
+    if (!await _ensureAndroidMediaAccess()) return;
     FolderPickResult? picked;
     try {
       picked = await pickMediaFolder();
@@ -152,11 +166,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   Future<void> _importFiles() async {
+    if (!await _ensureAndroidMediaAccess()) return;
     // Windows’ta uzun uzantı listeli FileType.custom bazen yalnızca
     // görüntü filtreler — any alıp istemci tarafında medya süzüyoruz.
     final picked = await FilePicker.platform.pickFiles(
       allowMultiple: true,
       type: FileType.any,
+      withData: false,
     );
     if (!mounted || picked == null || picked.files.isEmpty) return;
     final refs = <FolderMediaRef>[];
