@@ -9,7 +9,7 @@ if /i not "%~1"=="_keep" (
 )
 
 set "MA_BRANCH=cursor/recognize-all-media-6bc2"
-set "MA_EXPECT=0.6.3"
+set "MA_EXPECT=0.6.4"
 
 echo.
 echo === MedyaAtlas Windows ===
@@ -87,22 +87,26 @@ echo [1/2] pub get ^(video_player / video_player_win dahil^)...
 "%ComSpec%" /c call "%FLUTTER%" pub get
 if errorlevel 1 (
   echo.
-  echo UYARI: pub get hata verdi. Yine de run denenecek.
+  echo UYARI: pub get hata verdi ^(sikca Google Drive kilidi^).
+  echo         ephemeral yerel diske alinmaya calisildi; yine de run denenecek.
   echo.
 )
 
 echo [2/2] Windows uygulamasi baslatiliyor ^(kaynak koddan^)...
 echo Baslikta v%MA_EXPECT% gorunmeli.
+echo Impeller kapali ^(video texture icin --no-enable-impeller^).
 echo Cikis icin bu pencerede q.
 echo.
-"%ComSpec%" /c call "%FLUTTER%" run -d windows
+REM Impeller + video_player_win: "Could not create external texture" / siyah ekran.
+"%ComSpec%" /c call "%FLUTTER%" run -d windows --no-enable-impeller
 if errorlevel 1 (
   echo.
   echo HATA: Flutter eklentileri icin Windows Gelistirici Modu lazim
   echo       ^(sembolik baglanti / symlink^).
   echo.
   echo 1. Acilan pencerede "Gelistirici Modu"nu ac.
-  echo 2. Bu pencereyi kapat, run_windows.bat'a tekrar cift tikla.
+  echo 2. Mumkunse projeyi Google Drive disinda C:\src\MedyaAtlas gibi yerelde tut.
+  echo 3. Bu pencereyi kapat, run_windows.bat'a tekrar cift tikla.
   echo.
   start ms-settings:developers
 )

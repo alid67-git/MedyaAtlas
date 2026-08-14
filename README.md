@@ -11,7 +11,7 @@ Dağıtım RideAtlas gibi olacak: GitHub **Releases** (Windows zip + Android APK
 
 Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 
-## Ne var (0.6.3)
+## Ne var (0.6.4)
 
 - Klasör / dosya taraması — foto + video + GoPro + DJI (kopyalamaz, yalnızca indeks)
 - Tür filtresi yalnızca görünümü etkiler; tarama her zaman tüm medyayı ekler
@@ -21,7 +21,8 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 - GPS konumlu / konum bulunamayan sayaçları, kaynaklar, tür filtresi
 - Sürükle-bırak klasör, Ctrl+O
 - Konum yokları yeniden dene
-- GoPro / video sağ panel önizlemesi ve tam ekran oynatma (Windows Media Foundation)
+- GoPro / video sağ panel önizlemesi ve tam ekran oynatma (Windows; Impeller kapalı)
+- Görüntüleyicide sil butonu yok (dosyaya dokunulmaz; yalnızca indeks)
 
 GoPro GPMF telemetrisi henüz yok (GPS’siz GoPro’lar “Konum bulunamayan”da listelenir). GPX/KML ride çizgileri henüz yok. Bazı GoPro codec’leri için Windows’ta ek codec paketi gerekebilir.
 

@@ -302,6 +302,11 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ),
+                IconButton(
+                  tooltip: 'Windows’ta aç',
+                  onPressed: _openExternally,
+                  icon: const Icon(Icons.open_in_new),
+                ),
               ],
             ),
           ),
@@ -334,10 +339,28 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white38, fontSize: 12),
               ),
+              const SizedBox(height: 16),
+              FilledButton.tonalIcon(
+                onPressed: _openExternally,
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Windows’ta aç'),
+              ),
             ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _openExternally() async {
+    final path = widget.path;
+    if (path == null || path.isEmpty) return;
+    try {
+      await Process.start(
+        'cmd',
+        ['/c', 'start', '', path],
+        runInShell: false,
+      );
+    } catch (_) {}
   }
 }

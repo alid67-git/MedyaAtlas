@@ -60,7 +60,6 @@ class _MediaViewerState extends State<MediaViewer> {
 
   @override
   Widget build(BuildContext context) {
-    final repo = context.watch<MediaRepository>();
     final media = _current;
     final taken = media.takenAt;
     final dateText = taken == null
@@ -80,15 +79,6 @@ class _MediaViewerState extends State<MediaViewer> {
                 child: Text('${_index + 1}/${widget.items.length}'),
               ),
             ),
-          IconButton(
-            tooltip: 'Sil',
-            onPressed: () async {
-              await repo.remove(media.id);
-              if (!context.mounted) return;
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.delete_outline),
-          ),
         ],
       ),
       body: Column(
