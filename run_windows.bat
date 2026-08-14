@@ -14,51 +14,33 @@ set "MA_BRANCH=cursor/recognize-all-media-6bc2"
 echo.
 echo === MedyaAtlas Windows ===
 echo Klasor: %CD%
-echo Dal: %MA_BRANCH%
 echo.
 
-REM --- _keep: git guncelle, sonra GUNCEL bat ile yeniden basla ---
-if /i "%~1"=="_keep" goto :do_git
-goto :after_git
+REM --- _keep: once guncelle, sonra guncel bat ile devam ---
+if /i "%~1"=="_keep" goto :do_update
+goto :ready
 
-:do_git
-where git >nul 2>&1
-if errorlevel 1 (
-  echo UYARI: git yok. Manuel: git fetch ^&^& git checkout %MA_BRANCH% ^&^& git reset --hard origin/%MA_BRANCH%
-  echo.
-  goto :relaunch
-)
-
-echo [git] fetch origin %MA_BRANCH%...
-git -C "%~dp0" fetch origin "%MA_BRANCH%"
-if errorlevel 1 (
-  echo UYARI: git fetch basarisiz.
-  echo.
-  goto :relaunch
-)
-
-echo [git] %MA_BRANCH% = origin ^(zorunlu guncelleme^)...
-git -C "%~dp0" checkout -B "%MA_BRANCH%" "origin/%MA_BRANCH%"
-if errorlevel 1 (
-  echo UYARI: checkout basarisiz, reset deneniyor...
-  git -C "%~dp0" reset --hard "origin/%MA_BRANCH%"
-)
-git -C "%~dp0" reset --hard "origin/%MA_BRANCH%"
-if errorlevel 1 (
-  echo UYARI: reset basarisiz. Yerel dosyalar / Google Drive kilidi olabilir.
+:do_update
+echo --- Adim 0: guncelle ---
+if exist "%~dp0guncelle.bat" (
+  call "%~dp0guncelle.bat" _from_run
 ) else (
-  echo [git] guncel: 
-  git -C "%~dp0" log -1 --oneline
+  echo guncelle.bat yok; dogrudan git...
+  where git >nul 2>&1
+  if not errorlevel 1 (
+    git -C "%~dp0" fetch origin "%MA_BRANCH%"
+    git -C "%~dp0" checkout -B "%MA_BRANCH%" "origin/%MA_BRANCH%"
+    git -C "%~dp0" reset --hard "origin/%MA_BRANCH%"
+  )
 )
 echo.
-
-:relaunch
-echo Guncel bat yeniden baslatiliyor...
+echo Guncel run_windows yeniden baslatiliyor...
 echo.
-call "%~f0" _ready
+REM Diskteki YENI bat calissin (pull sonrasi).
+call "%~dp0run_windows.bat" _ready
 exit /b %ERRORLEVEL%
 
-:after_git
+:ready
 echo --- git durum ---
 where git >nul 2>&1
 if not errorlevel 1 (
