@@ -20,6 +20,8 @@ import '../repositories/media_repository.dart';
 import '../services/cluster.dart';
 import '../services/exif_gps.dart';
 import '../services/folder_picker.dart';
+import '../services/geo.dart';
+import '../services/google_drive_media.dart';
 import '../services/header_gps.dart';
 import '../services/media_permissions.dart';
 import '../services/place_search.dart';
@@ -146,6 +148,45 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       if (!mounted) return;
       setState(() => _status = 'Galeri açılamadı: $e');
     } finally {
+      if (mounted) setState(_endBusy);
+    }
+  }
+
+  Future<void> _importGoogleDrive() async {
+    setState(() {
+      _beginBusy();
+      _status = 'Google Drive’a bağlanılıyor…';
+    });
+    GoogleDriveSession? session;
+    try {
+      session = await connectGoogleDrive();
+      if (!mounted) return;
+      setState(() => _status = 'Drive: ${session!.email} — medya listeleniyor…');
+      final picked = await listDriveMedia(
+        session,
+        onProgress: (s) {
+          if (mounted) setState(() => _status = s);
+        },
+      );
+      if (!mounted) return;
+      if (picked.items.isEmpty) {
+        setState(() => _status = 'Drive’da foto/video bulunamadı.');
+        return;
+      }
+      final repo = context.read<MediaRepository>();
+      final source = await repo.ensureSource(label: picked.folderName);
+      await _ingest(picked.items, source: source);
+    } catch (e) {
+      if (!mounted) return;
+      final msg = '$e';
+      setState(() {
+        _status = msg.contains('10') || msg.contains('ApiException')
+            ? 'Google oturum açılamadı. Google Cloud’da OAuth + SHA-1 ve '
+                'Drive API gerekir (README / google_oauth_config.dart).'
+            : 'Google Drive: $e';
+      });
+    } finally {
+      session?.close();
       if (mounted) setState(_endBusy);
     }
   }
@@ -353,16 +394,26 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             ? (file.size <= previewStoreBytes ? file.size : photoHeadBytes)
             : videoHeadBytes;
 
-        Uint8List? head;
-        try {
-          head = await file.readHead(headLimit);
-        } catch (_) {
-          head = null;
-        }
-
         LatLng? gps;
         DateTime? taken = file.lastModified;
-        if (head != null && head.isNotEmpty) {
+        if (file.knownLat != null && file.knownLng != null) {
+          gps = latLngOrNull(file.knownLat, file.knownLng);
+        }
+
+        Uint8List? head;
+        final needHead = gps == null ||
+            (isPhoto && file.size > 0 && file.size <= previewStoreBytes);
+        if (needHead) {
+          try {
+            head = await file.readHead(
+              gps != null && isPhoto ? file.size : headLimit,
+            );
+          } catch (_) {
+            head = null;
+          }
+        }
+
+        if (gps == null && head != null && head.isNotEmpty) {
           try {
             if (isPhoto) {
               gps = await extractExifGps(head);
@@ -1011,6 +1062,15 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                           },
                     child: const Text('+ Galeri'),
                   ),
+                FilledButton.tonal(
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          setState(_closeMenus);
+                          _importGoogleDrive();
+                        },
+                  child: const Text('+ Google Drive'),
+                ),
               ],
             ),
           ],

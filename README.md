@@ -8,10 +8,11 @@ Dağıtım: GitHub **Releases** (Android APK; Windows zip yakında). Web / GitHu
 
 1. Aç: https://github.com/alid67-git/MedyaAtlas/releases  
 2. En son **`MedyaAtlas-*-android.apk`** indir / kur  
-3. İlk taramada **Fotoğraf/Video** ve **medya konumu** izinlerini ver (Android EXIF GPS için şart)  
-4. **Google Fotoğraflar bulutu taranmaz** — Dosyalar / DCIM / Kamera klasöründen seç  
+3. İlk taramada **Fotoğraf/Video** ve **medya konumu** izinlerini ver  
+4. **+ Google Drive** ile Drive hesabına bağlan (kurulum: [GOOGLE_DRIVE.md](GOOGLE_DRIVE.md))  
+5. Yerel DCIM / Dosyalar da çalışır — Google Fotoğraflar bulut albümü değil  
 
-Direkt APK (güncel sürüm yayınlandıkça değişir): Releases sayfasındaki son APK.
+Direkt APK: Releases sayfasındaki son sürüm.
 
 ## Kurulum (Windows) — yerel disk
 
@@ -31,14 +32,13 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
 
-## Ne var (0.6.7)
+## Ne var (0.6.8)
 
-- Android: `ACCESS_MEDIA_LOCATION` + tarama öncesi izin (EXIF GPS)
+- **Google Drive** bağlantısı (OAuth + Drive API; konumlu foto metadata)
+- Android: `ACCESS_MEDIA_LOCATION` + tarama öncesi izin
 - GitHub Actions Android APK Release
-- Klasör / dosya taraması — foto + video + GoPro + DJI
-- EXIF GPS + Orientation; video başlık GPS; tarama önizleme JPEG
-- GoPro/DJI tıklanınca Windows oynatıcı; kapat sağda
-- Çalışma yolu (PC): `C:\src\MedyaAtlas`
+- Klasör / galeri / dosya tarama; EXIF + video başlık GPS
+- PC: `C:\src\MedyaAtlas`
 
 GoPro GPMF telemetrisi henüz yok. GPX/KML ride çizgileri henüz yok.
 

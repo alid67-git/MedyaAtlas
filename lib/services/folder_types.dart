@@ -16,6 +16,8 @@ class FolderMediaRef {
     this.relativePath,
     this.localPath,
     this.lastModified,
+    this.knownLat,
+    this.knownLng,
   });
 
   final String name;
@@ -23,6 +25,9 @@ class FolderMediaRef {
   final String? relativePath;
   final String? localPath;
   final DateTime? lastModified;
+  /// Drive imageMediaMetadata vb. — dosya indirilmeden bilinen GPS.
+  final double? knownLat;
+  final double? knownLng;
   final Future<Uint8List> Function(int maxBytes) readHead;
 
   bool get isVideo => isVideoName(name);
