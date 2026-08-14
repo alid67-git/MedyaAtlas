@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../models/library_media.dart';
+import 'geo.dart';
 
 double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
   const r = 6371000.0;
@@ -20,6 +21,7 @@ List<LocationCluster> groupByLocation(
   final clusters = <LocationCluster>[];
   for (final item in items) {
     if (!item.hasLocation) continue;
+    if (!isValidGps(item.lat, item.lng)) continue;
     var nearest = -1;
     var nearestDist = double.infinity;
     for (var i = 0; i < clusters.length; i++) {
@@ -34,10 +36,13 @@ List<LocationCluster> groupByLocation(
       final c = clusters[nearest];
       final nextItems = [...c.items, item];
       final n = nextItems.length;
+      final lat = nextItems.fold<double>(0, (s, x) => s + x.lat!) / n;
+      final lng = nextItems.fold<double>(0, (s, x) => s + x.lng!) / n;
+      if (!isValidGps(lat, lng)) continue;
       clusters[nearest] = LocationCluster(
         id: c.id,
-        latitude: nextItems.fold<double>(0, (s, x) => s + x.lat!) / n,
-        longitude: nextItems.fold<double>(0, (s, x) => s + x.lng!) / n,
+        latitude: lat,
+        longitude: lng,
         items: nextItems,
       );
     } else {

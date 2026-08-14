@@ -308,6 +308,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             // GPS okunamasa da dosya kütüphaneye girer.
           }
         }
+        // NaN/Infinity asla Hive/jsonEncode veya MarkerLayer'a girmesin.
+        if (gps != null &&
+            !(gps.latitude.isFinite && gps.longitude.isFinite)) {
+          gps = null;
+        }
 
         if (gps != null) {
           withGps++;
@@ -1060,15 +1065,17 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                   MarkerLayer(
                     markers: [
                       for (final cluster in clusters)
-                        Marker(
-                          point: cluster.latLng,
-                          width: 44,
-                          height: 44,
-                          child: GestureDetector(
-                            onTap: () => _openCluster(cluster),
-                            child: ClusterDot(count: cluster.items.length),
+                        if (cluster.latitude.isFinite &&
+                            cluster.longitude.isFinite)
+                          Marker(
+                            point: cluster.latLng,
+                            width: 44,
+                            height: 44,
+                            child: GestureDetector(
+                              onTap: () => _openCluster(cluster),
+                              child: ClusterDot(count: cluster.items.length),
+                            ),
                           ),
-                        ),
                     ],
                   ),
                 ],
