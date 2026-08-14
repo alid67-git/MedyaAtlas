@@ -8,7 +8,8 @@ const photoExt = {
 
 const videoExt = {
   'mp4', 'mov', 'm4v', 'avi', 'mkv', 'webm', '360', 'insv',
-  'ts', 'mts', 'm2ts', '3gp', '3g2', 'wmv', 'mpg', 'mpeg',
+  'ts', 'mts', 'm2ts', '3gp', '3g2', 'wmv', 'mpg', 'mpeg', 'mpe', 'mp2',
+  'flv', 'f4v', 'asf', 'vob', 'divx', 'qt', 'ogv', 'rm', 'rmvb',
 };
 
 final _goproName = RegExp(
@@ -26,11 +27,16 @@ String extensionOf(String name) {
 
 bool isVideoName(String name) => videoExt.contains(extensionOf(name));
 
+bool isPhotoName(String name) => photoExt.contains(extensionOf(name));
+
 bool isMediaName(String name) {
   final ext = extensionOf(name);
   if (ext == 'lrv') return false;
   return photoExt.contains(ext) || videoExt.contains(ext);
 }
+
+/// Dosya seçici / rapor için birleşik uzantı listesi.
+List<String> get allMediaExtensions => [...photoExt, ...videoExt]..sort();
 
 MediaKind? detectKind(String name) {
   final ext = extensionOf(name);
@@ -51,3 +57,17 @@ String kindLabel(MediaKind kind, {required bool en}) => switch (kind) {
       MediaKind.gopro => 'GoPro',
       MediaKind.drone => 'Drone',
     };
+
+String kindCountsLabel(Map<MediaKind, int> counts) {
+  final parts = <String>[];
+  void add(MediaKind kind, String label) {
+    final n = counts[kind] ?? 0;
+    if (n > 0) parts.add('$n $label');
+  }
+
+  add(MediaKind.photo, 'foto');
+  add(MediaKind.video, 'video');
+  add(MediaKind.gopro, 'GoPro');
+  add(MediaKind.drone, 'drone');
+  return parts.isEmpty ? 'medya yok' : parts.join(' · ');
+}

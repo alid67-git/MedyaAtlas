@@ -124,16 +124,18 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   Future<void> _importFiles() async {
+    // Windows’ta uzun uzantı listeli FileType.custom bazen yalnızca
+    // görüntü filtreler — any alıp istemci tarafında medya süzüyoruz.
     final picked = await FilePicker.platform.pickFiles(
       allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: [...photoExt, ...videoExt],
+      type: FileType.any,
     );
     if (!mounted || picked == null || picked.files.isEmpty) return;
     final refs = <FolderMediaRef>[];
     for (final file in picked.files) {
       final path = file.path;
       if (path == null) continue;
+      if (!isMediaName(file.name)) continue;
       refs.add(
         FolderMediaRef(
           name: file.name,
@@ -153,7 +155,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         ),
       );
     }
-    if (refs.isEmpty) return;
+    if (refs.isEmpty) {
+      setState(() {
+        _status =
+            'Seçilenlerde foto/video yok. Desteklenen: JPG, PNG, MP4, MOV, GoPro, DJI…';
+      });
+      return;
+    }
     await _ingestPick(
       FolderPickResult(
         folderName: refs.length == 1 ? refs.first.name : '${refs.length} dosya',
@@ -169,10 +177,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       });
       return;
     }
+    final videoCount = result.items.where((f) => f.isVideo).length;
+    final photoCount = result.items.length - videoCount;
     setState(() {
       _busy = true;
       _cancel = false;
-      _status = '"${result.folderName}" okunuyor…';
+      _status =
+          '"${result.folderName}" okunuyor… ($photoCount foto · $videoCount video)';
     });
     try {
       final repo = context.read<MediaRepository>();
@@ -238,20 +249,24 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     var withGps = 0;
     var added = 0;
     var missing = 0;
+    var failed = 0;
+    final kindCounts = {for (final k in MediaKind.values) k: 0};
+
+    // Tür filtresi yalnızca harita/liste görünümünü etkiler — tarama her
+    // zaman foto + video + GoPro + drone ekler.
     for (var i = 0; i < files.length; i++) {
       if (_cancel) break;
       final file = files[i];
       if (mounted && i % 4 == 0) {
         setState(
           () => _status =
-              '${source.label}: ${i + 1}/${files.length} · $withGps GPS · $missing yok',
+              '${source.label}: ${i + 1}/${files.length} · $withGps GPS · $missing yok · ${kindCountsLabel(kindCounts)}',
         );
       }
+      final kind = detectKind(file.name) ??
+          (file.isVideo ? MediaKind.video : MediaKind.photo);
+      final rel = file.relativePath ?? file.name;
       try {
-        final kind = detectKind(file.name) ??
-            (file.isVideo ? MediaKind.video : MediaKind.photo);
-        if (!_kinds.contains(kind)) continue;
-        final rel = file.relativePath ?? file.name;
         final existing = repo.findByIndex(
           sourceId: source.id,
           relativePath: rel,
@@ -259,6 +274,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         );
         if (existing != null) {
           added++;
+          kindCounts[existing.kind] = (kindCounts[existing.kind] ?? 0) + 1;
           if (existing.hasLocation) {
             withGps++;
           } else {
@@ -270,17 +286,38 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         final headLimit = isPhoto
             ? (file.size <= previewStoreBytes ? file.size : photoHeadBytes)
             : videoHeadBytes;
-        final head = await file.readHead(headLimit);
-        final gps = isPhoto ? await extractExifGps(head) : extractHeaderGps(head);
-        final taken = isPhoto
-            ? await extractExifTakenAt(head) ?? file.lastModified
-            : file.lastModified;
+
+        Uint8List? head;
+        try {
+          head = await file.readHead(headLimit);
+        } catch (_) {
+          head = null;
+        }
+
+        LatLng? gps;
+        DateTime? taken = file.lastModified;
+        if (head != null && head.isNotEmpty) {
+          try {
+            if (isPhoto) {
+              gps = await extractExifGps(head);
+              taken = await extractExifTakenAt(head) ?? taken;
+            } else {
+              gps = extractHeaderGps(head);
+            }
+          } catch (_) {
+            // GPS okunamasa da dosya kütüphaneye girer.
+          }
+        }
+
         if (gps != null) {
           withGps++;
         } else {
           missing++;
         }
-        final preview = isPhoto && file.size <= previewStoreBytes ? head : null;
+        final preview =
+            isPhoto && head != null && file.size <= previewStoreBytes
+                ? head
+                : null;
         await repo.add(
           name: file.name,
           kind: kind,
@@ -295,18 +332,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           persist: i == files.length - 1 || i % 8 == 7,
         );
         added++;
+        kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
       } catch (_) {
-        missing++;
+        failed++;
       }
     }
     await repo.flush();
     if (!mounted) return;
+    final kindsText = kindCountsLabel(kindCounts);
+    final failText = failed > 0 ? ' · $failed okunamadı' : '';
     setState(() {
       _showMissing = false;
       _panelCluster = null;
+      // Yeni eklenen türler haritada görünsün diye filtreyi aç.
+      _kinds.addAll(MediaKind.values);
       _status = _cancel
-          ? 'Tarama durdu: $added medya · $withGps GPS · $missing konum yok'
-          : '"${source.label}": $added medya · $withGps GPS · $missing konum yok';
+          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText'
+          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText';
     });
     _fitVisible();
   }
@@ -908,18 +950,31 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       color: const Color(0xF00A1C28),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 6,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final kind in MediaKind.values)
-              FilterChip(
-                selected: _kinds.contains(kind),
-                label: Text(
-                  '${_kindTitle(kind)} ${pool.where((m) => m.kind == kind).length}',
-                ),
-                onSelected: (on) => _toggleKind(kind, on),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                for (final kind in MediaKind.values)
+                  FilterChip(
+                    selected: _kinds.contains(kind),
+                    label: Text(
+                      '${_kindTitle(kind)} ${pool.where((m) => m.kind == kind).length}',
+                    ),
+                    onSelected: (on) => _toggleKind(kind, on),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Filtre yalnızca görünümü etkiler — tarama foto + video + GoPro + drone ekler.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.45),
               ),
+            ),
           ],
         ),
       ),

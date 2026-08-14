@@ -81,9 +81,34 @@ void main() {
 
   test('detectKind GoPro ve DJI', () {
     expect(detectKind('GX010123.MP4'), MediaKind.gopro);
+    expect(detectKind('GH010123.mp4'), MediaKind.gopro);
     expect(detectKind('DJI_0123.MP4'), MediaKind.drone);
     expect(detectKind('tatil.jpg'), MediaKind.photo);
+    expect(detectKind('clip.MOV'), MediaKind.video);
+    expect(detectKind('film.mkv'), MediaKind.video);
+    expect(detectKind('film.flv'), MediaKind.video);
     expect(detectKind('notlar.txt'), isNull);
+    expect(detectKind('proxy.lrv'), isNull);
+  });
+
+  test('kindCountsLabel özet', () {
+    expect(
+      kindCountsLabel({
+        MediaKind.photo: 3,
+        MediaKind.video: 2,
+        MediaKind.gopro: 1,
+        MediaKind.drone: 0,
+      }),
+      '3 foto · 2 video · 1 GoPro',
+    );
+  });
+
+  test('isMediaName foto ve video', () {
+    expect(isMediaName('a.JPG'), isTrue);
+    expect(isMediaName('b.mp4'), isTrue);
+    expect(isMediaName('c.mov'), isTrue);
+    expect(isMediaName('d.lrv'), isFalse);
+    expect(isMediaName('e.txt'), isFalse);
   });
 
   test('ISO6709 ve ©xyz başlık GPS', () {

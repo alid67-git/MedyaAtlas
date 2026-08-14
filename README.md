@@ -13,14 +13,15 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 
 ## Ne var (0.6)
 
-- Klasör / dosya taraması — dosya kopyalanmaz, yalnızca indeks
+- Klasör / dosya taraması — foto + video + GoPro + DJI (kopyalamaz, yalnızca indeks)
+- Tür filtresi yalnızca görünümü etkiler; tarama her zaman tüm medyayı ekler
 - Fotoğraf EXIF GPS, videoda başlık ISO6709 / ©xyz
 - Harita kümesi ~40 m
 - GPS konumlu / konum bulunamayan sayaçları, kaynaklar, tür filtresi
 - Sürükle-bırak klasör, Ctrl+O
 - Konum yokları yeniden dene
 
-GoPro GPMF ve GPX/KML ride çizgileri henüz yok.
+GoPro GPMF telemetrisi henüz yok (GPS’siz GoPro’lar “Konum bulunamayan”da listelenir). GPX/KML ride çizgileri henüz yok.
 
 ## Eski React (PC, yerel web)
 
