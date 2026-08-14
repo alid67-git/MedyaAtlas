@@ -1,72 +1,68 @@
 @echo off
 setlocal EnableExtensions
 title MedyaAtlas Android
-cd /d "%~dp0"
 
-if /i not "%~1"=="_keep" (
-  start "MedyaAtlas Android" /D "%~dp0" cmd /k call "%~f0" _keep
+if /i not "%~1"=="_go" (
+  start "MedyaAtlas Android" cmd /k call "%~f0" _go
   exit /b 0
 )
 
+call "%~dp0_medyaatlas_paths.bat"
+call "%~dp0_flutter_env.bat"
+
 echo.
 echo === MedyaAtlas Android ===
-echo Klasor: %CD%
+echo Yerel repo: %MA_LOCAL%
 echo.
 
-if exist "%~dp0lib\app_version.dart" (
-  echo --- lib\app_version.dart ---
-  type "%~dp0lib\app_version.dart"
-  echo -----------------------------
-  echo.
-)
-
 where git >nul 2>&1
-if not errorlevel 1 (
-  git -C "%~dp0" rev-parse --abbrev-ref HEAD 2>nul
-  git -C "%~dp0" log -1 --oneline 2>nul
-  echo.
+if errorlevel 1 (
+  echo HATA: git yok.
+  goto :end
 )
 
-call "%~dp0_flutter_env.bat"
+set "MA_REMOTE="
+for /f "delims=" %%U in ('git -C "%~dp0" remote get-url origin 2^>nul') do set "MA_REMOTE=%%U"
+if not defined MA_REMOTE set "MA_REMOTE=%MA_REMOTE_DEFAULT%"
+
+if not exist "C:\src" mkdir "C:\src"
+if not exist "%MA_LOCAL%\.git" (
+  git clone --branch "%MA_BRANCH%" --single-branch "%MA_REMOTE%" "%MA_LOCAL%"
+) else (
+  git -C "%MA_LOCAL%" fetch origin "%MA_BRANCH%"
+  git -C "%MA_LOCAL%" checkout -B "%MA_BRANCH%" "origin/%MA_BRANCH%"
+  git -C "%MA_LOCAL%" reset --hard "origin/%MA_BRANCH%"
+)
+if errorlevel 1 (
+  echo HATA: %MA_LOCAL% guncellenemedi. Once tasi_c_src.bat calistir.
+  goto :end
+)
+
+cd /d "%MA_LOCAL%"
+type "%MA_LOCAL%\lib\app_version.dart" 2>nul
+echo.
+
 if not exist "%FLUTTER%" (
   echo HATA: Flutter bulunamadi.
-  echo Denenen:
-  echo   C:\src\flutter\bin\flutter.bat
-  echo   D:\indirilenler\flutter_windows_3.44.8-stable\flutter\bin\flutter.bat
-  echo   PATH icindeki flutter
-  echo D: surucusu takili degilse C:\src\flutter kullanilir.
   goto :end
 )
 
 echo Flutter: %FLUTTER%
-echo Engine:  %FLUTTER_PREBUILT_ENGINE_VERSION%
 echo.
 
-call "%~dp0_prepare_local_build.bat"
+call "%MA_LOCAL%\_prepare_local_build.bat"
 
-if exist "%~dp0.dart_tool\package_config.json" (
-  echo [1/2] pub get atlandi - bagimliliklar hazir.
-) else (
-  echo [1/2] pub get...
-  "%ComSpec%" /c call "%FLUTTER%" pub get
-  if errorlevel 1 (
-    echo.
-    echo UYARI: pub get hata verdi. Google Drive ios\Flutter kilidi olabilir.
-    echo Yine de run denenecek.
-    echo.
-  )
-)
+echo [1/2] pub get...
+"%ComSpec%" /c call "%FLUTTER%" pub get
+if errorlevel 1 echo UYARI: pub get hata verdi; run denenecek.
 
 echo [2/2] Cihazlar:
 "%ComSpec%" /c call "%FLUTTER%" devices
 echo.
-echo Android baslatiliyor. Telefon: USB debug acik olmali.
-echo Emulator de olur. Cikis icin bu pencerede q.
+echo Android baslatiliyor. USB debug acik olmali. Cikis: q
 echo.
 "%ComSpec%" /c call "%FLUTTER%" run -d android
-echo.
 
 :end
 echo.
-echo Bitti. Bu pencereyi kapatabilirsin.
 pause
