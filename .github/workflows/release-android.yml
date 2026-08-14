@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release etiketi (örn. v0.6.6). Boşsa pubspec version kullanılır.'
+        description: 'Release etiketi (örn. v0.7.1). Boşsa pubspec version kullanılır.'
         required: false
         type: string
 
@@ -17,6 +17,8 @@ permissions:
 jobs:
   android-apk:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -89,14 +91,61 @@ jobs:
           generate_release_notes: true
           files: dist/MedyaAtlas.apk
           body: |
-            ## Android APK
-            Sabit indirme linki (sürüm dosya adında yok):
-            https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+            ## İndirme (sabit dosya adları)
 
-            Uygulama açılışta güncellemeyi kontrol eder.
+            - Android: https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+            - Windows: https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas-windows.zip
+
+            Android uygulama açılışta güncellemeyi kontrol eder.
+            Windows: zip’i açıp `medyaatlas.exe` çalıştırın (veya `run_windows.bat` / git güncellemesi).
 
             ### Not
             - Sideload APK (Play Store imzası değil)
             - Kaynak: https://github.com/alid67-git/MedyaAtlas
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  windows-zip:
+    runs-on: windows-latest
+    needs: android-apk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Zip release folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $src = "build\windows\x64\runner\Release"
+          if (-not (Test-Path $src)) { throw "Windows Release klasörü yok: $src" }
+          Compress-Archive -Path "$src\*" -DestinationPath "dist\MedyaAtlas-windows.zip" -Force
+          Get-Item "dist\MedyaAtlas-windows.zip" | Format-List Name, Length
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MedyaAtlas-windows
+          path: dist/MedyaAtlas-windows.zip
+
+      - name: Attach zip to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.android-apk.outputs.tag }}
+          files: dist/MedyaAtlas-windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

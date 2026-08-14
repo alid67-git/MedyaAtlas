@@ -2,18 +2,23 @@
 
 Windows ve Android uygulaması: fotoğraf/video GPS konumlarını dünya haritasında gösterir.
 
-Dağıtım: GitHub **Releases** (Android APK; Windows zip yakında). Web / GitHub Pages yok.
+Dağıtım: GitHub **Releases**. Web / GitHub Pages yok.
 
-## Android — GitHub’dan kur / güncelle
+## İndirme (sabit dosya adları)
 
-**Sabit indirme linki** (dosya adı sürüm içermez):  
-https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+- **Android:** https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk  
+- **Windows:** https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas-windows.zip  
 
-- Uygulama açılışta yeni sürümü kontrol eder → Güncelle  
-- Elle: üst çubuktaki güncelleme ikonu  
-- Google Drive: [GOOGLE_DRIVE.md](GOOGLE_DRIVE.md)  
+Dosya adında sürüm numarası yok; her release aynı isimle yayınlanır.
 
-Eski sürümü kaldırıp yeniden kurmak şart değil; üzerine kurulum olur.
+### Android güncelleme
+- Açılışta yeni sürüm kontrolü → Güncelle (ilerleme diyaloğu)
+- Elle: üst çubuktaki güncelleme ikonu
+- Google Drive: [GOOGLE_DRIVE.md](GOOGLE_DRIVE.md)
+
+### Windows güncelleme
+- Zip’i indirip klasörü açın → `medyaatlas.exe`
+- Geliştirme: `guncelle.bat` / `run_windows.bat` (git ile `C:\src\MedyaAtlas`)
 
 ## Kurulum (Windows) — yerel disk
 
@@ -24,7 +29,7 @@ Google Drive üzerinde geliştirme / `flutter run` yapma.
 2. Sonra sadece o kısayol / `run_windows.bat`  
 3. Drive `MedyaAtlasApp` kullanma
 
-Elle: `kisayol_olustur.bat` · `guncelle.bat` · `temizle_build.bat` · `build_apk.bat`
+Elle: `kisayol_olustur.bat` · `guncelle.bat` · `temizle_build.bat` · `build_apk.bat` · `build_windows.bat`
 
 Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 
@@ -33,9 +38,10 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
 
-## Ne var (0.7.0)
+## Ne var (0.7.1)
 
-- Sabit APK adı `MedyaAtlas.apk` + uygulama içi otomatik güncelleme
+- Sabit APK `MedyaAtlas.apk` + sabit Windows zip `MedyaAtlas-windows.zip`
+- Android uygulama içi otomatik güncelleme (ilerleme + kurulum izni)
 - MedyaAtlas ikonu; Google Drive; Android EXIF medya konum izni
 - PC: `C:\src\MedyaAtlas`
 

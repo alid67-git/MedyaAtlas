@@ -78,10 +78,18 @@ Future<String?> downloadAndInstallApk(
   if (!Platform.isAndroid) return 'Yalnızca Android.';
   final dir = await getTemporaryDirectory();
   final file = File(p.join(dir.path, apkAssetName));
+  if (await file.exists()) {
+    try {
+      await file.delete();
+    } catch (_) {}
+  }
   final client = http.Client();
   try {
-    final req = http.Request('GET', Uri.parse(url));
-    final res = await client.send(req).timeout(const Duration(minutes: 5));
+    // Sabit latest URL tercih: her zaman aynı dosya adı / CDN yönlendirmesi.
+    final downloadUrl = (url.trim().isEmpty) ? apkLatestUrl : url;
+    final req = http.Request('GET', Uri.parse(downloadUrl));
+    req.headers['User-Agent'] = 'MedyaAtlas/$appVersion';
+    final res = await client.send(req).timeout(const Duration(minutes: 8));
     if (res.statusCode != 200) {
       return 'İndirme başarısız (${res.statusCode}).';
     }
@@ -91,15 +99,26 @@ Future<String?> downloadAndInstallApk(
     await for (final chunk in res.stream) {
       sink.add(chunk);
       received += chunk.length;
-      if (total > 0) onProgress?.call(received / total);
+      if (total > 0) {
+        onProgress?.call(received / total);
+      } else if (received > 0) {
+        // Boyut bilinmiyor: 0–0.9 arasında yumuşak ilerleme.
+        onProgress?.call((received / (received + 5 * 1024 * 1024)).clamp(0.0, 0.9));
+      }
     }
     await sink.close();
+    if (!await file.exists() || await file.length() < 1024) {
+      return 'İndirilen APK geçersiz veya boş.';
+    }
+    onProgress?.call(1.0);
     final result = await OpenFilex.open(
       file.path,
       type: 'application/vnd.android.package-archive',
     );
     if (result.type != ResultType.done) {
-      return result.message;
+      return result.message.isEmpty
+          ? 'Kurulum ekranı açılamadı. Ayarlar → Bilinmeyen uygulamalar izni verin.'
+          : result.message;
     }
     return null;
   } catch (e) {

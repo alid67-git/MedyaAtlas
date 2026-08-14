@@ -128,8 +128,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         title: Text('Yeni sürüm: v${info.latestVersion}'),
         content: Text(
           'Şu an v$appVersion.\n'
-          'Güncelleme indirilip kurulum açılacak.\n'
-          '(Dosya adı her zaman MedyaAtlas.apk)',
+          'MedyaAtlas.apk indirilip kurulum açılacak.',
         ),
         actions: [
           TextButton(
@@ -144,20 +143,52 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ),
     );
     if (go != true || !mounted) return;
-    await Permission.requestInstallPackages.request();
-    setState(() => _status = 'Güncelleme indiriliyor…');
+
+    final installPerm = await Permission.requestInstallPackages.request();
+    if (!installPerm.isGranted) {
+      if (!mounted) return;
+      setState(
+        () => _status =
+            'Kurulum izni gerekli: Ayarlar → Bilinmeyen uygulamaları yükle.',
+      );
+      await openAppSettings();
+      return;
+    }
+
+    if (!mounted) return;
+    final progress = ValueNotifier<double>(0);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('Güncelleme indiriliyor'),
+          content: ValueListenableBuilder<double>(
+            valueListenable: progress,
+            builder: (context, p, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LinearProgressIndicator(value: p <= 0 ? null : p.clamp(0.0, 1.0)),
+                const SizedBox(height: 12),
+                Text('%${(p * 100).round()} — MedyaAtlas.apk'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
     final err = await downloadAndInstallApk(
       info.downloadUrl,
-      onProgress: (p) {
-        if (!mounted) return;
-        setState(() => _status = 'Güncelleme %${(p * 100).round()}…');
-      },
+      onProgress: (p) => progress.value = p,
     );
+    progress.dispose();
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
     if (!mounted) return;
     setState(() {
-      _status = err == null
-          ? 'Kurulum ekranı açıldı — Güncelle’ye bas.'
-          : err;
+      _status = err ?? 'Kurulum ekranı açıldı — Güncelle’ye basın.';
     });
   }
 
