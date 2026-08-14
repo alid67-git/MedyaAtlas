@@ -101,8 +101,22 @@ echo Impeller kapali. Cikis: q
 echo.
 "%ComSpec%" /c call "%FLUTTER%" run -d windows --no-enable-impeller
 if errorlevel 1 (
-  echo HATA: Gelistirici Modu ^(symlink^) gerekebilir.
-  start ms-settings:developers
+  echo.
+  echo Ilk deneme basarisiz — eski CMake / Drive onbellegi temizlenip yeniden deneniyor...
+  call "%MA_LOCAL%\temizle_build.bat" _silent 2>nul
+  rmdir /s /q "%MA_LOCAL%\build\windows" 2>nul
+  rmdir /s /q "C:\src\medyaatlas_app_build" 2>nul
+  rmdir /s /q "C:\src\medyaatlas_build_local\windows" 2>nul
+  call "%MA_LOCAL%\_prepare_local_build.bat"
+  "%ComSpec%" /c call "%FLUTTER%" run -d windows --no-enable-impeller
+  if errorlevel 1 (
+    echo.
+    echo HATA: Derleme yine basarisiz. Elle dene:
+    echo   %MA_LOCAL%\temizle_build.bat
+    echo   sonra tekrar run_windows.bat
+    echo Gelistirici Modu da gerekebilir.
+    start ms-settings:developers
+  )
 )
 
 :end
