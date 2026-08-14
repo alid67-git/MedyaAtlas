@@ -34,7 +34,7 @@ Future<List<PlaceHit>> searchPlaces(String query) async {
       uri,
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'MedyaAtlas/0.5',
+        'User-Agent': 'MedyaAtlas/0.6',
       },
     );
     if (res.statusCode != 200) return [];
@@ -44,7 +44,14 @@ Future<List<PlaceHit>> searchPlaces(String query) async {
       final map = Map<String, dynamic>.from(row as Map);
       final lat = double.tryParse('${map['lat']}');
       final lon = double.tryParse('${map['lon']}');
-      if (lat == null || lon == null) continue;
+      if (lat == null ||
+          lon == null ||
+          !lat.isFinite ||
+          !lon.isFinite ||
+          lat.abs() > 90 ||
+          lon.abs() > 180) {
+        continue;
+      }
       List<double>? bbox;
       final box = map['boundingbox'];
       if (box is List && box.length == 4) {
@@ -52,7 +59,14 @@ Future<List<PlaceHit>> searchPlaces(String query) async {
         final north = double.tryParse('${box[1]}');
         final west = double.tryParse('${box[2]}');
         final east = double.tryParse('${box[3]}');
-        if (south != null && north != null && west != null && east != null) {
+        if (south != null &&
+            north != null &&
+            west != null &&
+            east != null &&
+            south.isFinite &&
+            north.isFinite &&
+            west.isFinite &&
+            east.isFinite) {
           bbox = [south, north, west, east];
         }
       }

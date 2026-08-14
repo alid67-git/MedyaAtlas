@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:exif/exif.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'geo.dart';
+
 /// Fotoğraf EXIF GPS — RideAtlas ile aynı mantık.
 Future<LatLng?> extractExifGps(Uint8List bytes) async {
   final tags = await readExifFromBytes(bytes);
@@ -18,7 +20,7 @@ Future<LatLng?> extractExifGps(Uint8List bytes) async {
 
   if (latRef == 'S') lat = -lat;
   if (lngRef == 'W') lng = -lng;
-  return LatLng(lat, lng);
+  return latLngOrNull(lat, lng);
 }
 
 Future<DateTime?> extractExifTakenAt(Uint8List bytes) async {
