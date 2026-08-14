@@ -38,10 +38,11 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
 
-## Ne var (0.7.1)
+## Ne var (0.7.2)
 
 - Sabit APK `MedyaAtlas.apk` + sabit Windows zip `MedyaAtlas-windows.zip`
 - Android uygulama içi otomatik güncelleme (ilerleme + kurulum izni)
+- Windows CI: MSVC coroutine uyumu
 - MedyaAtlas ikonu; Google Drive; Android EXIF medya konum izni
 - PC: `C:\src\MedyaAtlas`
 
