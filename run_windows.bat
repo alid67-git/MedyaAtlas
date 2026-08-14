@@ -13,6 +13,19 @@ echo === MedyaAtlas Windows ===
 echo Klasor: %CD%
 echo.
 
+REM Surum / dal kontrolu — ekranda v0.6.0 goruyorsan bu dal degildir.
+if exist "%~dp0lib\app_version.dart" (
+  echo --- lib\app_version.dart ---
+  type "%~dp0lib\app_version.dart"
+  echo -----------------------------
+)
+where git >nul 2>&1
+if not errorlevel 1 (
+  git -C "%~dp0" rev-parse --abbrev-ref HEAD 2>nul
+  git -C "%~dp0" log -1 --oneline 2>nul
+  echo.
+)
+
 call "%~dp0_flutter_env.bat"
 if not exist "%FLUTTER%" (
   echo HATA: Flutter bulunamadi.
@@ -29,19 +42,16 @@ echo.
 
 call "%~dp0_prepare_local_build.bat"
 
-if exist "%~dp0.dart_tool\package_config.json" (
-  echo [1/2] pub get atlandi - bagimliliklar hazir.
-) else (
-  echo [1/2] pub get...
-  "%ComSpec%" /c call "%FLUTTER%" pub get
-  if errorlevel 1 (
-    echo.
-    echo UYARI: pub get hata verdi. Yine de run denenecek.
-    echo.
-  )
+echo [1/2] pub get...
+"%ComSpec%" /c call "%FLUTTER%" pub get
+if errorlevel 1 (
+  echo.
+  echo UYARI: pub get hata verdi. Yine de run denenecek.
+  echo.
 )
 
-echo [2/2] Windows uygulaması baslatiliyor...
+echo [2/2] Windows uygulaması baslatiliyor (kaynak koddan)...
+echo Baslikta v0.6.2+ gorunmeli. Eski v0.6.0 ise yanlis klasorden calisiyorsun.
 echo Cikis icin bu pencerede q.
 echo.
 "%ComSpec%" /c call "%FLUTTER%" run -d windows

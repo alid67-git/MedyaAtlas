@@ -270,6 +270,7 @@ class MediaRepository extends ChangeNotifier {
     double? lng,
     DateTime? takenAt,
     bool persist = true,
+    bool notify = true,
   }) async {
     final rel = relativePath ?? name;
     final size = sizeBytes ?? 0;
@@ -300,6 +301,8 @@ class MediaRepository extends ChangeNotifier {
     }
     if (persist) {
       await _persistIndex();
+    }
+    if (notify) {
       notifyListeners();
     }
     return media;
@@ -311,6 +314,7 @@ class MediaRepository extends ChangeNotifier {
     double? lng,
     DateTime? takenAt,
     bool persist = true,
+    bool notify = true,
   }) async {
     final i = _items.indexWhere((m) => m.id == id);
     if (i < 0) return;
@@ -329,13 +333,15 @@ class MediaRepository extends ChangeNotifier {
           );
     if (persist) {
       await _persistIndex();
+    }
+    if (notify) {
       notifyListeners();
     }
   }
 
-  Future<void> flush() async {
+  Future<void> flush({bool notify = true}) async {
     await _persistIndex();
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   Future<void> remove(String id) async {

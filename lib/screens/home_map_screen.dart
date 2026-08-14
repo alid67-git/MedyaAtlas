@@ -58,6 +58,33 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   LocationCluster? _panelCluster;
   final Set<MediaKind> _kinds = {...MediaKind.values};
 
+  /// Tarama sırasında harita pinlerini dondur — ara notifyListeners NaN pin
+  /// ile MarkerLayer'ı düşürmesin.
+  List<LocationCluster> _mapClusters = const [];
+
+  List<LocationCluster> _safeClusters(MediaRepository repo) {
+    try {
+      return [
+        for (final c in _clustersOf(repo))
+          if (c.latitude.isFinite && c.longitude.isFinite) c,
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  void _beginBusy() {
+    final repo = context.read<MediaRepository>();
+    _mapClusters = _safeClusters(repo);
+    _busy = true;
+    _cancel = false;
+  }
+
+  void _endBusy() {
+    _busy = false;
+    _mapClusters = _safeClusters(context.read<MediaRepository>());
+  }
+
   @override
   void dispose() {
     _searchDebounce?.cancel();
@@ -67,8 +94,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   Future<void> _importGallery() async {
     setState(() {
-      _busy = true;
-      _cancel = false;
+      _beginBusy();
       _status = null;
     });
     try {
@@ -105,7 +131,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       if (!mounted) return;
       setState(() => _status = 'Galeri açılamadı: $e');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(_endBusy);
     }
   }
 
@@ -180,8 +206,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final videoCount = result.items.where((f) => f.isVideo).length;
     final photoCount = result.items.length - videoCount;
     setState(() {
-      _busy = true;
-      _cancel = false;
+      _beginBusy();
       _status =
           '"${result.folderName}" okunuyor… ($photoCount foto · $videoCount video)';
     });
@@ -194,11 +219,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       final msg = '$e';
       setState(() {
         _status = msg.contains('encodable') || msg.contains('NaN')
-            ? 'Bazı dosyalarda bozuk GPS vardı; geçerli medya yine eklendi. Uygulama 0.6.1+ olmalı.'
+            ? 'Bazı dosyalarda bozuk GPS vardı; geçerli medya yine eklendi. Uygulama 0.6.2+ olmalı.'
             : 'Klasör okunamadı: $e';
       });
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(_endBusy);
     }
   }
 
@@ -340,6 +365,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           lng: gps?.longitude,
           takenAt: taken,
           persist: i == files.length - 1 || i % 8 == 7,
+          // Tarama bitene kadar haritayı yenileme — NaN pin anında çökertmesin.
+          notify: false,
         );
         added++;
         kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
@@ -347,7 +374,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         failed++;
       }
     }
-    await repo.flush();
+    await repo.flush(notify: true);
     if (!mounted) return;
     final kindsText = kindCountsLabel(kindCounts);
     final failText = failed > 0 ? ' · $failed okunamadı' : '';
@@ -368,8 +395,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final targets = _missingOf(repo);
     if (targets.isEmpty) return;
     setState(() {
-      _busy = true;
-      _cancel = false;
+      _beginBusy();
       _status = 'GPS yeniden okunuyor…';
     });
     var found = 0;
@@ -418,15 +444,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             lng: gps.longitude,
             takenAt: taken,
             persist: false,
+            notify: false,
           );
           found++;
         } catch (_) {}
       }
-      await repo.flush();
+      await repo.flush(notify: true);
     } finally {
       if (mounted) {
         setState(() {
-          _busy = false;
+          _endBusy();
           _status = _cancel
               ? 'GPS durdu: $found konum bulundu'
               : 'GPS yeniden: $found konum bulundu · $checked dosya okundu';
@@ -603,7 +630,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<MediaRepository>();
-    final clusters = _clustersOf(repo);
+    // Tarama sürerken eski (sonlu) pinleri göster; ara rebuild NaN ile çökmesin.
+    final clusters = _busy ? _mapClusters : _safeClusters(repo);
+    if (!_busy) {
+      _mapClusters = clusters;
+    }
     final missing = _missingOf(repo);
     final visible = _filtered(repo);
     final wide = MediaQuery.sizeOf(context).width >= 960;
@@ -1068,20 +1099,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     userAgentPackageName: 'com.medyaatlas.app',
                   ),
                   MarkerLayer(
-                    markers: [
-                      for (final cluster in clusters)
-                        if (cluster.latitude.isFinite &&
-                            cluster.longitude.isFinite)
-                          Marker(
-                            point: cluster.latLng,
-                            width: 44,
-                            height: 44,
-                            child: GestureDetector(
-                              onTap: () => _openCluster(cluster),
-                              child: ClusterDot(count: cluster.items.length),
-                            ),
-                          ),
-                    ],
+                    markers: _markersFor(clusters),
                   ),
                 ],
               ),
@@ -1109,6 +1127,28 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           ),
       ],
     );
+  }
+
+  List<Marker> _markersFor(List<LocationCluster> clusters) {
+    final out = <Marker>[];
+    for (final cluster in clusters) {
+      final lat = cluster.latitude;
+      final lng = cluster.longitude;
+      if (!lat.isFinite || !lng.isFinite) continue;
+      if (lat.abs() > 90 || lng.abs() > 180) continue;
+      out.add(
+        Marker(
+          point: LatLng(lat, lng),
+          width: 44,
+          height: 44,
+          child: GestureDetector(
+            onTap: () => _openCluster(cluster),
+            child: ClusterDot(count: cluster.items.length),
+          ),
+        ),
+      );
+    }
+    return out;
   }
 }
 
