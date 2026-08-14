@@ -630,11 +630,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<MediaRepository>();
-    // Tarama sürerken eski (sonlu) pinleri göster; ara rebuild NaN ile çökmesin.
+    // Tarama sürerken dondurulmuş (sonlu) pinler; bitince taze liste.
     final clusters = _busy ? _mapClusters : _safeClusters(repo);
-    if (!_busy) {
-      _mapClusters = clusters;
-    }
     final missing = _missingOf(repo);
     final visible = _filtered(repo);
     final wide = MediaQuery.sizeOf(context).width >= 960;
