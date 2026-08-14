@@ -8,6 +8,7 @@ import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
 import '../services/media_kind.dart';
 import 'photo_source.dart';
+import 'video_surface.dart';
 
 Future<void> openMediaViewer(
   BuildContext context, {
@@ -97,7 +98,10 @@ class _MediaViewerState extends State<MediaViewer> {
               controller: _pages,
               itemCount: widget.items.length,
               onPageChanged: (i) => setState(() => _index = i),
-              itemBuilder: (context, i) => _Page(media: widget.items[i]),
+              itemBuilder: (context, i) => _Page(
+                media: widget.items[i],
+                active: i == _index,
+              ),
             ),
           ),
           SafeArea(
@@ -127,48 +131,21 @@ class _MediaViewerState extends State<MediaViewer> {
 }
 
 class _Page extends StatelessWidget {
-  const _Page({required this.media});
+  const _Page({required this.media, required this.active});
 
   final LibraryMedia media;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
-    if (media.kind != MediaKind.photo) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                media.kind == MediaKind.drone
-                    ? Icons.flight
-                    : Icons.videocam,
-                size: 56,
-                color: Colors.white70,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                media.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                media.relativePath ?? media.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white54),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Dosya kopyalanmadı — MedyaAtlas gibi yerinde duruyor. '
-                'GoPro GPMF için PC API gerekir.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54),
-              ),
-            ],
-          ),
-        ),
+    if (media.isVideo) {
+      if (!active) {
+        return VideoThumb(path: media.localPath, kind: media.kind);
+      }
+      return VideoPlaybackPane(
+        path: media.localPath,
+        name: media.name,
+        kind: media.kind,
       );
     }
 

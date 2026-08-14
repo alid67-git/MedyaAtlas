@@ -51,7 +51,7 @@ if errorlevel 1 (
 )
 
 echo [2/2] Windows uygulaması baslatiliyor (kaynak koddan)...
-echo Baslikta v0.6.2+ gorunmeli. Eski v0.6.0 ise yanlis klasorden calisiyorsun.
+echo Baslikta v0.6.3+ gorunmeli. Eski v0.6.0/v0.6.2 ise yanlis klasorden calisiyorsun.
 echo Cikis icin bu pencerede q.
 echo.
 "%ComSpec%" /c call "%FLUTTER%" run -d windows

@@ -1,10 +1,10 @@
 name: medyaatlas
 description: MedyaAtlas — Windows ve Android GPS medya haritası (yerel kayıt).
 publish_to: 'none'
-version: 0.6.2+8
+version: 0.6.3+9
 
 environment:
-  sdk: ^3.12.2
+  sdk: '>=3.9.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -24,6 +24,8 @@ dependencies:
   intl: ^0.20.2
   http: ^1.2.2
   desktop_drop: ^0.5.0
+  video_player: ^2.10.0
+  video_player_win: ^3.2.0
 
 dev_dependencies:
   flutter_test:

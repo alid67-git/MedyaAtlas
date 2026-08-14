@@ -26,6 +26,7 @@ import '../services/search_text.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/media_viewer.dart';
 import '../widgets/photo_source.dart';
+import '../widgets/video_surface.dart';
 
 const _worldCenter = LatLng(20, 0);
 
@@ -1228,10 +1229,19 @@ class _MissingList extends StatelessWidget {
       itemBuilder: (context, i) {
         final item = items[i];
         return ListTile(
-          leading: Icon(
-            item.kind == MediaKind.photo
-                ? Icons.photo_outlined
-                : Icons.videocam_outlined,
+          leading: SizedBox(
+            width: 56,
+            height: 56,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: item.isVideo
+                  ? VideoThumb(path: item.localPath, kind: item.kind)
+                  : (photoFromPath(item.localPath, fit: BoxFit.cover) ??
+                      const ColoredBox(
+                        color: Colors.black26,
+                        child: Icon(Icons.photo_outlined),
+                      )),
+            ),
           ),
           title: Text(item.name, overflow: TextOverflow.ellipsis),
           subtitle: Text(
@@ -1319,13 +1329,8 @@ class _Thumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (item.kind != MediaKind.photo) {
-      return ColoredBox(
-        color: Colors.black26,
-        child: Icon(
-          item.kind == MediaKind.drone ? Icons.flight : Icons.videocam,
-        ),
-      );
+    if (item.isVideo) {
+      return VideoThumb(path: item.localPath, kind: item.kind);
     }
     final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
     if (fromDisk != null) return fromDisk;
