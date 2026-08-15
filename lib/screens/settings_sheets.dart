@@ -145,7 +145,7 @@ Future<void> openVersionHistorySheet(BuildContext context) async {
                       controller: scroll,
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                       itemCount: versionHistory.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, index) => const Divider(height: 1),
                       itemBuilder: (context, i) {
                         final e = versionHistory[i];
                         return ListTile(

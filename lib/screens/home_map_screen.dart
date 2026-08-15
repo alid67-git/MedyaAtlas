@@ -1680,7 +1680,7 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
             bytes,
             fit: BoxFit.cover,
             gaplessPlayback: true,
-            errorBuilder: (_, __, ___) => VideoThumb(
+            errorBuilder: (_, error, stack) => VideoThumb(
               path: widget.item.localPath,
               kind: widget.item.kind,
             ),
