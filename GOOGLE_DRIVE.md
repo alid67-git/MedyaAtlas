@@ -28,14 +28,14 @@ GitHub Actions’ta secret yoksa yayınlanan APK’da Drive girişi çalışmaz.
 - Paket adı: `com.medyaatlas.medyaatlas_mobile`  
 - SHA-1: debug ve/veya release keystore
 
-### Debug SHA-1 (Windows)
+### Release / GitHub APK SHA-1 (sabit sideload imza)
 
-```bat
-keytool -list -v -alias androiddebugkey -keystore %USERPROFILE%\.android\debug.keystore -storepass android -keypass android
+```
+45:10:E6:AD:E6:1D:49:4C:67:37:2A:D6:43:E8:A0:DA:67:53:52:9F
 ```
 
-Release APK (GitHub Actions) için CI’nın kullandığı keystore SHA-1’i de ekleyin.
-Şu an sideload release genelde debug imza kullanıyorsa debug SHA-1 yeter.
+Bu SHA-1’i Google Cloud → Android OAuth istemcisine ekleyin
+(paket: `com.medyaatlas.medyaatlas_mobile`).
 
 ## Web istemci kimliğini APK’ya koyma
 

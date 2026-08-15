@@ -99,6 +99,9 @@ jobs:
             Uygulama açılışta GitHub Releases’e bakıp “güncelleme var” der ve indirir
             (Android APK kurulum / Windows zip).
 
+            **Not:** 0.7.8’den itibaren APK imzası sabittir. Daha eski sürüm kuruluysa
+            bir kez kaldırıp yeniden kurun; sonraki güncellemeler silmeden olur.
+
             ### Not
             - Sideload APK (Play Store imzası değil)
             - Kaynak: https://github.com/alid67-git/MedyaAtlas

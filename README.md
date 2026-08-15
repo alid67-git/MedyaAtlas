@@ -42,12 +42,12 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
 
-## Ne var (0.7.7)
+## Ne var (0.7.8)
 
-- Android **+ Tüm telefon** GPS düzeltmesi (MediaStore `latlngAsync` + EXIF head)
-- “Konum yokları yeniden dene” MediaStore kayıtlarında da çalışır
-- Güncelleme: native APK kurulum (silmeden üzerine)
-- Kıta ikonu; sabit `MedyaAtlas.apk` / Windows zip
+- **Sabit APK imzası** — üzerine kurulum / güncelleme artık silmeden çalışır
+  (eski sürümü bir kez kaldırıp 0.7.8 kurun; sonrası güncelleme ile gider)
+- Telefon tarama GPS düzeltmesi; native APK kurulum
+- Kıta ikonu; sabit indirme: `…/releases/latest/download/MedyaAtlas.apk`
 - Google Drive; EXIF medya konum izni
 - PC: `C:\src\MedyaAtlas`
 
