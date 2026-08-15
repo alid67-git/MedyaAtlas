@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.11',
+    tr: 'MedyaAtlas marka ikonu (web/iPhone); web’de güncelleme kontrolü + sayfa yenileme.',
+    en: 'MedyaAtlas brand icons for web/iPhone; web update check + page reload.',
+    de: 'MedyaAtlas-Markensymbol für Web/iPhone; Web-Updateprüfung + Seitenreload.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.10',
     tr: 'iPhone web önbelleği temizlendi; GitHub Pages’te güncel Flutter sürümü.',
     en: 'Cleared iPhone web cache; GitHub Pages serves the current Flutter build.',

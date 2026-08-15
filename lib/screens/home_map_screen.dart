@@ -134,7 +134,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _checkForUpdates({bool manual = false}) async {
-    if (kIsWeb || !supportsInAppUpdate) {
+    if (!supportsInAppUpdate) {
       if (manual && mounted) {
         setState(() => _status = 'Bu platformda uygulama içi güncelleme yok.');
       }
@@ -151,6 +151,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
     if (!info.isNewer) {
       if (_forceUpdate != null) setState(() => _forceUpdate = null);
+      if (manual) {
+        setState(() => _status = 'Güncelsiniz: v$appVersion');
+      }
       return;
     }
     final force = info.isForceRequired;
@@ -189,7 +192,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: Text(force ? 'Güncelle' : 'İndir'),
+                child: Text(
+                  force
+                      ? 'Güncelle'
+                      : (info.platform == UpdatePlatform.web
+                          ? 'Yenile'
+                          : 'İndir'),
+                ),
               ),
             ],
           ),
@@ -207,6 +216,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _downloadUpdate(AppUpdateInfo info) async {
+    if (info.platform == UpdatePlatform.web) {
+      setState(() => _status = 'Sayfa yenileniyor…');
+      final err = await downloadAndApplyUpdate(info);
+      if (!mounted) return;
+      if (err != null) setState(() => _status = err);
+      return;
+    }
+
     if (info.platform == UpdatePlatform.android) {
       final installPerm = await Permission.requestInstallPackages.request();
       if (!installPerm.isGranted) {
@@ -1332,7 +1349,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 _TopIcon(
                   tooltip: s.settings,
                   icon: Icons.settings_outlined,
-                  onPressed: _busy ? null : () => openSettingsSheet(context),
+                  onPressed: _busy
+                      ? null
+                      : () => openSettingsSheet(
+                            context,
+                            onCheckUpdate: supportsInAppUpdate
+                                ? () => _checkForUpdates(manual: true)
+                                : null,
+                          ),
                 ),
               ],
             ),
