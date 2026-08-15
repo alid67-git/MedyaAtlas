@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.20',
+    tr: 'Web: OK sonrası anında ekle; GPS arka planda (bekleme yok).',
+    en: 'Web: add instantly after OK; GPS in background (no long wait).',
+    de: 'Web: sofort nach OK hinzufügen; GPS im Hintergrund.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.19',
     tr: 'Dosya kopyası yok: yalnızca indeks; eski Hive medya kopyaları silindi.',
     en: 'No file copies: index only; cleared old Hive media copies.',

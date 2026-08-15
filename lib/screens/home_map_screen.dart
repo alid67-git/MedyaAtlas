@@ -415,21 +415,164 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         id: sourceLabel == 'Favoriler' ? 'favorites_web' : gallerySourceId,
         label: sourceLabel,
       );
+      final items = picked.items;
       if (mounted) {
         setState(
-          () => _status =
-              '$sourceLabel: ${picked!.items.length} medya işleniyor… '
-              '(bekleyin, kilitlenmedi)',
+          () => _status = '$sourceLabel: ${items.length} medya ekleniyor…',
         );
       }
-      // Web: indeks + blob referansı — dosya kopyası yok.
-      await _ingest(picked.items, source: source, bulkMode: true);
+      // Hızlı yol: dosya içeriği okunmaz — yalnızca indeks + blob.
+      final added = await _ingestWebQuick(items, source: source);
+      if (!mounted) return;
+      setState(() {
+        _endBusy();
+        _kinds.addAll(MediaKind.values);
+        _status =
+            '"${source.label}": $added medya · kopyalanmadı · GPS arka planda…';
+      });
+      _fitVisible();
+      // GPS / EXIF sonra — UI serbest.
+      unawaited(_fillWebGpsBackground(items, source: source));
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = '$sourceLabel: $e');
-    } finally {
-      if (mounted) setState(_endBusy);
+      setState(() {
+        _endBusy();
+        _status = '$sourceLabel: $e';
+      });
     }
+  }
+
+  /// Web: OK sonrası anında indeksle (head/GPS/önizleme yok).
+  Future<int> _ingestWebQuick(
+    List<FolderMediaRef> files, {
+    required MediaSource source,
+  }) async {
+    final repo = context.read<MediaRepository>();
+    var added = 0;
+    for (var i = 0; i < files.length; i++) {
+      if (_cancel) break;
+      final file = files[i];
+      final kind = detectKind(file.name) ??
+          (file.isVideo ? MediaKind.video : MediaKind.photo);
+      final rel = file.relativePath ?? file.name;
+      try {
+        final existing = repo.findByIndex(
+          sourceId: source.id,
+          relativePath: rel,
+          size: file.size,
+        );
+        if (existing != null) {
+          if (isWebPlayableUrl(file.localPath) &&
+              existing.localPath != file.localPath) {
+            await repo.updateLocalPath(
+              id: existing.id,
+              localPath: file.localPath,
+              persist: false,
+            );
+          }
+          added++;
+          continue;
+        }
+        await repo.add(
+          name: file.name,
+          kind: kind,
+          sourceId: source.id,
+          relativePath: rel,
+          localPath: file.localPath,
+          sizeBytes: file.size,
+          takenAt: file.lastModified,
+          persist: false,
+          notify: false,
+        );
+        added++;
+      } catch (_) {}
+      if (i % 8 == 7) {
+        await Future<void>.delayed(Duration.zero);
+        if (mounted) {
+          setState(
+            () => _status =
+                '${source.label}: ${i + 1}/${files.length} ekleniyor…',
+          );
+        }
+      }
+    }
+    await repo.flush(notify: true);
+    return added;
+  }
+
+  /// Web: seçim sonrası hafif GPS (küçük head); arayüzü kilitlemez.
+  Future<void> _fillWebGpsBackground(
+    List<FolderMediaRef> files, {
+    required MediaSource source,
+  }) async {
+    final repo = context.read<MediaRepository>();
+    var found = 0;
+    var checked = 0;
+    for (var i = 0; i < files.length; i++) {
+      if (!mounted || _cancel || _busy) break;
+      final file = files[i];
+      final rel = file.relativePath ?? file.name;
+      final item = repo.findByIndex(
+        sourceId: source.id,
+        relativePath: rel,
+        size: file.size,
+      );
+      if (item == null || item.hasLocation) continue;
+      checked++;
+      try {
+        final isPhoto = item.kind == MediaKind.photo;
+        final limit = isPhoto
+            ? math.min(file.size > 0 ? file.size : webGpsPhotoHeadBytes,
+                webGpsPhotoHeadBytes)
+            : math.min(
+                file.size > 0 ? file.size : webGpsVideoHeadBytes,
+                webGpsVideoHeadBytes,
+              );
+        if (limit <= 0) continue;
+        final head = await file.readHead(limit);
+        if (head.isEmpty) continue;
+        LatLng? gps;
+        DateTime? taken;
+        if (isPhoto) {
+          gps = await extractExifGps(head);
+          taken = await extractExifTakenAt(head);
+        } else {
+          gps = await extractVideoGps(
+            localPath: file.localPath,
+            head: head,
+            relativePath: file.relativePath,
+            deepScan: false,
+            maxScanBytes: webGpsVideoHeadBytes,
+          );
+        }
+        if (gps == null) continue;
+        await repo.updateLocation(
+          id: item.id,
+          lat: gps.latitude,
+          lng: gps.longitude,
+          takenAt: taken,
+          persist: false,
+          notify: false,
+        );
+        found++;
+      } catch (_) {}
+      if (i % 3 == 2) {
+        await Future<void>.delayed(Duration.zero);
+        if (mounted && !_busy) {
+          setState(
+            () => _status =
+                'GPS: ${i + 1}/${files.length} · $found bulundu (arka plan)',
+          );
+        }
+      }
+    }
+    await repo.flush(notify: true);
+    if (!mounted || _busy) return;
+    setState(() {
+      _status =
+          'Hazır: $checked dosyada GPS arandı · $found konum · kopyalanmadı';
+    });
+    _fitVisible();
   }
 
   Future<void> _importGallery() async {

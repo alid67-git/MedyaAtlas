@@ -8,8 +8,8 @@ const photoHeadBytes = 2 * 1024 * 1024;
 const videoHeadBytes = 4 * 1024 * 1024;
 const previewStoreBytes = 3 * 1024 * 1024;
 
-/// Web: tam dosya kopyası yok — blob URL + GPS için küçük head okuma.
-const webStorePhotoBytes = 2 * 1024 * 1024;
+/// Web: tam dosya kopyası yok — blob URL; GPS ayrı (hafif) geçer.
+const webStorePhotoBytes = 128 * 1024;
 /// Video Hive’a yazılmaz (kopya yok).
 const webStoreVideoBytes = 0;
 
@@ -20,8 +20,9 @@ const bulkVideoHeadBytes = 1024 * 1024;
 /// GoPro GPMF / DJI gömülü GPS — toplu taramada da okunacak kadar head.
 const bulkGpsVideoHeadBytes = 8 * 1024 * 1024;
 
-/// Web çoklu seçim: GPMF için daha küçük head (hız).
-const webGpsVideoHeadBytes = 4 * 1024 * 1024;
+/// Web arka plan GPS: küçük head (OK sonrası donma olmasın).
+const webGpsVideoHeadBytes = 1024 * 1024;
+const webGpsPhotoHeadBytes = 128 * 1024;
 
 class FolderMediaRef {
   const FolderMediaRef({
