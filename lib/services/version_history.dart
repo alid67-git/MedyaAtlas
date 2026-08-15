@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.8',
+    tr: 'SD kart Android/data izin hatası atlanır; tarama DCIM ve diğer klasörlerde devam eder.',
+    en: 'Skip SD Android/data permission errors; scan continues in DCIM and other folders.',
+    de: 'SD Android/data-Berechtigungsfehler überspringen; Scan in DCIM u. a. weiter.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.7',
     tr: 'SD / harici disk taraması hızlandı; UI kilitlenmesi azaltıldı. GPS derin tarama “yeniden dene” ile.',
     en: 'Faster SD/external disk scanning; less UI freeze. Deep GPS via retry missing.',

@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -6,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 
 import 'folder_types.dart';
+import 'scan_paths.dart';
 import 'volume_mount.dart';
 
 export 'folder_types.dart';
@@ -17,54 +19,75 @@ Future<FolderPickResult> scanMediaDirectory(
   void Function(int found, String currentPath)? onProgress,
 }) async {
   final items = <FolderMediaRef>[];
-  final root = Directory(dirPath);
   final normalized = normalizeRootPath(dirPath);
+  final queue = Queue<Directory>()..add(Directory(dirPath));
   var found = 0;
   var seen = 0;
 
-  await for (final entity in root.list(
-    recursive: true,
-    followLinks: false,
-  )) {
-    seen++;
-    // Çok sayıda klasörde UI kilitlenmesin.
-    if (seen % 80 == 0) {
-      await Future<void>.delayed(Duration.zero);
+  while (queue.isNotEmpty) {
+    final dir = queue.removeFirst();
+    if (shouldSkipScanDirectory(dir.path)) {
+      continue;
     }
-    try {
-      if (entity is! File) continue;
-      final name = p.basename(entity.path);
-      if (!isMediaName(name)) continue;
 
-      // length + lastModified yerine tek stat (SD’de daha az I/O).
-      final st = await entity.stat();
-      final size = st.size;
-      final captured = entity;
-      final relative =
-          p.relative(entity.path, from: dirPath).replaceAll(r'\', '/');
-      items.add(
-        FolderMediaRef(
-          name: name,
-          size: size,
-          relativePath: relative,
-          localPath: captured.path,
-          lastModified: st.modified,
-          readHead: (maxBytes) => _readHead(captured, size, maxBytes),
-        ),
-      );
-      found++;
-      if (found % 25 == 0) {
-        onProgress?.call(found, entity.path);
+    // recursive:true kullanma — Android/data PathAccessException tüm stream’i kırar.
+    final List<FileSystemEntity> children;
+    try {
+      children = await dir.list(followLinks: false).toList();
+    } on PathAccessException {
+      continue;
+    } on FileSystemException {
+      continue;
+    } catch (_) {
+      continue;
+    }
+
+    for (final entity in children) {
+      seen++;
+      if (seen % 80 == 0) {
         await Future<void>.delayed(Duration.zero);
       }
-    } catch (_) {
-      // Atlana bilir (izin, kilit, bozulmuş yol) — diğer dosyalar devam.
+      try {
+        if (entity is Directory) {
+          if (!shouldSkipScanDirectory(entity.path)) {
+            queue.add(entity);
+          }
+          continue;
+        }
+        if (entity is! File) continue;
+        final name = p.basename(entity.path);
+        if (!isMediaName(name)) continue;
+
+        final st = await entity.stat();
+        final size = st.size;
+        final captured = entity;
+        final relative =
+            p.relative(entity.path, from: dirPath).replaceAll(r'\', '/');
+        items.add(
+          FolderMediaRef(
+            name: name,
+            size: size,
+            relativePath: relative,
+            localPath: captured.path,
+            lastModified: st.modified,
+            readHead: (maxBytes) => _readHead(captured, size, maxBytes),
+          ),
+        );
+        found++;
+        if (found % 25 == 0) {
+          onProgress?.call(found, entity.path);
+          await Future<void>.delayed(Duration.zero);
+        }
+      } on PathAccessException {
+        // Tek dosya/klasör — devam.
+      } on FileSystemException {
+        // Tek dosya/klasör — devam.
+      } catch (_) {}
     }
   }
 
   onProgress?.call(found, dirPath);
 
-  // Büyük listelerde sıralama pahalı; yine de yollar tutarlı olsun.
   if (items.length <= 5000) {
     items.sort((a, b) {
       final left = (a.relativePath ?? a.name).toLowerCase();
@@ -95,7 +118,7 @@ Future<FolderPickResult?> pickExternalVolume({
   void Function(int found, String currentPath)? onProgress,
 }) async {
   final dirPath = await FilePicker.platform.getDirectoryPath(
-    dialogTitle: 'SD kart veya harici disk kökünü seç',
+    dialogTitle: 'SD kart veya harici disk kökünü seç (DCIM / tüm kart)',
   );
   if (dirPath == null) return null;
   final name = displayNameForRoot(dirPath);

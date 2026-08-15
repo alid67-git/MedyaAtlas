@@ -9,6 +9,7 @@ import 'package:medyaatlas/services/geo.dart';
 import 'package:medyaatlas/services/gpmf_gps.dart';
 import 'package:medyaatlas/services/header_gps.dart';
 import 'package:medyaatlas/services/media_kind.dart';
+import 'package:medyaatlas/services/scan_paths.dart';
 import 'package:medyaatlas/services/video_gps.dart';
 import 'package:medyaatlas/services/video_preview.dart';
 import 'package:medyaatlas/services/volume_mount.dart';
@@ -293,6 +294,29 @@ void main() {
     expect(
       isForceUpdateRequired(current: '0.8.1', latest: '1.0.5'),
       isTrue,
+    );
+  });
+
+  test('SD Android/data klasörleri atlanır', () {
+    expect(
+      shouldSkipScanDirectory('/storage/56A9-7F6A/Android/data'),
+      isTrue,
+    );
+    expect(
+      shouldSkipScanDirectory('/storage/56A9-7F6A/Android/obb'),
+      isTrue,
+    );
+    expect(
+      shouldSkipScanDirectory('/storage/56A9-7F6A/Android'),
+      isTrue,
+    );
+    expect(
+      shouldSkipScanDirectory('/storage/56A9-7F6A/DCIM/Camera'),
+      isFalse,
+    );
+    expect(
+      shouldSkipScanDirectory(r'D:\DCIM'),
+      isFalse,
     );
   });
 }

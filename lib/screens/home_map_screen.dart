@@ -455,7 +455,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (!mounted) return;
       setState(() {
         _endBusy();
-        _status = 'Disk açılamadı: $e';
+        final msg = '$e';
+        _status = msg.contains('Permission denied') ||
+                msg.contains('PathAccessException')
+            ? 'Disk tarandı ama bazı klasörler kapalı (Android/data). '
+                'DCIM veya kart kökünü tekrar seçin; izinli klasörler okunur.'
+            : 'Disk açılamadı: $e';
       });
       return;
     }
