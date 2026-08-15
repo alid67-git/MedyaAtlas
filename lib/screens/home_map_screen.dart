@@ -409,29 +409,62 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!await _ensureAndroidMediaAccess()) return;
     FolderPickResult? picked;
     try {
-      picked = await pickMediaFolder();
+      setState(() {
+        _beginBusy();
+        _status = 'Klasör listeleniyor…';
+      });
+      picked = await pickMediaFolder(
+        onProgress: (n, _) {
+          if (mounted) {
+            setState(() => _status = 'Klasör taranıyor… $n medya');
+          }
+        },
+      );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = 'Klasör açılamadı: $e');
+      setState(() {
+        _endBusy();
+        _status = 'Klasör açılamadı: $e';
+      });
       return;
     }
     if (!mounted) return;
-    if (picked == null) return;
-    await _ingestPick(picked);
+    if (picked == null) {
+      setState(_endBusy);
+      return;
+    }
+    await _ingestPick(picked, alreadyBusy: true);
   }
 
   Future<void> _importExternalVolume() async {
     if (!await _ensureAndroidMediaAccess()) return;
     FolderPickResult? picked;
     try {
-      picked = await pickExternalVolume();
+      setState(() {
+        _beginBusy();
+        _status = 'Disk listeleniyor…';
+      });
+      picked = await pickExternalVolume(
+        onProgress: (n, _) {
+          if (mounted) {
+            setState(() => _status = 'Disk taranıyor… $n medya bulundu');
+          }
+        },
+      );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = 'Disk açılamadı: $e');
+      setState(() {
+        _endBusy();
+        _status = 'Disk açılamadı: $e';
+      });
       return;
     }
-    if (!mounted || picked == null) return;
-    await _ingestPick(picked);
+    if (!mounted) return;
+    if (picked == null) {
+      setState(_endBusy);
+      return;
+    }
+    await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
   }
 
   Future<void> _importFiles() async {
@@ -483,19 +516,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     );
   }
 
-  Future<void> _ingestPick(FolderPickResult result) async {
+  Future<void> _ingestPick(
+    FolderPickResult result, {
+    bool alreadyBusy = false,
+    bool? bulkMode,
+  }) async {
     if (result.items.isEmpty) {
       setState(() {
+        if (alreadyBusy) _endBusy();
         _status = '"${result.folderName}" içinde foto/video bulunamadı.';
       });
       return;
     }
     final videoCount = result.items.where((f) => f.isVideo).length;
     final photoCount = result.items.length - videoCount;
+    final bulk = bulkMode ?? result.rootPath != null;
     setState(() {
-      _beginBusy();
+      if (!alreadyBusy) _beginBusy();
       _status =
-          '"${result.folderName}" okunuyor… ($photoCount foto · $videoCount video)';
+          '"${result.folderName}" okunuyor… ($photoCount foto · $videoCount video)'
+          '${bulk ? ' · hızlı tarama' : ''}';
     });
     try {
       final repo = context.read<MediaRepository>();
@@ -503,7 +543,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         label: result.folderName,
         rootPath: result.rootPath,
       );
-      await _ingest(result.items, source: source);
+      await _ingest(result.items, source: source, bulkMode: bulk);
     } catch (e) {
       if (!mounted) return;
       final msg = '$e';
@@ -524,9 +564,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final path = x.path;
       if (path.isEmpty) continue;
       if (FileSystemEntity.isDirectorySync(path)) {
-        final result = await scanMediaDirectory(path);
-        if (!mounted) return;
-        await _ingestPick(result);
+        setState(() {
+          _beginBusy();
+          _status = 'Klasör listeleniyor…';
+        });
+        try {
+          final result = await scanMediaDirectory(
+            path,
+            onProgress: (n, _) {
+              if (mounted) {
+                setState(() => _status = 'Klasör taranıyor… $n medya');
+              }
+            },
+          );
+          if (!mounted) return;
+          await _ingestPick(result, alreadyBusy: true);
+        } catch (e) {
+          if (mounted) {
+            setState(() {
+              _endBusy();
+              _status = 'Klasör okunamadı: $e';
+            });
+          }
+        }
       } else if (FileSystemEntity.isFileSync(path) &&
           isMediaName(p.basename(path))) {
         final file = File(path);
@@ -564,6 +624,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Future<void> _ingest(
     List<FolderMediaRef> files, {
     required MediaSource source,
+    bool bulkMode = false,
   }) async {
     final repo = context.read<MediaRepository>();
     var withGps = 0;
@@ -571,17 +632,25 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     var missing = 0;
     var failed = 0;
     final kindCounts = {for (final k in MediaKind.values) k: 0};
+    final photoLimit = bulkMode ? bulkPhotoHeadBytes : photoHeadBytes;
+    final videoLimit = bulkMode ? bulkVideoHeadBytes : videoHeadBytes;
+    final progressEvery = bulkMode ? 40 : 8;
+    final persistEvery = bulkMode ? 64 : 8;
+    final yieldEvery = bulkMode ? 20 : 8;
 
     // Tür filtresi yalnızca harita/liste görünümünü etkiler — tarama her
     // zaman foto + video + GoPro + drone ekler.
     for (var i = 0; i < files.length; i++) {
       if (_cancel) break;
       final file = files[i];
-      if (mounted && i % 4 == 0) {
+      if (mounted && i % progressEvery == 0) {
         setState(
           () => _status =
               '${source.label}: ${i + 1}/${files.length} · $withGps GPS · $missing yok · ${kindCountsLabel(kindCounts)}',
         );
+      }
+      if (i % yieldEvery == 0) {
+        await Future<void>.delayed(Duration.zero);
       }
       final kind = detectKind(file.name) ??
           (file.isVideo ? MediaKind.video : MediaKind.photo);
@@ -593,14 +662,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           size: file.size,
         );
         if (existing != null) {
-          // Eski kayıtta video önizlemesi yoksa tarama sırasında doldur.
-          if (existing.isVideo) {
+          // Toplu/SD taramada önizleme doldurma SD’yi kilitlemesin.
+          if (!bulkMode && existing.isVideo) {
             final hasPreview = repo.cachedBytes(existing.id) != null ||
                 await repo.bytesOf(existing.id) != null;
             if (!hasPreview) {
               Uint8List? head;
               try {
-                head = await file.readHead(videoHeadBytes);
+                head = await file.readHead(videoLimit);
               } catch (_) {}
               final preview = await extractVideoPreviewBytes(
                 localPath: file.localPath,
@@ -622,14 +691,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           continue;
         }
         final isPhoto = kind == MediaKind.photo;
-        // size==0 (MediaStore) iken EXIF için varsayılan head boyutu kullan.
         final headLimit = isPhoto
             ? (file.size <= 0
-                ? photoHeadBytes
-                : (file.size <= previewStoreBytes
-                    ? file.size
-                    : photoHeadBytes))
-            : videoHeadBytes;
+                ? photoLimit
+                : (file.size <= previewStoreBytes ? file.size : photoLimit))
+            : videoLimit;
 
         LatLng? gps;
         DateTime? taken = file.lastModified;
@@ -639,11 +705,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
         Uint8List? head;
         final needHead = gps == null ||
-            (isPhoto && file.size > 0 && file.size <= previewStoreBytes);
+            (!bulkMode &&
+                isPhoto &&
+                file.size > 0 &&
+                file.size <= previewStoreBytes);
         if (needHead) {
           try {
             head = await file.readHead(
-              gps != null && isPhoto && file.size > 0 ? file.size : headLimit,
+              gps != null && isPhoto && file.size > 0 && !bulkMode
+                  ? file.size
+                  : headLimit,
             );
           } catch (_) {
             head = null;
@@ -660,17 +731,28 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 localPath: file.localPath,
                 head: head,
                 relativePath: file.relativePath,
+                deepScan: !bulkMode,
               );
             }
           } catch (_) {
             // GPS okunamasa da dosya kütüphaneye girer.
           }
-        } else if (gps == null && !isPhoto) {
+        } else if (gps == null && !isPhoto && !bulkMode) {
           try {
             gps = await extractVideoGps(
               localPath: file.localPath,
               head: head,
               relativePath: file.relativePath,
+            );
+          } catch (_) {}
+        } else if (gps == null && !isPhoto && bulkMode) {
+          // SRT yan dosyası ucuz; 24MB GPMF yok.
+          try {
+            gps = await extractVideoGps(
+              localPath: file.localPath,
+              head: head,
+              relativePath: file.relativePath,
+              deepScan: false,
             );
           } catch (_) {}
         }
@@ -685,13 +767,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         } else {
           missing++;
         }
-        final preview = isPhoto
-            ? (head != null && file.size <= previewStoreBytes ? head : null)
-            : await extractVideoPreviewBytes(
-                localPath: file.localPath,
-                relativePath: file.relativePath,
-                head: head,
-              );
+        // Toplu tarama: video önizlemeyi sonraya bırak (ızgara VideoThumb).
+        final preview = bulkMode
+            ? null
+            : (isPhoto
+                ? (head != null && file.size <= previewStoreBytes ? head : null)
+                : await extractVideoPreviewBytes(
+                    localPath: file.localPath,
+                    relativePath: file.relativePath,
+                    head: head,
+                  ));
         await repo.add(
           name: file.name,
           kind: kind,
@@ -703,7 +788,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           lat: gps?.latitude,
           lng: gps?.longitude,
           takenAt: taken,
-          persist: i == files.length - 1 || i % 8 == 7,
+          persist: i == files.length - 1 || i % persistEvery == persistEvery - 1,
           // Tarama bitene kadar haritayı yenileme — NaN pin anında çökertmesin.
           notify: false,
         );
@@ -717,14 +802,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted) return;
     final kindsText = kindCountsLabel(kindCounts);
     final failText = failed > 0 ? ' · $failed okunamadı' : '';
+    final tip = bulkMode && missing > 0
+        ? ' · GPS eksikler için “yeniden dene”'
+        : '';
     setState(() {
       _showMissing = false;
       _panelCluster = null;
       // Yeni eklenen türler haritada görünsün diye filtreyi aç.
       _kinds.addAll(MediaKind.values);
       _status = _cancel
-          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText'
-          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText';
+          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip'
+          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip';
     });
     _fitVisible();
   }

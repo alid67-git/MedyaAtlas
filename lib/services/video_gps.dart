@@ -70,10 +70,15 @@ LatLng? extractAsciiGpsHints(Uint8List bytes) {
 }
 
 /// Video konumu: ©xyz / ISO6709 → DJI SRT → GPMF → ASCII ipuçları.
+///
+/// [deepScan]=false: yalnızca verilen head + SRT (SD toplu tarama).
+/// [deepScan]=true: dosyadan en fazla [videoGpsScanBytes] okur (yeniden dene).
 Future<LatLng?> extractVideoGps({
   required String? localPath,
   Uint8List? head,
   String? relativePath,
+  bool deepScan = true,
+  int maxScanBytes = videoGpsScanBytes,
 }) async {
   LatLng? point;
 
@@ -87,14 +92,15 @@ Future<LatLng?> extractVideoGps({
   point = await extractDjiSidecarGps(localPath);
   if (point != null) return point;
 
+  if (!deepScan) return null;
   if (kIsWeb || localPath == null || localPath.isEmpty) return null;
   try {
     final file = File(localPath);
     if (!await file.exists()) return null;
     final size = await file.length();
     if (size <= 0) return null;
-    final limit = math.min(videoGpsScanBytes, size);
-    // head zaten videoHeadBytes ise ve yeterince büyükse tekrar okuma.
+    final limit = math.min(maxScanBytes, size);
+    // head zaten yeterince büyükse tekrar okuma.
     if (head != null && head.length >= limit) {
       return extractGpmfGps(head) ?? extractAsciiGpsHints(head);
     }

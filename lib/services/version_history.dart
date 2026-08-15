@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.7',
+    tr: 'SD / harici disk taraması hızlandı; UI kilitlenmesi azaltıldı. GPS derin tarama “yeniden dene” ile.',
+    en: 'Faster SD/external disk scanning; less UI freeze. Deep GPS via retry missing.',
+    de: 'Schnellerer SD-/Externspeicher-Scan; weniger UI-Einfrieren. Tiefes GPS über erneutes Prüfen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.6',
     tr: '2 sürüm geride kalan cihazlarda zorunlu güncelleme; aksi halde uygulama kullanılamaz.',
     en: 'Force update when two or more versions behind; otherwise the app cannot be used.',
