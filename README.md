@@ -42,8 +42,9 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
 
-## Ne var (0.7.3)
+## Ne var (0.7.5)
 
+- Yeni uygulama ikonu: kıta silüetli dünya + beyaz kontur + pin
 - Uygulama içi “güncelleme var” kontrolü (GitHub Releases → indir)
 - Sabit APK `MedyaAtlas.apk` + sabit Windows zip `MedyaAtlas-windows.zip`
 - MedyaAtlas ikonu; Google Drive; Android EXIF medya konum izni
