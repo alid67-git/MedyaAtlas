@@ -34,6 +34,7 @@ class FolderMediaRef {
     this.lastModified,
     this.knownLat,
     this.knownLng,
+    this.mimeType,
   });
 
   final String name;
@@ -44,9 +45,11 @@ class FolderMediaRef {
   /// Drive imageMediaMetadata vb. — dosya indirilmeden bilinen GPS.
   final double? knownLat;
   final double? knownLng;
+  final String? mimeType;
   final Future<Uint8List> Function(int maxBytes) readHead;
 
-  bool get isVideo => isVideoName(name);
+  bool get isVideo =>
+      isVideoName(name) || (mimeType?.startsWith('video/') ?? false);
 }
 
 class FolderPickResult {

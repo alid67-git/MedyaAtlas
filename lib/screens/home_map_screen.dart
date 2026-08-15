@@ -424,19 +424,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       // Hızlı yol: dosya içeriği okunmaz — yalnızca indeks + blob.
       final added = await _ingestWebQuick(items, source: source);
       if (!mounted) return;
-      final photos = items.where((f) => !f.isVideo).toList();
       setState(() {
         _endBusy();
         _kinds.addAll(MediaKind.values);
-        _status = photos.isEmpty
-            ? '"${source.label}": $added medya eklendi'
-            : '"${source.label}": $added medya eklendi · konum okunuyor…';
+        _status = '"${source.label}": $added medya eklendi';
       });
       _fitVisible();
-      // Video GPS ağır — otomatik değil. Foto EXIF hafif, arka planda.
-      if (photos.isNotEmpty) {
-        unawaited(_fillWebGpsBackground(photos, source: source));
-      }
+      // Otomatik GPS/head okuma yok — yavaşlatır. Kullanıcı “yeniden dene”.
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -502,82 +496,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
     await repo.flush(notify: true);
     return added;
-  }
-
-  /// Web: seçim sonrası hafif GPS (küçük head); arayüzü kilitlemez.
-  Future<void> _fillWebGpsBackground(
-    List<FolderMediaRef> files, {
-    required MediaSource source,
-  }) async {
-    final repo = context.read<MediaRepository>();
-    var found = 0;
-    var checked = 0;
-    for (var i = 0; i < files.length; i++) {
-      if (!mounted || _cancel || _busy) break;
-      final file = files[i];
-      final rel = file.relativePath ?? file.name;
-      final item = repo.findByIndex(
-        sourceId: source.id,
-        relativePath: rel,
-        size: file.size,
-      );
-      if (item == null || item.hasLocation) continue;
-      checked++;
-      try {
-        final isPhoto = item.kind == MediaKind.photo;
-        final limit = isPhoto
-            ? math.min(file.size > 0 ? file.size : webGpsPhotoHeadBytes,
-                webGpsPhotoHeadBytes)
-            : math.min(
-                file.size > 0 ? file.size : webGpsVideoHeadBytes,
-                webGpsVideoHeadBytes,
-              );
-        if (limit <= 0) continue;
-        final head = await file.readHead(limit);
-        if (head.isEmpty) continue;
-        LatLng? gps;
-        DateTime? taken;
-        if (isPhoto) {
-          gps = await extractExifGps(head);
-          taken = await extractExifTakenAt(head);
-        } else {
-          gps = await extractVideoGps(
-            localPath: file.localPath,
-            head: head,
-            relativePath: file.relativePath,
-            deepScan: false,
-            maxScanBytes: webGpsVideoHeadBytes,
-          );
-        }
-        if (gps == null) continue;
-        await repo.updateLocation(
-          id: item.id,
-          lat: gps.latitude,
-          lng: gps.longitude,
-          takenAt: taken,
-          persist: false,
-          notify: false,
-        );
-        found++;
-      } catch (_) {}
-      if (i % 3 == 2) {
-        await Future<void>.delayed(Duration.zero);
-        if (mounted && !_busy) {
-          setState(
-            () => _status =
-                'GPS: ${i + 1}/${files.length} · $found bulundu (arka plan)',
-          );
-        }
-      }
-    }
-    await repo.flush(notify: true);
-    if (!mounted || _busy) return;
-    setState(() {
-      _status = found > 0
-          ? 'Hazır: $found konum bulundu'
-          : (checked > 0 ? 'Hazır: $checked fotoğrafta GPS yok' : null);
-    });
-    if (found > 0) _fitVisible();
   }
 
   Future<void> _importGallery() async {
@@ -2506,6 +2424,11 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
   }
 
   Future<void> _load() async {
+    // Web: video önizleme için dosya/player okuma yok (3 video = ciddi gecikme).
+    if (kIsWeb) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     final cached = widget.repo.cachedBytes(widget.item.id) ??
         await widget.repo.bytesOf(widget.item.id);
     if (cached != null && cached.isNotEmpty && looksLikeJpeg(cached)) {
@@ -2545,12 +2468,7 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
             bytes,
             fit: BoxFit.cover,
             gaplessPlayback: true,
-            errorBuilder: (_, error, stack) => VideoThumb(
-              path: widget.item.localPath,
-              kind: widget.item.kind,
-              resolveUrl: () =>
-                  widget.repo.resolvePlayableUrl(widget.item),
-            ),
+            errorBuilder: (_, error, stack) => _webOrPathThumb(),
           ),
           const Align(
             alignment: Alignment.bottomRight,
@@ -2578,7 +2496,21 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
         ),
       );
     }
-    // Önbellek yoksa video oynatıcı ile ilk kareyi göster.
+    return _webOrPathThumb();
+  }
+
+  Widget _webOrPathThumb() {
+    if (kIsWeb) {
+      return ColoredBox(
+        color: const Color(0xFF1A2A36),
+        child: Center(
+          child: Icon(
+            kindVideoIcon(widget.item.kind),
+            color: Colors.white54,
+          ),
+        ),
+      );
+    }
     return VideoThumb(
       path: widget.item.localPath,
       kind: widget.item.kind,

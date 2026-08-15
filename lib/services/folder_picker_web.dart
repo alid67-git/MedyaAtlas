@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:web/web.dart' as web;
 
 import 'folder_types.dart';
+import 'web_media_session.dart';
 
 export 'folder_types.dart';
 
@@ -36,7 +37,6 @@ Future<FolderPickResult> scanMediaDirectory(
 }
 
 /// Galeri / Favoriler: yalnızca çoklu dosya (klasör yok).
-/// iOS Safari: input DOM’da olmalı; click kullanıcı jestiyle aynı turda.
 Future<FolderPickResult?> pickMultipleMediaFiles() =>
     _pickWithInput(directory: false);
 
@@ -45,7 +45,6 @@ Future<FolderPickResult?> _pickWithInput({required bool directory}) async {
     ..type = 'file'
     ..multiple = true;
   input.accept = 'image/*,video/*,.jpg,.jpeg,.png,.heic,.heif,.mp4,.mov,.m4v';
-  // iOS Safari: gizli input DOM’da değilse change çoğu zaman hiç gelmez.
   input.style
     ..position = 'fixed'
     ..left = '0'
@@ -90,12 +89,11 @@ Future<FolderPickResult?> _pickWithInput({required bool directory}) async {
     }.toJS,
   );
 
-  // İptal: bazı Safari sürümlerinde cancel/change gelmez — focus ile kapat.
-  // 30+ medyada change gecikebilir; önce input.files’a bak, acele null etme.
   var focusArmed = false;
   void onFocus(web.Event _) {
     if (!focusArmed || done.isCompleted) return;
-    Future<void>.delayed(const Duration(milliseconds: 1800), () {
+    // Kısa bekleme — iptal tespiti; seçimde change zaten bitmiş olur.
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
       if (done.isCompleted) return;
       final list = input.files;
       if (list != null && list.length > 0) {
@@ -109,7 +107,7 @@ Future<FolderPickResult?> _pickWithInput({required bool directory}) async {
   web.document.body?.appendChild(input);
   final jsOnFocus = onFocus.toJS;
   web.window.addEventListener('focus', jsOnFocus);
-  Future<void>.delayed(const Duration(milliseconds: 400), () {
+  Future<void>.delayed(const Duration(milliseconds: 300), () {
     focusArmed = true;
   });
 
@@ -119,6 +117,7 @@ Future<FolderPickResult?> _pickWithInput({required bool directory}) async {
     return await done.future;
   } finally {
     web.window.removeEventListener('focus', jsOnFocus);
+    // File referansları webSession’da kalsın — input’u geç sil.
     Future<void>.delayed(const Duration(seconds: 2), cleanup);
   }
 }
@@ -151,14 +150,23 @@ FolderPickResult _fromFileList(
         : (mime.startsWith('video/')
             ? 'video_${i + 1}.mp4'
             : 'photo_${i + 1}.jpg');
-    // Oturum önizleme / oynatma — foto + video blob.
-    final blobUrl = web.URL.createObjectURL(captured);
+    final isVid = isVideoName(name) || mime.startsWith('video/');
+    // Video: blob/URL üretme (Safari büyük dosyayı hazırlar → yavaş).
+    // File oturumda; oynatınca lazy blob.
+    webSessionRegister(name, file.size, captured);
+    final String? blobUrl;
+    if (isVid) {
+      blobUrl = null;
+    } else {
+      blobUrl = web.URL.createObjectURL(captured);
+    }
     items.add(
       FolderMediaRef(
         name: name,
         size: file.size,
         relativePath: relative.isNotEmpty ? relative : name,
         localPath: blobUrl,
+        mimeType: mime.isNotEmpty ? mime : null,
         lastModified: DateTime.fromMillisecondsSinceEpoch(file.lastModified),
         readHead: (maxBytes) async {
           final end = math.min(captured.size, maxBytes);
@@ -167,13 +175,6 @@ FolderPickResult _fromFileList(
           return buffer.toDart.asUint8List();
         },
       ),
-    );
-  }
-
-  if (items.isEmpty && skipped > 0) {
-    return FolderPickResult(
-      folderName: folderName,
-      items: items,
     );
   }
 

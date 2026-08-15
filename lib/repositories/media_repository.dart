@@ -9,6 +9,7 @@ import '../models/library_media.dart';
 import '../services/geo.dart';
 import '../services/media_mime.dart';
 import '../services/volume_mount.dart';
+import '../services/web_media_session.dart';
 
 const _indexBoxName = 'medyaatlas_media';
 const _bytesBoxName = 'medyaatlas_media_bytes';
@@ -232,13 +233,20 @@ class MediaRepository extends ChangeNotifier {
     await _payloadBox?.delete(id);
   }
 
-  /// Oynatma: yerel yol veya web blob URL (dosya kopyası yok).
+  /// Oynatma: yerel yol, canlı blob veya web oturum File → lazy blob.
   Future<String?> resolvePlayableUrl(LibraryMedia item) async {
     final path = item.localPath;
-    if (path == null || path.isEmpty) return null;
-    if (!kIsWeb) return path;
-    if (isWebPlayableUrl(path)) return path;
-    return null;
+    if (path != null && path.isNotEmpty) {
+      if (!kIsWeb) return path;
+      if (isWebPlayableUrl(path)) return path;
+    }
+    if (!kIsWeb) return null;
+    final url = webSessionBlobUrl(item.name, item.sizeBytes ?? 0);
+    if (url != null && url.isNotEmpty) {
+      // Sonraki açılışlar için indeksde tut (dosya kopyası değil, URL).
+      await updateLocalPath(id: item.id, localPath: url, persist: false);
+    }
+    return url;
   }
 
   Future<void> _persistIndex() async {
