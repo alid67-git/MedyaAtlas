@@ -12,6 +12,30 @@ import '../services/photo_orient.dart';
 IconData kindVideoIcon(MediaKind kind) =>
     kind == MediaKind.drone ? Icons.flight : Icons.videocam;
 
+String _externalPlayLabel() {
+  if (!kIsWeb && Platform.isAndroid) return 'Telefonda oynat';
+  if (!kIsWeb && Platform.isWindows) return 'Windows’ta oynat';
+  return 'Sistem oynatıcıda aç';
+}
+
+String _externalPlayTooltip() {
+  if (!kIsWeb && Platform.isAndroid) return 'Telefon oynatıcısında aç';
+  if (!kIsWeb && Platform.isWindows) return 'Windows’ta aç';
+  return 'Sistem oynatıcıda aç';
+}
+
+String _externalOpenedMessage() {
+  if (!kIsWeb && Platform.isAndroid) return 'Telefon oynatıcısında açıldı.';
+  if (!kIsWeb && Platform.isWindows) return 'Windows oynatıcısında açıldı.';
+  return 'Sistem oynatıcıda açıldı.';
+}
+
+String _externalOpeningMessage() {
+  if (!kIsWeb && Platform.isAndroid) return 'Telefon oynatıcısında açılıyor…';
+  if (!kIsWeb && Platform.isWindows) return 'Windows oynatıcısında açılıyor…';
+  return 'Sistem oynatıcıda açılıyor…';
+}
+
 /// Sağ panel / ızgara için ilk kare (sessiz, duraklatılmış).
 class VideoThumb extends StatefulWidget {
   const VideoThumb({
@@ -244,7 +268,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
         setState(() {
           _loading = false;
           _error =
-              'Uygulama içi oynatma olmadı; sistem oynatıcıya gönderildi.\n$e';
+              'Uygulama içi oynatma olmadı; ${_externalPlayLabel().toLowerCase()} ile açıldı.\n$e';
         });
       }
     }
@@ -355,7 +379,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Sistem oynatıcıda aç',
+                  tooltip: _externalPlayTooltip(),
                   onPressed: _openExternally,
                   icon: const Icon(Icons.open_in_new),
                 ),
@@ -389,9 +413,9 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
               _error ??
                   (_useExternalFirst
                       ? (_openedExternal
-                          ? 'Sistem oynatıcıda açıldı.'
-                          : 'Sistem oynatıcıda açılıyor…')
-                      : 'Video önizlemesi yok.'),
+                          ? _externalOpenedMessage()
+                          : _externalOpeningMessage())
+                      : 'Video önizlemesi yok — ${_externalPlayLabel().toLowerCase()}.'),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white54),
             ),
@@ -399,11 +423,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
             FilledButton.tonalIcon(
               onPressed: _openExternally,
               icon: const Icon(Icons.play_arrow),
-              label: Text(
-                !kIsWeb && Platform.isWindows
-                    ? 'Windows’ta oynat'
-                    : 'Sistem oynatıcıda aç',
-              ),
+              label: Text(_externalPlayLabel()),
             ),
           ],
         ),

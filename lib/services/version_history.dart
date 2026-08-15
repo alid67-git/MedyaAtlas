@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.3',
+    tr: 'Telefonda GoPro/DJI için “Telefonda oynat”; Windows ifadesi kaldırıldı. Küçük hata düzeltmeleri.',
+    en: 'Phone playback label for GoPro/DJI on Android; removed Windows wording. Minor bug fixes.',
+    de: 'Wiedergabe auf dem Telefon für GoPro/DJI unter Android; Windows-Text entfernt. Kleine Fehlerkorrekturen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.2',
     tr:
         'SD kart / harici disk tarama; disk çıkınca pinler gizlenir, takılınca geri gelir. Küçük hata düzeltmeleri.',

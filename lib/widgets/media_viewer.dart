@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -231,8 +233,11 @@ class _VideoPageState extends State<_VideoPage> {
       name: widget.media.name,
       kind: widget.media.kind,
       posterBytes: _poster,
-      preferExternal: widget.media.kind == MediaKind.gopro ||
-          widget.media.kind == MediaKind.drone,
+      // GoPro/DJI HEVC: yalnızca Windows’ta önce dış oynatıcı.
+      preferExternal: !kIsWeb &&
+          Platform.isWindows &&
+          (widget.media.kind == MediaKind.gopro ||
+              widget.media.kind == MediaKind.drone),
     );
   }
 }
