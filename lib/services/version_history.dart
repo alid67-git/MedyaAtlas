@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.21',
+    tr: 'Tek video OK sonrası bekleme yok; «kopyalanmadı» yazısı kaldırıldı.',
+    en: 'No wait after OK for a single video; removed “not copied” status text.',
+    de: 'Kein Warten nach OK bei einem Video; „nicht kopiert“-Text entfernt.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.20',
     tr: 'Web: OK sonrası anında ekle; GPS arka planda (bekleme yok).',
     en: 'Web: add instantly after OK; GPS in background (no long wait).',

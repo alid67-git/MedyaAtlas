@@ -424,15 +424,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       // Hızlı yol: dosya içeriği okunmaz — yalnızca indeks + blob.
       final added = await _ingestWebQuick(items, source: source);
       if (!mounted) return;
+      final photos = items.where((f) => !f.isVideo).toList();
       setState(() {
         _endBusy();
         _kinds.addAll(MediaKind.values);
-        _status =
-            '"${source.label}": $added medya · kopyalanmadı · GPS arka planda…';
+        _status = photos.isEmpty
+            ? '"${source.label}": $added medya eklendi'
+            : '"${source.label}": $added medya eklendi · konum okunuyor…';
       });
       _fitVisible();
-      // GPS / EXIF sonra — UI serbest.
-      unawaited(_fillWebGpsBackground(items, source: source));
+      // Video GPS ağır — otomatik değil. Foto EXIF hafif, arka planda.
+      if (photos.isNotEmpty) {
+        unawaited(_fillWebGpsBackground(photos, source: source));
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -569,10 +573,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     await repo.flush(notify: true);
     if (!mounted || _busy) return;
     setState(() {
-      _status =
-          'Hazır: $checked dosyada GPS arandı · $found konum · kopyalanmadı';
+      _status = found > 0
+          ? 'Hazır: $found konum bulundu'
+          : (checked > 0 ? 'Hazır: $checked fotoğrafta GPS yok' : null);
     });
-    _fitVisible();
+    if (found > 0) _fitVisible();
   }
 
   Future<void> _importGallery() async {
@@ -1224,17 +1229,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final tip = bulkMode && missing > 0
         ? ' · GPS eksikler için “yeniden dene”'
         : (kIsWeb && missing > 0
-            ? ' · iPhone foto GPS’i gizleyebilir; GoPro/DJI için yeniden seçin'
+            ? ' · iPhone foto GPS’i gizleyebilir; GoPro için yeniden dene'
             : '');
-    final copyNote = ' · kopyalanmadı (yalnızca indeks)';
     setState(() {
       _showMissing = false;
       _panelCluster = null;
       // Yeni eklenen türler haritada görünsün diye filtreyi aç.
       _kinds.addAll(MediaKind.values);
       _status = _cancel
-          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip$copyNote'
-          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip$copyNote';
+          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip'
+          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip';
     });
     _fitVisible();
   }

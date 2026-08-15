@@ -20,9 +20,9 @@ const bulkVideoHeadBytes = 1024 * 1024;
 /// GoPro GPMF / DJI gömülü GPS — toplu taramada da okunacak kadar head.
 const bulkGpsVideoHeadBytes = 8 * 1024 * 1024;
 
-/// Web arka plan GPS: küçük head (OK sonrası donma olmasın).
-const webGpsVideoHeadBytes = 1024 * 1024;
-const webGpsPhotoHeadBytes = 128 * 1024;
+/// Web arka plan: yalnızca foto EXIF (video GPS kullanıcı “yeniden dene”).
+const webGpsVideoHeadBytes = 512 * 1024;
+const webGpsPhotoHeadBytes = 64 * 1024;
 
 class FolderMediaRef {
   const FolderMediaRef({
