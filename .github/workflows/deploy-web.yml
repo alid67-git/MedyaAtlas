@@ -27,7 +27,7 @@ jobs:
           cache: true
 
       - run: flutter pub get
-      - run: flutter build web --release --base-href /MedyaAtlas/
+      - run: flutter build web --release --base-href /MedyaAtlas/ --pwa-strategy=none
 
       - uses: actions/upload-pages-artifact@v3
         with:

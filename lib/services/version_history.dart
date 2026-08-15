@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.10',
+    tr: 'iPhone web önbelleği temizlendi; GitHub Pages’te güncel Flutter sürümü.',
+    en: 'Cleared iPhone web cache; GitHub Pages serves the current Flutter build.',
+    de: 'iPhone-Web-Cache geleert; GitHub Pages liefert den aktuellen Flutter-Build.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.9',
     tr: 'İptal alt tarama çubuğunda; büyük diskte DCIM/GoPro/DJI önce ve GPS okuma; iPhone için web (dosya seçici).',
     en: 'Cancel on bottom scan bar; prioritize DCIM/GoPro/DJI + GPS on large disks; web for iPhone file pick.',
