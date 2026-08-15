@@ -209,6 +209,7 @@ class _VideoPageState extends State<_VideoPage> {
     if (bytes == null || bytes.isEmpty) {
       bytes = await extractVideoPreviewBytes(
         localPath: widget.media.localPath,
+        relativePath: widget.media.relativePath,
       );
       if (bytes != null && bytes.isNotEmpty) {
         await repo.putPreviewBytes(widget.media.id, bytes);

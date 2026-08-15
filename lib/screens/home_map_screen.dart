@@ -36,6 +36,7 @@ import '../services/photo_orient.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/media_viewer.dart';
 import '../widgets/photo_source.dart';
+import '../widgets/video_surface.dart';
 import 'settings_sheets.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -522,6 +523,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               } catch (_) {}
               final preview = await extractVideoPreviewBytes(
                 localPath: file.localPath,
+                relativePath: file.relativePath,
                 head: head,
               );
               if (preview != null) {
@@ -594,6 +596,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             ? (head != null && file.size <= previewStoreBytes ? head : null)
             : await extractVideoPreviewBytes(
                 localPath: file.localPath,
+                relativePath: file.relativePath,
                 head: head,
               );
         await repo.add(
@@ -1640,7 +1643,7 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
   Future<void> _load() async {
     final cached = widget.repo.cachedBytes(widget.item.id) ??
         await widget.repo.bytesOf(widget.item.id);
-    if (cached != null && cached.isNotEmpty) {
+    if (cached != null && cached.isNotEmpty && looksLikeJpeg(cached)) {
       if (mounted) {
         setState(() {
           _bytes = cached;
@@ -1651,6 +1654,7 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
     }
     final extracted = await extractVideoPreviewBytes(
       localPath: widget.item.localPath,
+      relativePath: widget.item.relativePath,
     );
     if (extracted != null && extracted.isNotEmpty) {
       await widget.repo.putPreviewBytes(widget.item.id, extracted);
@@ -1672,7 +1676,15 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
       return Stack(
         fit: StackFit.expand,
         children: [
-          OrientedMemoryImage(bytes, fit: BoxFit.cover),
+          Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, __, ___) => VideoThumb(
+              path: widget.item.localPath,
+              kind: widget.item.kind,
+            ),
+          ),
           const Align(
             alignment: Alignment.bottomRight,
             child: Padding(
@@ -1687,21 +1699,22 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
         ],
       );
     }
-    return ColoredBox(
-      color: Colors.black26,
-      child: Center(
-        child: _loading
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(
-                widget.item.kind == MediaKind.drone
-                    ? Icons.flight
-                    : Icons.videocam,
-              ),
-      ),
+    if (_loading) {
+      return const ColoredBox(
+        color: Colors.black26,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    // Önbellek yoksa video oynatıcı ile ilk kareyi göster.
+    return VideoThumb(
+      path: widget.item.localPath,
+      kind: widget.item.kind,
     );
   }
 }

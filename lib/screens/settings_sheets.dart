@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../app_version.dart';
 import '../l10n/app_strings.dart';
 import '../services/app_settings.dart';
+import '../services/version_history.dart';
 
 Future<void> openSettingsSheet(BuildContext context) async {
   await showModalBottomSheet<void>(
@@ -72,12 +73,100 @@ Future<void> openSettingsSheet(BuildContext context) async {
                     title: Text(t.version),
                     subtitle: Text('v$appVersion'),
                   ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(t.versionHistory),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => openVersionHistorySheet(context),
+                  ),
                   const SizedBox(height: 8),
                 ],
               ),
             );
           },
         ),
+      );
+    },
+  );
+}
+
+Future<void> openVersionHistorySheet(BuildContext context) async {
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF0A1C28),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) {
+      return Consumer<AppSettings>(
+        builder: (context, st, _) {
+          final t = S.of(st);
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.7,
+            minChildSize: 0.4,
+            maxChildSize: 0.95,
+            builder: (context, scroll) {
+              return Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            t.versionHistory,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: t.close,
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      controller: scroll,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      itemCount: versionHistory.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, i) {
+                        final e = versionHistory[i];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            'v${e.version}',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            child: Text(e.text(st.lang)),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
       );
     },
   );

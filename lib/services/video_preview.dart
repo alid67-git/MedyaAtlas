@@ -2,8 +2,11 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:video_thumbnail/video_thumbnail.dart';
 
+import 'android_media_scan.dart';
 import 'folder_types.dart';
 
 /// MP4 başlığındaki gömülü JPEG kapak / önizleme (covr vb.).
@@ -36,6 +39,12 @@ Uint8List? largestJpegIn(Uint8List data, {int minBytes = 2048}) {
   return best;
 }
 
+bool looksLikeJpeg(Uint8List bytes) =>
+    bytes.length >= 4 &&
+    bytes[0] == 0xFF &&
+    bytes[1] == 0xD8 &&
+    bytes[2] == 0xFF;
+
 /// GoPro .THM / yan JPEG (DJI vb.) — tarama sırasında ilk kare yerine.
 Future<Uint8List?> siblingPreviewBytes(String? videoPath) async {
   if (videoPath == null || videoPath.isEmpty) return null;
@@ -60,11 +69,7 @@ Future<Uint8List?> siblingPreviewBytes(String? videoPath) async {
       final size = await file.length();
       if (size < 256 || size > previewStoreBytes) continue;
       final bytes = await file.readAsBytes();
-      if (bytes.length >= 3 &&
-          bytes[0] == 0xFF &&
-          bytes[1] == 0xD8) {
-        return bytes;
-      }
+      if (looksLikeJpeg(bytes)) return bytes;
       if (bytes.length >= 8 &&
           bytes[0] == 0x89 &&
           bytes[1] == 0x50) {
@@ -85,31 +90,59 @@ Future<Uint8List?> siblingPreviewBytes(String? videoPath) async {
   return null;
 }
 
-/// Tarama sırasında: kardeş dosya → gömülü JPEG (video_player yok).
-Future<Uint8List?> extractVideoPreviewBytes({
-  required String? localPath,
-  Uint8List? head,
-}) async {
-  final sibling = await siblingPreviewBytes(localPath);
-  if (sibling != null && sibling.isNotEmpty) return sibling;
-  if (head != null && head.isNotEmpty) {
-    final embedded = largestJpegIn(head);
-    if (embedded != null) return embedded;
-  }
-  if (localPath == null || localPath.isEmpty) return null;
-  // Başlık henüz yoksa / yetersizse dosyanın ilk kısmını oku.
+Future<Uint8List?> _firstFrameFromFile(String? localPath) async {
+  if (kIsWeb || localPath == null || localPath.isEmpty) return null;
   try {
     final file = File(localPath);
     if (!await file.exists()) return null;
-    final raf = await file.open();
-    try {
-      final n = math.min(videoHeadBytes, await file.length());
-      final more = await raf.read(n);
-      return largestJpegIn(more);
-    } finally {
-      await raf.close();
-    }
-  } catch (_) {
-    return null;
+    final bytes = await VideoThumbnail.thumbnailData(
+      video: localPath,
+      imageFormat: ImageFormat.JPEG,
+      maxWidth: 480,
+      quality: 75,
+      timeMs: 0,
+    );
+    if (bytes != null && looksLikeJpeg(bytes)) return bytes;
+  } catch (_) {}
+  return null;
+}
+
+/// Önizleme sırası: MediaStore ilk kare → kardeş JPEG → gömülü JPEG → dosya ilk karesi.
+Future<Uint8List?> extractVideoPreviewBytes({
+  required String? localPath,
+  String? relativePath,
+  Uint8List? head,
+}) async {
+  final phoneId = phoneAssetIdFromRelativePath(relativePath);
+  if (phoneId != null) {
+    final phoneThumb = await phoneAssetThumbnailBytes(phoneId);
+    if (phoneThumb != null && phoneThumb.isNotEmpty) return phoneThumb;
   }
+
+  final sibling = await siblingPreviewBytes(localPath);
+  if (sibling != null && sibling.isNotEmpty) return sibling;
+
+  if (head != null && head.isNotEmpty) {
+    final embedded = largestJpegIn(head);
+    if (embedded != null && looksLikeJpeg(embedded)) return embedded;
+  }
+
+  if (localPath != null && localPath.isNotEmpty) {
+    try {
+      final file = File(localPath);
+      if (await file.exists()) {
+        final raf = await file.open();
+        try {
+          final n = math.min(videoHeadBytes, await file.length());
+          final more = await raf.read(n);
+          final embedded = largestJpegIn(more);
+          if (embedded != null && looksLikeJpeg(embedded)) return embedded;
+        } finally {
+          await raf.close();
+        }
+      }
+    } catch (_) {}
+  }
+
+  return _firstFrameFromFile(localPath);
 }

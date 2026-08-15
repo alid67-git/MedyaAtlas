@@ -243,3 +243,22 @@ Future<Uint8List> _readAssetHead(AssetEntity asset, int maxBytes) async {
     return Uint8List(0);
   }
 }
+
+/// MediaStore / Photos ilk kare (veya küçük kapak) — grid önizleme için.
+Future<Uint8List?> phoneAssetThumbnailBytes(
+  String assetId, {
+  int size = 360,
+}) async {
+  if (kIsWeb || !Platform.isAndroid) return null;
+  try {
+    final asset = await AssetEntity.fromId(assetId);
+    if (asset == null) return null;
+    return await asset.thumbnailDataWithSize(
+      ThumbnailSize(size, size),
+      quality: 80,
+      frame: 0,
+    );
+  } catch (_) {
+    return null;
+  }
+}

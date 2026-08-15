@@ -69,6 +69,12 @@ class S {
         AppLang.de => 'Version',
       };
 
+  String get versionHistory => switch (lang) {
+        AppLang.tr => 'Sürüm geçmişi',
+        AppLang.en => 'Version history',
+        AppLang.de => 'Versionsverlauf',
+      };
+
   String get cancel => switch (lang) {
         AppLang.tr => 'İptal',
         AppLang.en => 'Cancel',
