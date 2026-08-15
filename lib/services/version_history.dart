@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.23',
+    tr: 'Web video: yavaş uygulama içi player yok — doğrudan Safari’de açılır.',
+    en: 'Web video: skip slow in-app player — opens in Safari immediately.',
+    de: 'Web-Video: kein langsamer In-App-Player — sofort in Safari.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.22',
     tr: 'Web video seçimi: OK sonrası dosya okunmaz; blob/GPS/önizleme ertelenir.',
     en: 'Web video pick: no file reads after OK; blob/GPS/preview deferred.',

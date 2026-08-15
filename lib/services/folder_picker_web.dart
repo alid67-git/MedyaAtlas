@@ -128,7 +128,6 @@ FolderPickResult _fromFileList(
 }) {
   final items = <FolderMediaRef>[];
   var folderName = directory ? 'klasör' : 'Seçilen medya';
-  var skipped = 0;
 
   for (var i = 0; i < list.length; i++) {
     final file = list.item(i);
@@ -141,7 +140,6 @@ FolderPickResult _fromFileList(
     final byName = isMediaName(file.name);
     final byMime = mime.startsWith('image/') || mime.startsWith('video/');
     if (!byName && !byMime) {
-      skipped++;
       continue;
     }
     final captured = file;

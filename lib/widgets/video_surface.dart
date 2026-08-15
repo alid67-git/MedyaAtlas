@@ -208,14 +208,27 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   }
 
   Future<void> _start() async {
-    if (_windowsExternalFirst) {
-      await _openExternally();
+    // Web: Flutter video_player HEVC/GoPro’da çok yavaş veya açılmaz —
+    // doğrudan Safari (hızlı yerel oynatıcı).
+    if (kIsWeb || _windowsExternalFirst) {
+      final path = await _effectivePath();
+      if (path != null && path.isNotEmpty) {
+        await _openExternally();
+      }
       if (mounted) {
         setState(() {
           _loading = false;
-          _status = _openedExternal
-              ? 'Windows oynatıcısında açıldı.'
-              : 'Windows oynatıcısı açılamadı.';
+          if (kIsWeb) {
+            _status = _openedExternal
+                ? 'Safari’de açıldı.'
+                : (path == null || path.isEmpty
+                    ? 'Oynatılamıyor. Medyayı yeniden seçin.'
+                    : 'Safari açılamadı. «Safari’de aç» deneyin.');
+          } else {
+            _status = _openedExternal
+                ? 'Windows oynatıcısında açıldı.'
+                : 'Windows oynatıcısı açılamadı.';
+          }
         });
       }
       return;

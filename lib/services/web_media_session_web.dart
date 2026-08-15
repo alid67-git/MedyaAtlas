@@ -7,9 +7,8 @@ String _key(String name, int size) => '$name|$size';
 
 /// Seçim anında File tut — içerik okunmaz, blob sonra (oynatınca) üretilir.
 void webSessionRegister(String name, int size, Object file) {
-  if (file is web.File) {
-    _files[_key(name, size)] = file;
-  }
+  // ignore: avoid_dynamic_calls — package:web File from picker
+  _files[_key(name, size)] = file as dynamic;
 }
 
 /// İlk oynatmada / gösterimde blob URL (lazy).

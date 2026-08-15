@@ -213,6 +213,11 @@ class _VideoPageState extends State<_VideoPage> {
   }
 
   Future<void> _loadPoster() async {
+    if (kIsWeb) {
+      // Web’de önizleme için dosya okuma yok.
+      if (mounted) setState(() {});
+      return;
+    }
     final repo = context.read<MediaRepository>();
     var bytes = repo.cachedBytes(widget.media.id) ??
         await repo.bytesOf(widget.media.id);
@@ -234,7 +239,13 @@ class _VideoPageState extends State<_VideoPage> {
       if (_poster != null) {
         return OrientedMemoryImage(_poster!, fit: BoxFit.contain);
       }
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: Icon(
+          kindVideoIcon(widget.media.kind),
+          size: 48,
+          color: Colors.white54,
+        ),
+      );
     }
     final repo = context.read<MediaRepository>();
     return VideoPlaybackPane(
@@ -243,10 +254,11 @@ class _VideoPageState extends State<_VideoPage> {
       kind: widget.media.kind,
       posterBytes: _poster,
       resolveUrl: () => repo.resolvePlayableUrl(widget.media),
-      // GoPro/DJI HEVC: yalnızca Windows’ta önce dış oynatıcı.
-      preferExternal: hostIsWindows &&
-          (widget.media.kind == MediaKind.gopro ||
-              widget.media.kind == MediaKind.drone),
+      // Web + Windows GoPro/DJI: uygulama içi player yerine sistem/Safari.
+      preferExternal: kIsWeb ||
+          (hostIsWindows &&
+              (widget.media.kind == MediaKind.gopro ||
+                  widget.media.kind == MediaKind.drone)),
     );
   }
 }
