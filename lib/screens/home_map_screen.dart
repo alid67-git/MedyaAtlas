@@ -1422,35 +1422,41 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildMain(clusters, missing, repo)),
-                      if (wide && _panelCluster != null) ...[
-                        const VerticalDivider(width: 1),
-                        SizedBox(
-                          width: 360,
-                          child: _ClusterSheet(
-                            cluster: _panelCluster!,
-                            repo: repo,
-                            onClose: () =>
-                                setState(() => _panelCluster = null),
-                            onOpen: (items, index) => openMediaViewer(
-                              context,
-                              items: items,
-                              initialIndex: index,
+                  child: _showMissing
+                      ? const ColoredBox(color: Color(0xFF071018))
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: _buildMain(clusters, missing, repo),
                             ),
-                          ),
+                            if (wide && _panelCluster != null) ...[
+                              const VerticalDivider(width: 1),
+                              SizedBox(
+                                width: 360,
+                                child: _ClusterSheet(
+                                  cluster: _panelCluster!,
+                                  repo: repo,
+                                  onClose: () =>
+                                      setState(() => _panelCluster = null),
+                                  onOpen: (items, index) => openMediaViewer(
+                                    context,
+                                    items: items,
+                                    initialIndex: index,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
-                    ],
-                  ),
                 ),
                 Positioned(
                   top: 0,
                   left: 0,
                   right: 0,
+                  bottom: _showMissing ? 0 : null,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize:
+                        _showMissing ? MainAxisSize.max : MainAxisSize.min,
                     children: [
                       _mapTopBar(
                         s: s,
@@ -1465,7 +1471,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
                           child: Material(
                             elevation: 8,
-                            color: const Color(0xF00A1C28),
+                            color: const Color(0xFF0A1C28),
                             borderRadius: BorderRadius.circular(12),
                             clipBehavior: Clip.antiAlias,
                             child: _sourcesPanel(repo),
@@ -1476,7 +1482,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
                           child: Material(
                             elevation: 8,
-                            color: const Color(0xF00A1C28),
+                            color: const Color(0xFF0A1C28),
                             borderRadius: BorderRadius.circular(12),
                             clipBehavior: Clip.antiAlias,
                             child: _kindsPanel(
@@ -1484,6 +1490,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                               locatedItems:
                                   visible.where((m) => m.hasLocation),
                               missingItems: missing,
+                            ),
+                          ),
+                        ),
+                      if (_showMissing)
+                        Expanded(
+                          child: Material(
+                            color: const Color(0xFF071018),
+                            child: _MissingList(
+                              items: missing,
+                              onOpen: (item) => openMediaViewer(
+                                context,
+                                items: missing,
+                                initialIndex: missing.indexOf(item),
+                              ),
                             ),
                           ),
                         ),
@@ -1586,7 +1606,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     required String sourceCount,
   }) {
     return Material(
-      color: const Color(0xE0050E16),
+      color: const Color(0xFF050E16),
+      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 6, 8),
         child: Column(
@@ -1671,10 +1692,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     icon: Icons.location_off_outlined,
                     badge: '$missingCount',
                     onPressed: () => setState(() {
-                      _showMissing = true;
                       _panelCluster = null;
                       _sourcesOpen = false;
-                      _kindMenu = _kindMenu == 'missing' ? null : 'missing';
+                      if (_showMissing) {
+                        _showMissing = false;
+                        _kindMenu = null;
+                      } else {
+                        _showMissing = true;
+                        _kindMenu = 'missing';
+                      }
                     }),
                   ),
                   _TopIcon(
@@ -1962,36 +1988,27 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   ) {
     return Stack(
       children: [
-        _showMissing
-            ? _MissingList(
-                items: missing,
-                onOpen: (item) => openMediaViewer(
-                  context,
-                  items: missing,
-                  initialIndex: missing.indexOf(item),
-                ),
-              )
-            : FlutterMap(
-                mapController: _map,
-                options: const MapOptions(
-                  initialCenter: _worldCenter,
-                  initialZoom: 2.4,
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
-                    userAgentPackageName: 'com.medyaatlas.app',
-                  ),
-                  MarkerLayer(
-                    markers: _markersFor(clusters, repo),
-                  ),
-                ],
-              ),
+        FlutterMap(
+          mapController: _map,
+          options: const MapOptions(
+            initialCenter: _worldCenter,
+            initialZoom: 2.4,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
+              userAgentPackageName: 'com.medyaatlas.app',
+            ),
+            MarkerLayer(
+              markers: _markersFor(clusters, repo),
+            ),
+          ],
+        ),
         if (_places.isNotEmpty)
           Positioned(
             left: 12,
             right: 12,
-            top: 56,
+            top: 8,
             child: Material(
               elevation: 6,
               borderRadius: BorderRadius.circular(8),
@@ -2111,38 +2128,48 @@ class _MissingList extends StatelessWidget {
     if (items.isEmpty) {
       return const Center(child: Text('Konumu olmayan medya yok.'));
     }
-    return ListView.separated(
-      itemCount: items.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
-      itemBuilder: (context, i) {
-        final item = items[i];
-        final repo = context.read<MediaRepository>();
-        return ListTile(
-          leading: SizedBox(
-            width: 56,
-            height: 56,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: item.isVideo
-                  ? _VideoThumbCached(item: item, repo: repo)
-                  : (photoFromPath(item.localPath, fit: BoxFit.cover) ??
-                      const ColoredBox(
-                        color: Colors.black26,
-                        child: Icon(Icons.photo_outlined),
-                      )),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Text(
+            'GPS yok · ${items.length} medya',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          title: Text(item.name, overflow: TextOverflow.ellipsis),
-          subtitle: Text(
-            [
-              kindLabel(item.kind, en: false),
-              if (item.relativePath != null) item.relativePath!,
-            ].join(' · '),
-            overflow: TextOverflow.ellipsis,
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: items.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final item = items[i];
+              final repo = context.read<MediaRepository>();
+              return ListTile(
+                leading: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: _Thumb(item: item, repo: repo),
+                  ),
+                ),
+                title: Text(item.name, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                  kindLabel(item.kind, en: false),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => onOpen(item),
+              );
+            },
           ),
-          onTap: () => onOpen(item),
-        );
-      },
+        ),
+      ],
     );
   }
 }

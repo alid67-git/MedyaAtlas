@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.17',
+    tr: 'GPS’siz medya listesi üst çubuğun arkasında kalmıyor; başlık altında açık liste.',
+    en: 'No-GPS media list no longer hides behind the top bar; clear list below header.',
+    de: 'Medien ohne GPS nicht mehr hinter der Leiste; klare Liste unter dem Header.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.16',
     tr: 'iPhone: Favori/galeri seçimi Safari’de içeri alınır; Seç→işaretle→Ekle (video oynatmadan).',
     en: 'iPhone: Favorites/gallery selection imports on Safari; Select→tap→Add (no video play).',
