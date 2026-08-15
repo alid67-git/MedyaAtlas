@@ -42,13 +42,15 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
 
-## Ne var (0.7.9)
+## Ne var (0.8.0)
 
-- Harita odaklı ana ekran: kaynak / GPS / konum yok ikon menüleri
-- Güncelleme tuşu yok — açılışta otomatik kontrol + onayla indir
-- Sabit APK imzası; telefon tarama GPS; `…/latest/download/MedyaAtlas.apk`
-- Google Drive; EXIF medya konum izni
+- Net üst başlık: MedyaAtlas + sürüm, altında geliştiren, altında ikonlar
+- TR / EN / DE dil; ayarlar (dil, geliştiren); ayrıntılı yardım
+- Harita türü: uydu / sokak / topo / koyu
+- Arama ikonu kaldırıldı; harita odaklı ekran
+- Sabit APK imzası; açılışta otomatik güncelleme
 - PC: `C:\src\MedyaAtlas`
+
 
 GoPro GPMF telemetrisi henüz yok. GPX/KML ride çizgileri henüz yok.
 

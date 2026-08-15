@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'repositories/media_repository.dart';
 import 'screens/home_map_screen.dart';
+import 'services/app_settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,7 @@ Future<void> main() async {
   };
   await Hive.initFlutter();
   await MediaRepository.instance.init();
+  await AppSettings.instance.init();
   runApp(const MedyaAtlasApp());
 }
 
@@ -39,8 +41,11 @@ class MedyaAtlasApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: MediaRepository.instance,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: MediaRepository.instance),
+        ChangeNotifierProvider.value(value: AppSettings.instance),
+      ],
       child: MaterialApp(
         title: 'MedyaAtlas',
         debugShowCheckedModeBanner: false,

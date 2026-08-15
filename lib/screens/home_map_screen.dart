@@ -16,9 +16,11 @@ import 'package:path/path.dart' as p;
 
 import '../app_version.dart';
 import '../google_oauth_config.dart';
+import '../l10n/app_strings.dart';
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
 import '../services/android_media_scan.dart';
+import '../services/app_settings.dart';
 import '../services/app_updater.dart';
 import '../services/cluster.dart';
 import '../services/exif_gps.dart';
@@ -30,10 +32,11 @@ import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
 import '../services/video_preview.dart';
+import '../services/photo_orient.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/media_viewer.dart';
 import '../widgets/photo_source.dart';
-import '../services/photo_orient.dart';
+import 'settings_sheets.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 const _worldCenter = LatLng(20, 0);
@@ -53,17 +56,14 @@ class HomeMapScreen extends StatefulWidget {
 class _HomeMapScreenState extends State<HomeMapScreen> {
   final _map = MapController();
   final _picker = ImagePicker();
-  final _searchCtrl = TextEditingController();
-  Timer? _searchDebounce;
   bool _busy = false;
   bool _cancel = false;
   bool _dropping = false;
   bool _sourcesOpen = false;
-  bool _searchOpen = false;
   String? _kindMenu;
   String? _status;
   bool _showMissing = false;
-  String _query = '';
+  final _query = '';
   List<PlaceHit> _places = [];
   LocationCluster? _panelCluster;
   final Set<MediaKind> _kinds = {...MediaKind.values};
@@ -201,8 +201,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   @override
   void dispose() {
-    _searchDebounce?.cancel();
-    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -740,22 +738,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   void _closeMenus() {
     _sourcesOpen = false;
     _kindMenu = null;
-    _searchOpen = false;
-  }
-
-  void _onSearchChanged(String raw) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 180), () async {
-      if (!mounted) return;
-      setState(() => _query = raw);
-      if (raw.trim().length < 2) {
-        setState(() => _places = []);
-        return;
-      }
-      final hits = await searchPlaces(raw);
-      if (!mounted || _searchCtrl.text != raw) return;
-      setState(() => _places = hits);
-    });
   }
 
   void _goToPlace(PlaceHit place) {
@@ -905,6 +887,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<MediaRepository>();
+    final settings = context.watch<AppSettings>();
+    final s = S.of(settings);
     // Tarama sürerken dondurulmuş (sonlu) pinler; bitince taze liste.
     final clusters = _busy ? _mapClusters : _safeClusters(repo);
     final missing = _missingOf(repo);
@@ -968,12 +952,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _mapTopBar(
+                        s: s,
+                        settings: settings,
                         hasPins: clusters.isNotEmpty,
                         locatedCount: locatedCount,
                         missingCount: missing.length,
                         sourceCount: sourceCount,
                       ),
-                      if (_searchOpen) _searchOverlay(),
                       if (_sourcesOpen)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
@@ -1034,12 +1019,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         children: [
           body,
           if (_dropping)
-            const ColoredBox(
-              color: Color(0x88000000),
+            ColoredBox(
+              color: const Color(0x88000000),
               child: Center(
                 child: Text(
-                  'Klasörü bırak — MedyaAtlas tarar, kopyalamaz',
-                  style: TextStyle(fontSize: 20, color: Colors.white),
+                  s.dropHint,
+                  style: const TextStyle(fontSize: 20, color: Colors.white),
                 ),
               ),
             ),
@@ -1049,143 +1034,126 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   Widget _mapTopBar({
+    required S s,
+    required AppSettings settings,
     required bool hasPins,
     required int locatedCount,
     required int missingCount,
     required String sourceCount,
   }) {
     return Material(
-      color: const Color(0xCC050E16),
+      color: const Color(0xE0050E16),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
-        child: Row(
+        padding: const EdgeInsets.fromLTRB(14, 10, 6, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  text: 'MedyaAtlas',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    height: 1.1,
-                    letterSpacing: -0.5,
-                  ),
-                  children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
                     TextSpan(
-                      text: '  v$appVersion',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.5),
+                      text: s.appName,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        height: 1.05,
+                        letterSpacing: -0.4,
                       ),
+                      children: [
+                        TextSpan(
+                          text: '  v$appVersion',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                if (_busy)
+                  TextButton(
+                    onPressed: () => setState(() => _cancel = true),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFFF7A59),
+                    ),
+                    child: Text(s.cancel),
+                  )
+                else
+                  _TopIcon(
+                    tooltip: s.settings,
+                    icon: Icons.settings_outlined,
+                    onPressed: () => openSettingsSheet(context),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${s.developedBy}: ${settings.developerName}',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.55),
               ),
             ),
-            if (_busy)
-              TextButton(
-                onPressed: () => setState(() => _cancel = true),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFFF7A59),
-                ),
-                child: const Text('İptal'),
-              )
-            else ...[
-              _TopIcon(
-                tooltip: 'Ara',
-                selected: _searchOpen,
-                icon: Icons.search,
-                onPressed: () => setState(() {
-                  _searchOpen = !_searchOpen;
-                  if (_searchOpen) {
-                    _sourcesOpen = false;
-                    _kindMenu = null;
-                  }
-                }),
-              ),
-              _TopIcon(
-                tooltip: 'Medya kaynakları',
-                selected: _sourcesOpen,
-                icon: Icons.folder_outlined,
-                badge: sourceCount,
-                onPressed: () => setState(() {
-                  _sourcesOpen = !_sourcesOpen;
-                  if (_sourcesOpen) {
-                    _kindMenu = null;
-                    _searchOpen = false;
-                  }
-                }),
-              ),
-              _TopIcon(
-                tooltip: 'GPS konumlu',
-                selected: !_showMissing && _kindMenu == 'located',
-                icon: Icons.location_on_outlined,
-                badge: '$locatedCount',
-                onPressed: () => setState(() {
-                  _showMissing = false;
-                  _panelCluster = null;
-                  _sourcesOpen = false;
-                  _searchOpen = false;
-                  _kindMenu = _kindMenu == 'located' ? null : 'located';
-                }),
-              ),
-              _TopIcon(
-                tooltip: 'Konum bulunamayan',
-                selected: _showMissing,
-                icon: Icons.location_off_outlined,
-                badge: '$missingCount',
-                onPressed: () => setState(() {
-                  _showMissing = true;
-                  _panelCluster = null;
-                  _sourcesOpen = false;
-                  _searchOpen = false;
-                  _kindMenu = _kindMenu == 'missing' ? null : 'missing';
-                }),
-              ),
-              _TopIcon(
-                tooltip: 'Tüm pinler',
-                icon: Icons.zoom_out_map,
-                onPressed: hasPins ? _fitVisible : null,
+            if (!_busy) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  _TopIcon(
+                    tooltip: s.sources,
+                    selected: _sourcesOpen,
+                    icon: Icons.folder_outlined,
+                    badge: sourceCount,
+                    onPressed: () => setState(() {
+                      _sourcesOpen = !_sourcesOpen;
+                      if (_sourcesOpen) _kindMenu = null;
+                    }),
+                  ),
+                  _TopIcon(
+                    tooltip: s.gpsLocated,
+                    selected: !_showMissing && _kindMenu == 'located',
+                    icon: Icons.location_on_outlined,
+                    badge: '$locatedCount',
+                    onPressed: () => setState(() {
+                      _showMissing = false;
+                      _panelCluster = null;
+                      _sourcesOpen = false;
+                      _kindMenu = _kindMenu == 'located' ? null : 'located';
+                    }),
+                  ),
+                  _TopIcon(
+                    tooltip: s.noLocation,
+                    selected: _showMissing,
+                    icon: Icons.location_off_outlined,
+                    badge: '$missingCount',
+                    onPressed: () => setState(() {
+                      _showMissing = true;
+                      _panelCluster = null;
+                      _sourcesOpen = false;
+                      _kindMenu = _kindMenu == 'missing' ? null : 'missing';
+                    }),
+                  ),
+                  _TopIcon(
+                    tooltip: s.mapLayers,
+                    icon: Icons.layers_outlined,
+                    onPressed: () => openMapLayerSheet(context),
+                  ),
+                  _TopIcon(
+                    tooltip: s.fitAll,
+                    icon: Icons.zoom_out_map,
+                    onPressed: hasPins ? _fitVisible : null,
+                  ),
+                  _TopIcon(
+                    tooltip: s.help,
+                    icon: Icons.help_outline,
+                    onPressed: () => openHelpSheet(context),
+                  ),
+                ],
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _searchOverlay() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-      child: Material(
-        elevation: 6,
-        color: const Color(0xF00A1C28),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
-          child: TextField(
-            controller: _searchCtrl,
-            autofocus: true,
-            onChanged: _onSearchChanged,
-            style: const TextStyle(fontSize: 14),
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: 'Dosya veya konum ara…',
-              prefixIcon: const Icon(Icons.search, size: 20),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.close, size: 18),
-                onPressed: () {
-                  _searchCtrl.clear();
-                  _onSearchChanged('');
-                  setState(() => _searchOpen = false);
-                },
-              ),
-              border: InputBorder.none,
-            ),
-          ),
         ),
       ),
     );
@@ -1345,7 +1313,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            located ? 'GPS konumlu filtre' : 'Konumu olmayanlar',
+            located
+                ? S.of(context.watch<AppSettings>()).gpsLocated
+                : S.of(context.watch<AppSettings>()).noLocation,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -1372,7 +1342,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             TextButton.icon(
               onPressed: _busy ? null : _retryMissingGps,
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Konum yokları yeniden dene'),
+              label: Text(S.of(context.read<AppSettings>()).retryMissing),
             ),
           ],
         ],
@@ -1400,8 +1370,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate:
-                        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
                     userAgentPackageName: 'com.medyaatlas.app',
                   ),
                   MarkerLayer(
