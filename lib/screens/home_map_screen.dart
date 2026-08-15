@@ -101,9 +101,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   Future<void> _checkForUpdates({bool manual = false}) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    if (kIsWeb || !supportsInAppUpdate) {
       if (manual && mounted) {
-        setState(() => _status = 'Otomatik güncelleme yalnızca Android’de.');
+        setState(() => _status = 'Bu platformda uygulama içi güncelleme yok.');
       }
       return;
     }
@@ -125,11 +125,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Yeni sürüm: v${info.latestVersion}'),
-        content: Text(
-          'Şu an v$appVersion.\n'
-          'MedyaAtlas.apk indirilip kurulum açılacak.',
-        ),
+        title: Text('Güncelleme var: v${info.latestVersion}'),
+        content: Text(info.dialogBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -137,22 +134,24 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Güncelle'),
+            child: const Text('İndir'),
           ),
         ],
       ),
     );
     if (go != true || !mounted) return;
 
-    final installPerm = await Permission.requestInstallPackages.request();
-    if (!installPerm.isGranted) {
-      if (!mounted) return;
-      setState(
-        () => _status =
-            'Kurulum izni gerekli: Ayarlar → Bilinmeyen uygulamaları yükle.',
-      );
-      await openAppSettings();
-      return;
+    if (info.platform == UpdatePlatform.android) {
+      final installPerm = await Permission.requestInstallPackages.request();
+      if (!installPerm.isGranted) {
+        if (!mounted) return;
+        setState(
+          () => _status =
+              'Kurulum izni gerekli: Ayarlar → Bilinmeyen uygulamaları yükle.',
+        );
+        await openAppSettings();
+        return;
+      }
     }
 
     if (!mounted) return;
@@ -166,13 +165,15 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           title: const Text('Güncelleme indiriliyor'),
           content: ValueListenableBuilder<double>(
             valueListenable: progress,
-            builder: (context, p, _) => Column(
+            builder: (context, value, _) => Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                LinearProgressIndicator(value: p <= 0 ? null : p.clamp(0.0, 1.0)),
+                LinearProgressIndicator(
+                  value: value <= 0 ? null : value.clamp(0.0, 1.0),
+                ),
                 const SizedBox(height: 12),
-                Text('%${(p * 100).round()} — MedyaAtlas.apk'),
+                Text('%${(value * 100).round()} — ${info.assetName}'),
               ],
             ),
           ),
@@ -180,15 +181,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ),
     );
 
-    final err = await downloadAndInstallApk(
-      info.downloadUrl,
+    final err = await downloadAndApplyUpdate(
+      info,
       onProgress: (p) => progress.value = p,
     );
     progress.dispose();
     if (mounted) Navigator.of(context, rootNavigator: true).pop();
     if (!mounted) return;
     setState(() {
-      _status = err ?? 'Kurulum ekranı açıldı — Güncelle’ye basın.';
+      if (err != null) {
+        _status = err;
+      } else if (info.platform == UpdatePlatform.android) {
+        _status = 'Kurulum ekranı açıldı — Güncelle’ye basın.';
+      } else {
+        _status =
+            'v${info.latestVersion} indirildi. Bu uygulamayı kapatıp '
+            'yeni medyaatlas.exe ile açın.';
+      }
     });
   }
 
@@ -979,9 +988,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               child: const Text('İptal'),
             )
           else ...[
-            if (!_isDesktop)
+            if (supportsInAppUpdate)
               IconButton(
-                tooltip: 'Güncelleme kontrol',
+                tooltip: 'Güncelleme kontrol (GitHub Releases)',
                 onPressed: () => _checkForUpdates(manual: true),
                 icon: const Icon(Icons.system_update_alt),
               ),

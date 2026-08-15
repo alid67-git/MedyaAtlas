@@ -96,8 +96,8 @@ jobs:
             - Android: https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
             - Windows: https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas-windows.zip
 
-            Android uygulama açılışta güncellemeyi kontrol eder.
-            Windows: zip’i açıp `medyaatlas.exe` çalıştırın (veya `run_windows.bat` / git güncellemesi).
+            Uygulama açılışta GitHub Releases’e bakıp “güncelleme var” der ve indirir
+            (Android APK kurulum / Windows zip).
 
             ### Not
             - Sideload APK (Play Store imzası değil)

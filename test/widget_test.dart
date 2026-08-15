@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medyaatlas/models/library_media.dart';
 import 'package:medyaatlas/models/map_track.dart';
+import 'package:medyaatlas/services/app_updater.dart';
 import 'package:medyaatlas/services/cluster.dart';
 import 'package:medyaatlas/services/geo.dart';
 import 'package:medyaatlas/services/header_gps.dart';
@@ -210,5 +211,13 @@ void main() {
     expect(found!.first, 0xFF);
     expect(found[1], 0xD8);
     expect(found.last, 0xD9);
+  });
+
+  test('compareVersions semver sırası', () {
+    expect(compareVersions('0.7.3', '0.7.2'), 1);
+    expect(compareVersions('0.7.2', '0.7.3'), -1);
+    expect(compareVersions('0.7.3', '0.7.3'), 0);
+    expect(compareVersions('1.0.0', '0.9.9'), 1);
+    expect(compareVersions('v0.8.0', '0.7.3'), 1);
   });
 }

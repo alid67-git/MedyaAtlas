@@ -11,14 +11,18 @@ Dağıtım: GitHub **Releases**. Web / GitHub Pages yok.
 
 Dosya adında sürüm numarası yok; her release aynı isimle yayınlanır.
 
-### Android güncelleme
-- Açılışta yeni sürüm kontrolü → Güncelle (ilerleme diyaloğu)
-- Elle: üst çubuktaki güncelleme ikonu
-- Google Drive: [GOOGLE_DRIVE.md](GOOGLE_DRIVE.md)
+## Uygulama içi güncelleme
 
-### Windows güncelleme
-- Zip’i indirip klasörü açın → `medyaatlas.exe`
-- Geliştirme: `guncelle.bat` / `run_windows.bat` (git ile `C:\src\MedyaAtlas`)
+Play Store yok. Uygulama **GitHub Releases**’e bakarak yeni sürüm bildirir ve indirir:
+
+- Açılışta otomatik kontrol → “Güncelleme var” diyaloğu  
+- Elle: üst çubuktaki güncelleme ikonu  
+- Android: `MedyaAtlas.apk` indirilir, kurulum ekranı açılır  
+- Windows: `MedyaAtlas-windows.zip` indirilip açılır; uygulamayı kapatıp yeni `medyaatlas.exe` çalıştırın  
+
+Geliştirme (Windows kaynak): `guncelle.bat` / `run_windows.bat` hâlâ `C:\src\MedyaAtlas`’a git çeker.
+
+Google Drive: [GOOGLE_DRIVE.md](GOOGLE_DRIVE.md)
 
 ## Kurulum (Windows) — yerel disk
 
@@ -38,11 +42,10 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
 
-## Ne var (0.7.2)
+## Ne var (0.7.3)
 
+- Uygulama içi “güncelleme var” kontrolü (GitHub Releases → indir)
 - Sabit APK `MedyaAtlas.apk` + sabit Windows zip `MedyaAtlas-windows.zip`
-- Android uygulama içi otomatik güncelleme (ilerleme + kurulum izni)
-- Windows CI: MSVC coroutine uyumu
 - MedyaAtlas ikonu; Google Drive; Android EXIF medya konum izni
 - PC: `C:\src\MedyaAtlas`
 
