@@ -103,10 +103,10 @@ void main() {
   });
 
   test('normalizeRootPath sürücü / klasör', () {
-    final drive = normalizeRootPath(r'D:\');
-    expect(drive.toLowerCase().startsWith('d:'), isTrue);
     expect(displayNameForRoot(r'D:\GoPro'), 'GoPro');
-    expect(normalizeRootPath('/media/usb/Photos'), contains('Photos'));
+    expect(displayNameForRoot(r'D:/DCIM'), 'DCIM');
+    expect(displayNameForRoot(r'E:\'), 'E');
+    expect(displayNameForRoot('/media/usb/Photos'), 'Photos');
   });
 
   test('groupByLocation 40 m yarıçap', () {

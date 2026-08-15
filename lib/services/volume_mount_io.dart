@@ -4,35 +4,45 @@ import 'package:path/path.dart' as p;
 
 /// Karşılaştırma / kimlik için kök yolu.
 String normalizeRootPath(String path) {
-  var n = p.normalize(path.trim());
-  if (Platform.isWindows) {
-    n = n.replaceAll('/', r'\');
-    // `D:` → `D:\`
-    if (RegExp(r'^[a-zA-Z]:$').hasMatch(n)) {
-      n = '$n\\';
-    }
-    n = n.toLowerCase();
+  var n = path.trim().replaceAll('/', r'\');
+  // Windows sürücü harfi (CI Linux’ta da aynı mantık).
+  final driveOnly = RegExp(r'^([a-zA-Z]):\\?$').firstMatch(n);
+  if (driveOnly != null) {
+    final letter = driveOnly.group(1)!.toLowerCase();
+    return Platform.isWindows ? '$letter:\\' : '$letter:';
   }
-  // Kök değilse sondaki ayırıcıyı kırp.
-  if (n.length > 1 && (n.endsWith(r'\') || n.endsWith('/'))) {
-    final root = p.rootPrefix(n);
-    if (n != root && n != '$root/' && n != '$root\\') {
+  if (Platform.isWindows) {
+    n = p.windows.normalize(path.trim());
+    n = n.toLowerCase();
+    if (n.length > 3 && n.endsWith(r'\')) {
       n = n.substring(0, n.length - 1);
     }
+    return n;
+  }
+  n = p.normalize(path.trim());
+  if (n.length > 1 && n.endsWith('/')) {
+    n = n.substring(0, n.length - 1);
   }
   return n;
 }
 
 String displayNameForRoot(String path) {
-  final n = p.normalize(path.trim());
-  final base = p.basename(n);
-  if (base.isNotEmpty) return base;
-  final root = p.rootPrefix(n);
-  if (root.isNotEmpty) {
-    final letter = root.replaceAll(RegExp(r'[:\\/]+'), '');
-    if (letter.isNotEmpty) return letter.toUpperCase();
+  final trimmed = path.trim();
+  // `D:\GoPro` / `D:/GoPro` — platformdan bağımsız.
+  final win = trimmed.replaceAll('/', r'\');
+  final driveFolder = RegExp(r'^[a-zA-Z]:\\+(.+)$').firstMatch(win);
+  if (driveFolder != null) {
+    final rest = driveFolder.group(1)!;
+    final parts = rest.split(r'\').where((e) => e.isNotEmpty).toList();
+    if (parts.isNotEmpty) return parts.last;
   }
-  return n;
+  final driveRoot = RegExp(r'^([a-zA-Z]):\\?$').firstMatch(win);
+  if (driveRoot != null) {
+    return driveRoot.group(1)!.toUpperCase();
+  }
+  final base = p.basename(p.normalize(trimmed));
+  if (base.isNotEmpty) return base;
+  return trimmed;
 }
 
 bool rootPathExists(String path) {
