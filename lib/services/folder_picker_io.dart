@@ -6,12 +6,17 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 
 import 'folder_types.dart';
+import 'volume_mount.dart';
 
 export 'folder_types.dart';
 
-Future<FolderPickResult> scanMediaDirectory(String dirPath) async {
+Future<FolderPickResult> scanMediaDirectory(
+  String dirPath, {
+  String? folderName,
+}) async {
   final items = <FolderMediaRef>[];
   final root = Directory(dirPath);
+  final normalized = normalizeRootPath(dirPath);
 
   // Windows’ta kilitli/izinli olmayan bir dosya tüm taramayı düşürmesin.
   await for (final entity in root.list(
@@ -52,7 +57,8 @@ Future<FolderPickResult> scanMediaDirectory(String dirPath) async {
   });
 
   return FolderPickResult(
-    folderName: p.basename(dirPath),
+    folderName: folderName ?? displayNameForRoot(dirPath),
+    rootPath: normalized,
     items: items,
   );
 }
@@ -63,6 +69,19 @@ Future<FolderPickResult?> pickMediaFolder() async {
   );
   if (dirPath == null) return null;
   return scanMediaDirectory(dirPath);
+}
+
+/// SD kart / harici HDD / USB sürücü kökünü seçip tamamını tara.
+Future<FolderPickResult?> pickExternalVolume() async {
+  final dirPath = await FilePicker.platform.getDirectoryPath(
+    dialogTitle: 'SD kart veya harici disk kökünü seç',
+  );
+  if (dirPath == null) return null;
+  final name = displayNameForRoot(dirPath);
+  return scanMediaDirectory(
+    dirPath,
+    folderName: 'Disk · $name',
+  );
 }
 
 Future<Uint8List> _readHead(File file, int size, int maxBytes) async {

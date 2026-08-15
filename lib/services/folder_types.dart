@@ -37,8 +37,11 @@ class FolderPickResult {
   const FolderPickResult({
     required this.folderName,
     required this.items,
+    this.rootPath,
   });
 
   final String folderName;
   final List<FolderMediaRef> items;
+  /// Harici disk / klasör kökü — çıkınca pinler gizlenir, takılınca geri gelir.
+  final String? rootPath;
 }

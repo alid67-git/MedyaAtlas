@@ -148,7 +148,8 @@ class S {
 MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasında gösterir. Dosyaları kopyalamaz; yalnızca yerel dizini tarar.
 
 ## Ne yapabilirsiniz?
-• Kaynaklar: klasör, dosya, galeri, tüm telefon veya Google Drive ekleyin
+• Kaynaklar: klasör, SD/USB disk, dosya, galeri, tüm telefon veya Google Drive ekleyin
+• SD/USB: disk çıkınca pinler gizlenir; yeniden takılınca otomatik görünür (indeks silinmez)
 • GPS konumlu: haritada pin olarak görünür
 • Konum yok: GPS’siz medya listesi; “yeniden dene” EXIF’i tekrar okur
 • Harita türü: uydu / sokak / topo / koyu
@@ -167,7 +168,8 @@ Google Fotoğraflar bulutu taranmaz; yerel dosya veya Drive gerekir. Windows’t
 MedyaAtlas shows GPS locations from your photos and videos on a world map. It does not copy files; it only indexes local media.
 
 ## What you can do
-• Sources: add folder, files, gallery, entire phone, or Google Drive
+• Sources: add folder, SD/USB disk, files, gallery, entire phone, or Google Drive
+• SD/USB: pins hide when the disk is removed; they return automatically when remounted (index kept)
 • With GPS: appear as map pins
 • No location: list of media without GPS; retry re-reads EXIF
 • Map type: satellite / streets / topo / dark
@@ -186,7 +188,8 @@ Google Photos cloud is not scanned; use local files or Drive. On Windows use run
 MedyaAtlas zeigt GPS-Positionen aus Fotos und Videos auf einer Weltkarte. Dateien werden nicht kopiert; nur lokal indexiert.
 
 ## Funktionen
-• Quellen: Ordner, Dateien, Galerie, ganzes Telefon oder Google Drive
+• Quellen: Ordner, SD/USB-Datenträger, Dateien, Galerie, ganzes Telefon oder Google Drive
+• SD/USB: Pins verschwinden beim Auswerfen; nach erneutem Anschließen automatisch wieder da (Index bleibt)
 • Mit GPS: als Pins auf der Karte
 • Ohne Standort: Liste; „erneut prüfen“ liest EXIF erneut
 • Kartentyp: Satellit / Straßen / Topo / Dunkel

@@ -78,6 +78,13 @@ FolderPickResult _fromFileList(web.FileList list) {
   );
 }
 
-Future<FolderPickResult> scanMediaDirectory(String dirPath) async {
+Future<FolderPickResult?> pickExternalVolume() async {
+  throw UnsupportedError('Harici disk tarama web’de yok.');
+}
+
+Future<FolderPickResult> scanMediaDirectory(
+  String dirPath, {
+  String? folderName,
+}) async {
   throw UnsupportedError('Klasör tarama web’de yok.');
 }

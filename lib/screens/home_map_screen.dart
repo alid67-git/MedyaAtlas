@@ -54,7 +54,8 @@ class HomeMapScreen extends StatefulWidget {
   State<HomeMapScreen> createState() => _HomeMapScreenState();
 }
 
-class _HomeMapScreenState extends State<HomeMapScreen> {
+class _HomeMapScreenState extends State<HomeMapScreen>
+    with WidgetsBindingObserver {
   final _map = MapController();
   final _picker = ImagePicker();
   bool _busy = false;
@@ -68,6 +69,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   List<PlaceHit> _places = [];
   LocationCluster? _panelCluster;
   final Set<MediaKind> _kinds = {...MediaKind.values};
+  Timer? _mountTimer;
 
   /// Tarama sırasında harita pinlerini dondur — ara notifyListeners NaN pin
   /// ile MarkerLayer'ı düşürmesin.
@@ -99,9 +101,29 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _mountTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || _busy) return;
+      context.read<MediaRepository>().refreshMountStates();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdates();
+      context.read<MediaRepository>().refreshMountStates();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<MediaRepository>().refreshMountStates();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _mountTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkForUpdates({bool manual = false}) async {
@@ -198,11 +220,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             'yeni medyaatlas.exe ile açın.';
       }
     });
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   Future<bool> _ensureAndroidMediaAccess() async {
@@ -356,6 +373,20 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     await _ingestPick(picked);
   }
 
+  Future<void> _importExternalVolume() async {
+    if (!await _ensureAndroidMediaAccess()) return;
+    FolderPickResult? picked;
+    try {
+      picked = await pickExternalVolume();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _status = 'Disk açılamadı: $e');
+      return;
+    }
+    if (!mounted || picked == null) return;
+    await _ingestPick(picked);
+  }
+
   Future<void> _importFiles() async {
     if (!await _ensureAndroidMediaAccess()) return;
     // Windows’ta uzun uzantı listeli FileType.custom bazen yalnızca
@@ -421,7 +452,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     });
     try {
       final repo = context.read<MediaRepository>();
-      final source = await repo.ensureSource(label: result.folderName);
+      final source = await repo.ensureSource(
+        label: result.folderName,
+        rootPath: result.rootPath,
+      );
       await _ingest(result.items, source: source);
     } catch (e) {
       if (!mounted) return;
@@ -1264,13 +1298,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(
-                source.hidden
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
+                !repo.isSourceMounted(source)
+                    ? Icons.usb_off_outlined
+                    : source.hidden
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
               ),
               title: Text(source.label, overflow: TextOverflow.ellipsis),
               subtitle: Text(
-                '${repo.items.where((m) => m.sourceId == source.id).length} medya',
+                [
+                  '${repo.items.where((m) => m.sourceId == source.id).length} medya',
+                  if (source.isRemovableVolume)
+                    repo.isSourceMounted(source)
+                        ? 'disk bağlı'
+                        : 'disk çıkarıldı — pinler gizli',
+                ].join(' · '),
               ),
               onTap: () => repo.setSourceHidden(source.id, !source.hidden),
               trailing: IconButton(
@@ -1292,6 +1334,17 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         _importFolder();
                       },
                 child: const Text('+ Klasör ekle'),
+              ),
+              FilledButton.tonal(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(_closeMenus);
+                        _importExternalVolume();
+                      },
+                child: Text(
+                  _isDesktop ? '+ Disk / SD' : '+ SD / USB disk',
+                ),
               ),
               FilledButton.tonal(
                 onPressed: _busy

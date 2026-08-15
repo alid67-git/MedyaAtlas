@@ -11,6 +11,7 @@ import 'package:medyaatlas/services/header_gps.dart';
 import 'package:medyaatlas/services/media_kind.dart';
 import 'package:medyaatlas/services/video_gps.dart';
 import 'package:medyaatlas/services/video_preview.dart';
+import 'package:medyaatlas/services/volume_mount.dart';
 
 LibraryMedia _photo({
   required String id,
@@ -91,11 +92,21 @@ void main() {
       label: 'GoPro',
       addedAt: DateTime.utc(2026, 8, 1),
       hidden: true,
+      rootPath: r'D:\Photos',
     );
     final copy = MediaSource.fromJson(source.toJson());
     expect(copy.id, 's1');
     expect(copy.label, 'GoPro');
     expect(copy.hidden, isTrue);
+    expect(copy.rootPath, r'D:\Photos');
+    expect(copy.isRemovableVolume, isTrue);
+  });
+
+  test('normalizeRootPath sürücü / klasör', () {
+    final drive = normalizeRootPath(r'D:\');
+    expect(drive.toLowerCase().startsWith('d:'), isTrue);
+    expect(displayNameForRoot(r'D:\GoPro'), 'GoPro');
+    expect(normalizeRootPath('/media/usb/Photos'), contains('Photos'));
   });
 
   test('groupByLocation 40 m yarıçap', () {

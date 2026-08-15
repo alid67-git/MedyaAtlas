@@ -23,6 +23,15 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.2',
+    tr:
+        'SD kart / harici disk tarama; disk çıkınca pinler gizlenir, takılınca geri gelir. Küçük hata düzeltmeleri.',
+    en:
+        'Scan SD card / external disk; pins hide when removed and return on remount. Minor bug fixes.',
+    de:
+        'SD-Karte / externe Festplatte scannen; Pins ausblenden beim Entfernen, zurück beim erneuten Anschließen. Kleine Fehlerkorrekturen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.1',
     tr:
         'GoPro GPMF ve DJI SRT/konum okuma; Android’de GoPro/DJI video oynatma. Küçük hata düzeltmeleri.',

@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/library_media.dart';
 import '../services/geo.dart';
+import '../services/volume_mount.dart';
 
 const _indexBoxName = 'medyaatlas_media';
 const _bytesBoxName = 'medyaatlas_media_bytes';
@@ -23,6 +24,8 @@ class MediaRepository extends ChangeNotifier {
   final List<LibraryMedia> _items = [];
   final List<MediaSource> _sources = [];
   final Map<String, Uint8List> _bytesCache = {};
+  /// Kaynak id → kök şu an erişilebilir mi (harici disk).
+  final Map<String, bool> _mountBySource = {};
   Box<String>? _indexBox;
   Box<Uint8List>? _bytesBox;
   Box<String>? _sourcesBox;
@@ -72,6 +75,7 @@ class MediaRepository extends ChangeNotifier {
     if (_sources.length != sourceCount) {
       await _persistSources();
     }
+    refreshMountStates(notify: false);
     _ready = true;
     notifyListeners();
   }
@@ -147,8 +151,45 @@ class MediaRepository extends ChangeNotifier {
   Set<String> get hiddenSourceIds =>
       _sources.where((s) => s.hidden).map((s) => s.id).toSet();
 
-  List<LibraryMedia> get visibleItems =>
-      _items.where((m) => !hiddenSourceIds.contains(m.sourceId)).toList();
+  /// Gizli veya (harici) kökü bağlı olmayan kaynaklar.
+  Set<String> get unavailableSourceIds {
+    final out = <String>{};
+    for (final s in _sources) {
+      if (s.hidden || !isSourceMounted(s)) out.add(s.id);
+    }
+    return out;
+  }
+
+  bool isSourceMounted(MediaSource source) {
+    if (!source.isRemovableVolume) return true;
+    final cached = _mountBySource[source.id];
+    if (cached != null) return cached;
+    final ok = rootPathExists(source.rootPath!);
+    _mountBySource[source.id] = ok;
+    return ok;
+  }
+
+  /// Harici disk tak/çıkar — değişince haritayı yenile.
+  bool refreshMountStates({bool notify = true}) {
+    var changed = false;
+    for (final s in _sources) {
+      if (!s.isRemovableVolume) {
+        if (_mountBySource.remove(s.id) != null) changed = true;
+        continue;
+      }
+      final ok = rootPathExists(s.rootPath!);
+      if (_mountBySource[s.id] != ok) {
+        _mountBySource[s.id] = ok;
+        changed = true;
+      }
+    }
+    if (changed && notify) notifyListeners();
+    return changed;
+  }
+
+  List<LibraryMedia> get visibleItems => _items
+      .where((m) => !unavailableSourceIds.contains(m.sourceId))
+      .toList();
 
   List<LibraryMedia> get withLocation =>
       visibleItems.where((m) => m.hasLocation).toList();
@@ -201,22 +242,62 @@ class MediaRepository extends ChangeNotifier {
   Future<MediaSource> ensureSource({
     String? id,
     required String label,
+    String? rootPath,
   }) async {
-    if (id != null) {
+    final normalizedRoot =
+        rootPath == null || rootPath.trim().isEmpty
+            ? null
+            : normalizeRootPath(rootPath);
+
+    if (normalizedRoot != null) {
       for (final s in _sources) {
-        if (s.id == id) return s;
+        if (s.rootPath == null) continue;
+        if (normalizeRootPath(s.rootPath!) == normalizedRoot) {
+          if (s.label != label) {
+            final i = _sources.indexWhere((x) => x.id == s.id);
+            _sources[i] = s.copyWith(label: label, rootPath: normalizedRoot);
+            await _persistSources();
+            refreshMountStates(notify: false);
+            notifyListeners();
+            return _sources[i];
+          }
+          return s;
+        }
       }
     }
-    for (final s in _sources) {
-      if (s.label == label) return s;
+
+    if (id != null) {
+      for (final s in _sources) {
+        if (s.id == id) {
+          if (normalizedRoot != null && s.rootPath != normalizedRoot) {
+            final i = _sources.indexWhere((x) => x.id == s.id);
+            _sources[i] = s.copyWith(rootPath: normalizedRoot, label: label);
+            await _persistSources();
+            refreshMountStates(notify: false);
+            notifyListeners();
+            return _sources[i];
+          }
+          return s;
+        }
+      }
     }
+
+    // Kök yolu olmayan kaynaklarda etiket eşleşmesi (Galeri vb.).
+    if (normalizedRoot == null) {
+      for (final s in _sources) {
+        if (s.label == label && s.rootPath == null) return s;
+      }
+    }
+
     final source = MediaSource(
       id: id ?? const Uuid().v4(),
       label: label,
       addedAt: DateTime.now(),
+      rootPath: normalizedRoot,
     );
     _sources.add(source);
     await _persistSources();
+    refreshMountStates(notify: false);
     notifyListeners();
     return source;
   }
@@ -233,6 +314,7 @@ class MediaRepository extends ChangeNotifier {
     final ids = _items.where((m) => m.sourceId == id).map((m) => m.id).toList();
     _items.removeWhere((m) => m.sourceId == id);
     _sources.removeWhere((s) => s.id == id);
+    _mountBySource.remove(id);
     for (final mediaId in ids) {
       _bytesCache.remove(mediaId);
       await _bytesBox?.delete(mediaId);
