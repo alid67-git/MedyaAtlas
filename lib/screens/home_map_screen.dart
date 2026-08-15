@@ -27,10 +27,10 @@ import '../services/exif_gps.dart';
 import '../services/folder_picker.dart';
 import '../services/geo.dart';
 import '../services/google_drive_media.dart';
-import '../services/header_gps.dart';
 import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
+import '../services/video_gps.dart';
 import '../services/video_preview.dart';
 import '../services/photo_orient.dart';
 import '../widgets/cluster_dot.dart';
@@ -575,11 +575,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               gps = await extractExifGps(head);
               taken = await extractExifTakenAt(head) ?? taken;
             } else {
-              gps = extractHeaderGps(head);
+              gps = await extractVideoGps(
+                localPath: file.localPath,
+                head: head,
+                relativePath: file.relativePath,
+              );
             }
           } catch (_) {
             // GPS okunamasa da dosya kütüphaneye girer.
           }
+        } else if (gps == null && !isPhoto) {
+          try {
+            gps = await extractVideoGps(
+              localPath: file.localPath,
+              head: head,
+              relativePath: file.relativePath,
+            );
+          } catch (_) {}
         }
         // NaN/Infinity asla Hive/jsonEncode veya MarkerLayer'a girmesin.
         if (gps != null &&
@@ -675,10 +687,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             if (gps == null && got.head != null && got.head!.isNotEmpty) {
               gps = item.kind == MediaKind.photo
                   ? await extractExifGps(got.head!)
-                  : extractHeaderGps(got.head!);
+                  : await extractVideoGps(
+                      localPath: item.localPath,
+                      head: got.head,
+                      relativePath: item.relativePath,
+                    );
               if (item.kind == MediaKind.photo) {
                 taken = await extractExifTakenAt(got.head!);
               }
+            } else if (gps == null && item.kind != MediaKind.photo) {
+              gps = await extractVideoGps(
+                localPath: item.localPath,
+                relativePath: item.relativePath,
+              );
             }
           } else {
             Uint8List? head;
@@ -703,14 +724,28 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             } else {
               head = await repo.bytesOf(item.id);
             }
-            if (head == null || head.isEmpty) continue;
-            checked++;
-            gps = item.kind == MediaKind.photo
-                ? await extractExifGps(head)
-                : extractHeaderGps(head);
-            if (item.kind == MediaKind.photo) {
-              taken = await extractExifTakenAt(head);
+            if (head == null || head.isEmpty) {
+              if (item.kind == MediaKind.photo) continue;
+              checked++;
+              gps = await extractVideoGps(
+                localPath: item.localPath,
+                relativePath: item.relativePath,
+              );
+              if (gps == null) continue;
+            } else {
+              checked++;
+              gps = item.kind == MediaKind.photo
+                  ? await extractExifGps(head)
+                  : await extractVideoGps(
+                      localPath: item.localPath,
+                      head: head,
+                      relativePath: item.relativePath,
+                    );
+              if (item.kind == MediaKind.photo) {
+                taken = await extractExifTakenAt(head);
+              }
             }
+            if (gps == null) continue;
           }
           if (gps == null) continue;
           await repo.updateLocation(

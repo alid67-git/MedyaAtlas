@@ -6,8 +6,10 @@ import 'package:medyaatlas/models/map_track.dart';
 import 'package:medyaatlas/services/app_updater.dart';
 import 'package:medyaatlas/services/cluster.dart';
 import 'package:medyaatlas/services/geo.dart';
+import 'package:medyaatlas/services/gpmf_gps.dart';
 import 'package:medyaatlas/services/header_gps.dart';
 import 'package:medyaatlas/services/media_kind.dart';
+import 'package:medyaatlas/services/video_gps.dart';
 import 'package:medyaatlas/services/video_preview.dart';
 
 LibraryMedia _photo({
@@ -128,13 +130,48 @@ void main() {
   test('detectKind GoPro ve DJI', () {
     expect(detectKind('GX010123.MP4'), MediaKind.gopro);
     expect(detectKind('GH010123.mp4'), MediaKind.gopro);
+    expect(detectKind('GS010099.MP4'), MediaKind.gopro);
     expect(detectKind('DJI_0123.MP4'), MediaKind.drone);
+    expect(detectKind('Osmo_001.MP4'), MediaKind.drone);
     expect(detectKind('tatil.jpg'), MediaKind.photo);
     expect(detectKind('clip.MOV'), MediaKind.video);
     expect(detectKind('film.mkv'), MediaKind.video);
     expect(detectKind('film.flv'), MediaKind.video);
     expect(detectKind('notlar.txt'), isNull);
     expect(detectKind('proxy.lrv'), isNull);
+  });
+
+  test('GPMF GPS5 ilk konum', () {
+    // DEVC > STRM > SCAL + GPS5 (lat 41.0082, lon 28.9784, scale 1e7)
+    final bytes = Uint8List.fromList([
+      120, 120, 120, 120, 68, 69, 86, 67, 0, 64, 0, 1, 83, 84, 82, 77, 0, 56, 0,
+      1, 83, 67, 65, 76, 108, 4, 0, 5, 0, 152, 150, 128, 0, 152, 150, 128, 0, 0,
+      3, 232, 0, 0, 0, 100, 0, 0, 0, 100, 71, 80, 83, 53, 108, 20, 0, 1, 24, 113,
+      90, 208, 17, 69, 192, 192, 0, 1, 134, 160, 0, 0, 0, 0, 0, 0, 0, 0, 121, 121,
+      121, 121,
+    ]);
+    final point = extractGpmfGps(bytes);
+    expect(point, isNotNull);
+    expect(point!.latitude, closeTo(41.0082, 0.0001));
+    expect(point.longitude, closeTo(28.9784, 0.0001));
+  });
+
+  test('DJI SRT konum ayrıştırma', () {
+    const modern = '''
+1
+00:00:00,000 --> 00:00:00,033
+[latitude: 41.008200] [longitude: 28.978400]
+''';
+    final a = parseDjiSrtGps(modern);
+    expect(a, isNotNull);
+    expect(a!.latitude, closeTo(41.0082, 0.0001));
+    expect(a.longitude, closeTo(28.9784, 0.0001));
+
+    const legacy = 'GPS(59.302335,18.203059,132.860)';
+    final b = parseDjiSrtGps(legacy);
+    expect(b, isNotNull);
+    expect(b!.latitude, closeTo(59.302335, 0.0001));
+    expect(b.longitude, closeTo(18.203059, 0.0001));
   });
 
   test('kindCountsLabel özet', () {

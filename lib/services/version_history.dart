@@ -23,6 +23,15 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.1',
+    tr:
+        'GoPro GPMF ve DJI SRT/konum okuma; Android’de GoPro/DJI video oynatma. Küçük hata düzeltmeleri.',
+    en:
+        'GoPro GPMF and DJI SRT/location reading; GoPro/DJI playback on Android. Minor bug fixes.',
+    de:
+        'GoPro-GPMF- und DJI-SRT/Standortlesung; GoPro/DJI-Wiedergabe auf Android. Kleine Fehlerkorrekturen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.0',
     tr:
         'Video ızgarasında ilk kare önizleme; ayarlarda sürüm geçmişi; geliştiren adı sabit kredi. Küçük hata düzeltmeleri.',

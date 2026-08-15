@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:video_player/video_player.dart';
 
 import '../models/library_media.dart';
@@ -148,7 +149,8 @@ class VideoPlaybackPane extends StatefulWidget {
   final String name;
   final MediaKind kind;
   final Uint8List? posterBytes;
-  /// GoPro/DJI HEVC sık sık texture/codec kırılır — sistem oynatıcı.
+  /// Windows’ta HEVC (GoPro/DJI) için sistem oynatıcıya düşmeye izin ver.
+  /// Android’de her zaman uygulama içi oynatıcı dener.
   final bool preferExternal;
 
   @override
@@ -161,10 +163,13 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   var _loading = true;
   var _openedExternal = false;
 
+  bool get _useExternalFirst =>
+      widget.preferExternal && !kIsWeb && Platform.isWindows;
+
   @override
   void initState() {
     super.initState();
-    if (widget.preferExternal) {
+    if (_useExternalFirst) {
       _openExternally();
     }
     _open();
@@ -178,7 +183,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       _error = null;
       _loading = true;
       _openedExternal = false;
-      if (widget.preferExternal) {
+      if (_useExternalFirst) {
         _openExternally();
       }
       _open();
@@ -206,8 +211,8 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       }
       return;
     }
-    // GoPro/drone: önce dış oynatıcı; uygulama içinde poster yeter.
-    if (widget.preferExternal) {
+    // Yalnızca Windows + preferExternal: uygulama içi oynatmayı atla.
+    if (_useExternalFirst) {
       if (mounted) {
         setState(() {
           _loading = false;
@@ -239,7 +244,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
         setState(() {
           _loading = false;
           _error =
-              'Uygulama içi oynatma olmadı; Windows oynatıcıya gönderildi.\n$e';
+              'Uygulama içi oynatma olmadı; sistem oynatıcıya gönderildi.\n$e';
         });
       }
     }
@@ -271,15 +276,16 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   Future<void> _openExternally() async {
     final path = widget.path;
     if (path == null || path.isEmpty) return;
-    if (_openedExternal && widget.preferExternal) {
-      // Tekrar tıklamada yine açılabilir.
-    }
     try {
-      await Process.start(
-        'cmd',
-        ['/c', 'start', '', path],
-        runInShell: false,
-      );
+      if (!kIsWeb && Platform.isWindows) {
+        await Process.start(
+          'cmd',
+          ['/c', 'start', '', path],
+          runInShell: false,
+        );
+      } else {
+        await OpenFilex.open(path);
+      }
       _openedExternal = true;
       if (mounted) setState(() {});
     } catch (_) {}
@@ -349,7 +355,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Windows’ta aç',
+                  tooltip: 'Sistem oynatıcıda aç',
                   onPressed: _openExternally,
                   icon: const Icon(Icons.open_in_new),
                 ),
@@ -381,10 +387,10 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
             const SizedBox(height: 8),
             Text(
               _error ??
-                  (widget.preferExternal
+                  (_useExternalFirst
                       ? (_openedExternal
-                          ? 'Windows oynatıcıda açıldı.'
-                          : 'Windows oynatıcıda açılıyor…')
+                          ? 'Sistem oynatıcıda açıldı.'
+                          : 'Sistem oynatıcıda açılıyor…')
                       : 'Video önizlemesi yok.'),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white54),
@@ -393,7 +399,11 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
             FilledButton.tonalIcon(
               onPressed: _openExternally,
               icon: const Icon(Icons.play_arrow),
-              label: const Text('Windows’ta oynat'),
+              label: Text(
+                !kIsWeb && Platform.isWindows
+                    ? 'Windows’ta oynat'
+                    : 'Sistem oynatıcıda aç',
+              ),
             ),
           ],
         ),
@@ -401,4 +411,3 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
     );
   }
 }
-
