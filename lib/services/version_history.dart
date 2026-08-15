@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.12',
+    tr: 'Ana Ekrana/Desktop’a Ekle için kök apple-touch-icon (eski Flutter ikonu kalkar).',
+    en: 'Root apple-touch-icon for Add to Home/Desktop (removes old Flutter icon).',
+    de: 'Root-apple-touch-icon für „Zum Home/Desktop“ (altes Flutter-Icon weg).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.11',
     tr: 'MedyaAtlas marka ikonu (web/iPhone); web’de güncelleme kontrolü + sayfa yenileme.',
     en: 'MedyaAtlas brand icons for web/iPhone; web update check + page reload.',
