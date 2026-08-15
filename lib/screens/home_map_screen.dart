@@ -545,8 +545,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           continue;
         }
         final isPhoto = kind == MediaKind.photo;
+        // size==0 (MediaStore) iken EXIF için varsayılan head boyutu kullan.
         final headLimit = isPhoto
-            ? (file.size <= previewStoreBytes ? file.size : photoHeadBytes)
+            ? (file.size <= 0
+                ? photoHeadBytes
+                : (file.size <= previewStoreBytes
+                    ? file.size
+                    : photoHeadBytes))
             : videoHeadBytes;
 
         LatLng? gps;
@@ -561,7 +566,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         if (needHead) {
           try {
             head = await file.readHead(
-              gps != null && isPhoto ? file.size : headLimit,
+              gps != null && isPhoto && file.size > 0 ? file.size : headLimit,
             );
           } catch (_) {
             head = null;
@@ -655,33 +660,62 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           );
         }
         try {
-          Uint8List? head;
-          final path = item.localPath;
-          if (path != null && path.isNotEmpty && File(path).existsSync()) {
-            final file = File(path);
-            final size = await file.length();
-            final limit = item.kind == MediaKind.photo
-                ? (size <= previewStoreBytes ? size : photoHeadBytes)
-                : videoHeadBytes;
-            final n = size < limit ? size : limit;
-            final raf = await file.open();
-            try {
-              head = await raf.read(n);
-            } finally {
-              await raf.close();
+          LatLng? gps;
+          DateTime? taken;
+          final phoneId = phoneAssetIdFromRelativePath(item.relativePath);
+          if (phoneId != null && Platform.isAndroid) {
+            final got = await readPhoneAssetGps(
+              assetId: phoneId,
+              isPhoto: item.kind == MediaKind.photo,
+              headLimit: item.kind == MediaKind.photo
+                  ? photoHeadBytes
+                  : videoHeadBytes,
+            );
+            checked++;
+            if (got.lat != null && got.lng != null) {
+              gps = latLngOrNull(got.lat, got.lng);
+            }
+            if (gps == null && got.head != null && got.head!.isNotEmpty) {
+              gps = item.kind == MediaKind.photo
+                  ? await extractExifGps(got.head!)
+                  : extractHeaderGps(got.head!);
+              if (item.kind == MediaKind.photo) {
+                taken = await extractExifTakenAt(got.head!);
+              }
             }
           } else {
-            head = await repo.bytesOf(item.id);
+            Uint8List? head;
+            final path = item.localPath;
+            if (path != null && path.isNotEmpty && File(path).existsSync()) {
+              final file = File(path);
+              final size = await file.length();
+              final limit = item.kind == MediaKind.photo
+                  ? (size <= 0
+                      ? photoHeadBytes
+                      : (size <= previewStoreBytes ? size : photoHeadBytes))
+                  : videoHeadBytes;
+              final n = size < limit ? size : limit;
+              if (n > 0) {
+                final raf = await file.open();
+                try {
+                  head = await raf.read(n);
+                } finally {
+                  await raf.close();
+                }
+              }
+            } else {
+              head = await repo.bytesOf(item.id);
+            }
+            if (head == null || head.isEmpty) continue;
+            checked++;
+            gps = item.kind == MediaKind.photo
+                ? await extractExifGps(head)
+                : extractHeaderGps(head);
+            if (item.kind == MediaKind.photo) {
+              taken = await extractExifTakenAt(head);
+            }
           }
-          if (head == null || head.isEmpty) continue;
-          checked++;
-          final gps = item.kind == MediaKind.photo
-              ? await extractExifGps(head)
-              : extractHeaderGps(head);
           if (gps == null) continue;
-          final taken = item.kind == MediaKind.photo
-              ? await extractExifTakenAt(head)
-              : null;
           await repo.updateLocation(
             id: item.id,
             lat: gps.latitude,

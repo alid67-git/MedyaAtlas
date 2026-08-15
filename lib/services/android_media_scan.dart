@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import 'folder_types.dart';
+import 'geo.dart';
 
 const _installerChannel = MethodChannel('medyaatlas/installer');
 
@@ -63,7 +64,20 @@ bool looksLikeApk(File file) {
   }
 }
 
+/// `phone/<assetId>/...` relativePath içinden MediaStore id’sini çıkar.
+String? phoneAssetIdFromRelativePath(String? relativePath) {
+  if (relativePath == null) return null;
+  final parts = relativePath.split('/');
+  if (parts.length >= 2 && parts[0] == 'phone' && parts[1].isNotEmpty) {
+    return parts[1];
+  }
+  return null;
+}
+
 /// Telefondaki tüm yerel foto/videoları MediaStore üzerinden tara.
+///
+/// Android 10+: GPS için [AssetEntity.latlngAsync] gerekir (`latitude`
+/// getter boş kalır). ACCESS_MEDIA_LOCATION + mediaLocation: true şart.
 Future<FolderPickResult> scanEntirePhoneMedia({
   int maxAssets = 8000,
   void Function(String status)? onProgress,
@@ -115,7 +129,8 @@ Future<FolderPickResult> scanEntirePhoneMedia({
   onProgress?.call('Telefon taranıyor: 0/$end…');
 
   final items = <FolderMediaRef>[];
-  const page = 80;
+  var withGps = 0;
+  const page = 40;
   for (var start = 0; start < end; start += page) {
     final stop = math.min(start + page, end);
     final assets = await album.getAssetListRange(start: start, end: stop);
@@ -124,34 +139,81 @@ Future<FolderPickResult> scanEntirePhoneMedia({
         continue;
       }
       final name = _assetFileName(asset);
-      final lat = asset.latitude;
-      final lng = asset.longitude;
-      final hasGps = lat != null &&
-          lng != null &&
-          lat.isFinite &&
-          lng.isFinite &&
-          !(lat == 0 && lng == 0);
       final id = asset.id;
+
+      // Android 10+: senkron latitude her zaman null — async EXIF/MediaStore.
+      double? knownLat;
+      double? knownLng;
+      try {
+        final ll = await asset.latlngAsync();
+        if (ll != null && isValidGps(ll.latitude, ll.longitude)) {
+          knownLat = ll.latitude;
+          knownLng = ll.longitude;
+          withGps++;
+        }
+      } catch (_) {}
+
+      String? localPath;
+      var size = 0;
+      try {
+        final file = await asset.originFile ?? await asset.file;
+        if (file != null) {
+          localPath = file.path;
+          size = await file.length();
+        }
+      } catch (_) {}
+
       items.add(
         FolderMediaRef(
           name: name,
-          size: 0,
+          size: size,
           relativePath: 'phone/$id/$name',
-          localPath: null,
+          localPath: localPath,
           lastModified: asset.createDateTime,
-          knownLat: hasGps ? lat : null,
-          knownLng: hasGps ? lng : null,
+          knownLat: knownLat,
+          knownLng: knownLng,
           readHead: (maxBytes) => _readAssetHead(asset, maxBytes),
         ),
       );
     }
-    onProgress?.call('Telefon taranıyor: ${items.length}/$end…');
+    onProgress?.call(
+      'Telefon taranıyor: ${items.length}/$end · $withGps GPS…',
+    );
   }
 
   return FolderPickResult(
     folderName: 'Telefon (tümü)',
     items: items,
   );
+}
+
+/// Kayıtlı MediaStore id’sinden GPS / dosya başlığı oku (yeniden dene).
+Future<({double? lat, double? lng, Uint8List? head})> readPhoneAssetGps({
+  required String assetId,
+  required bool isPhoto,
+  int headLimit = photoHeadBytes,
+}) async {
+  final asset = await AssetEntity.fromId(assetId);
+  if (asset == null) {
+    return (lat: null, lng: null, head: null);
+  }
+  double? lat;
+  double? lng;
+  try {
+    final ll = await asset.latlngAsync();
+    if (ll != null && isValidGps(ll.latitude, ll.longitude)) {
+      lat = ll.latitude;
+      lng = ll.longitude;
+    }
+  } catch (_) {}
+
+  Uint8List? head;
+  if (lat == null || isPhoto) {
+    try {
+      head = await _readAssetHead(asset, headLimit);
+    } catch (_) {}
+  }
+  return (lat: lat, lng: lng, head: head);
 }
 
 String _assetFileName(AssetEntity asset) {
@@ -164,12 +226,12 @@ String _assetFileName(AssetEntity asset) {
 }
 
 Future<Uint8List> _readAssetHead(AssetEntity asset, int maxBytes) async {
-  if (maxBytes <= 0) return Uint8List(0);
+  final limit = maxBytes <= 0 ? photoHeadBytes : maxBytes;
   try {
     final file = await asset.originFile ?? await asset.file;
     if (file == null) return Uint8List(0);
     final size = await file.length();
-    final n = math.min(size, maxBytes);
+    final n = math.min(size, limit);
     if (n <= 0) return Uint8List(0);
     final raf = await file.open();
     try {
