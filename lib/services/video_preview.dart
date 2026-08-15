@@ -1,10 +1,8 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 import 'android_media_scan.dart';
 import 'folder_types.dart';
@@ -90,24 +88,8 @@ Future<Uint8List?> siblingPreviewBytes(String? videoPath) async {
   return null;
 }
 
-Future<Uint8List?> _firstFrameFromFile(String? localPath) async {
-  if (kIsWeb || localPath == null || localPath.isEmpty) return null;
-  try {
-    final file = File(localPath);
-    if (!await file.exists()) return null;
-    final bytes = await VideoThumbnail.thumbnailData(
-      video: localPath,
-      imageFormat: ImageFormat.JPEG,
-      maxWidth: 480,
-      quality: 75,
-      timeMs: 0,
-    );
-    if (bytes != null && looksLikeJpeg(bytes)) return bytes;
-  } catch (_) {}
-  return null;
-}
-
-/// Önizleme sırası: MediaStore ilk kare → kardeş JPEG → gömülü JPEG → dosya ilk karesi.
+/// Önizleme: MediaStore ilk kare → kardeş JPEG → gömülü JPEG.
+/// (Dosya ilk karesi ızgarada VideoThumb ile gösterilir — video_thumbnail yok.)
 Future<Uint8List?> extractVideoPreviewBytes({
   required String? localPath,
   String? relativePath,
@@ -127,22 +109,19 @@ Future<Uint8List?> extractVideoPreviewBytes({
     if (embedded != null && looksLikeJpeg(embedded)) return embedded;
   }
 
-  if (localPath != null && localPath.isNotEmpty) {
+  if (localPath == null || localPath.isEmpty) return null;
+  try {
+    final file = File(localPath);
+    if (!await file.exists()) return null;
+    final raf = await file.open();
     try {
-      final file = File(localPath);
-      if (await file.exists()) {
-        final raf = await file.open();
-        try {
-          final n = math.min(videoHeadBytes, await file.length());
-          final more = await raf.read(n);
-          final embedded = largestJpegIn(more);
-          if (embedded != null && looksLikeJpeg(embedded)) return embedded;
-        } finally {
-          await raf.close();
-        }
-      }
-    } catch (_) {}
-  }
-
-  return _firstFrameFromFile(localPath);
+      final n = math.min(videoHeadBytes, await file.length());
+      final more = await raf.read(n);
+      final embedded = largestJpegIn(more);
+      if (embedded != null && looksLikeJpeg(embedded)) return embedded;
+    } finally {
+      await raf.close();
+    }
+  } catch (_) {}
+  return null;
 }

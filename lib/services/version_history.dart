@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.5',
+    tr: 'Release derlemesi düzeltildi (video_thumbnail kaldırıldı); güncelleme 1.0.x’e çıkar. Küçük hata düzeltmeleri.',
+    en: 'Fixed release build (removed video_thumbnail); updates reach 1.0.x. Minor bug fixes.',
+    de: 'Release-Build behoben (video_thumbnail entfernt); Updates erreichen 1.0.x. Kleine Fehlerkorrekturen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.4',
     tr: 'Videolar telefonda düğmesiz otomatik oynar; gerekirse telefon oynatıcısı açılır. Küçük hata düzeltmeleri.',
     en: 'Videos auto-play on phone without a play button; falls back to the phone player if needed. Minor bug fixes.',
