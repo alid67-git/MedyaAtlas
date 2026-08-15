@@ -24,3 +24,7 @@ Future<FolderPickResult> scanMediaDirectory(
 }) async {
   throw UnsupportedError('Klasör tarama bu platformda yok.');
 }
+
+Future<FolderPickResult?> pickMultipleMediaFiles() async {
+  throw UnsupportedError('Çoklu medya seçimi bu platformda yok.');
+}

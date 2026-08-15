@@ -150,6 +150,10 @@ Future<FolderPickResult?> pickExternalVolume({
   );
 }
 
+Future<FolderPickResult?> pickMultipleMediaFiles() async {
+  throw UnsupportedError('Çoklu medya web seçicisi yalnızca tarayıcıda.');
+}
+
 Future<Uint8List> _readHead(File file, int size, int maxBytes) async {
   final n = math.min(size, maxBytes);
   if (n <= 0) return Uint8List(0);

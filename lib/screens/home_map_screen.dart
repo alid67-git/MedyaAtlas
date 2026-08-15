@@ -341,32 +341,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   Future<void> _importFavorites() async {
     if (kIsWeb) {
-      final go = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Favoriler — çoklu seçim'),
-          content: const Text(
-            'iPhone Safari’de Favoriler’in tamamını otomatik almak '
-            'mümkün değil (Apple tarayıcıya izin vermiyor).\n\n'
-            'Pratik yol:\n'
-            '1) Seçicide Albümler → Favoriler’e girin\n'
-            '2) Fotoğrafları çoklu seçin\n'
-            '3) Ekle / Done\n\n'
-            'Tek tuşla “tüm favoriler” için Android uygulamasını kullanın.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Vazgeç'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Seçiciyi aç'),
-            ),
-          ],
-        ),
-      );
-      if (go == true && mounted) await _importGallery();
+      // Diyalog / await YOK — Safari kullanıcı jestini kırıp dosyaları yutuyor.
+      // Tip: çoklu seç moduna gir (videoyu oynatmadan işaretle).
+      if (mounted) {
+        setState(
+          () => _status =
+              'Favoriler: sağ üst «Seç» → işaretle (videoya dokun = seç) → Ekle',
+        );
+      }
+      await _importWebPickedMedia(sourceLabel: 'Favoriler');
       return;
     }
 
@@ -406,7 +389,59 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
+  /// Web galeri/favori: HTML file input (DOM’da). image_picker Safari’de boş döner.
+  Future<void> _importWebPickedMedia({required String sourceLabel}) async {
+    // input.click() bu çağrı zincirinde ilk await’ten önce olmalı.
+    final future = pickMultipleMediaFiles();
+    if (mounted) {
+      setState(() {
+        _beginBusy();
+        _status ??= '$sourceLabel seçiliyor…';
+      });
+    }
+    FolderPickResult? picked;
+    try {
+      picked = await future;
+      if (!mounted) return;
+      if (picked == null || picked.items.isEmpty) {
+        setState(() {
+          _endBusy();
+          _status =
+              'Medya gelmedi. Sağ üst «Seç» → işaretle → «Ekle» (videoyu açmadan).';
+        });
+        return;
+      }
+      final repo = context.read<MediaRepository>();
+      final source = await repo.ensureSource(
+        id: sourceLabel == 'Favoriler' ? 'favorites_web' : gallerySourceId,
+        label: sourceLabel,
+      );
+      if (mounted) {
+        setState(
+          () => _status =
+              '$sourceLabel: ${picked!.items.length} medya işleniyor…',
+        );
+      }
+      await _ingest(picked.items, source: source);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _status = '$sourceLabel: $e');
+    } finally {
+      if (mounted) setState(_endBusy);
+    }
+  }
+
   Future<void> _importGallery() async {
+    if (kIsWeb) {
+      if (mounted) {
+        setState(
+          () => _status =
+              'Sağ üst «Seç» → foto/videoyu işaretle (oynatma yok) → Ekle',
+        );
+      }
+      await _importWebPickedMedia(sourceLabel: 'Galeri');
+      return;
+    }
     if (!await _ensureAndroidMediaAccess()) return;
     setState(() {
       _beginBusy();
@@ -414,11 +449,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
     try {
       final files = await _picker.pickMultipleMedia();
-      if (!mounted || files.isEmpty) return;
+      if (!mounted) return;
+      if (files.isEmpty) {
+        setState(() {
+          _endBusy();
+          _status = 'Medya seçilmedi.';
+        });
+        return;
+      }
       final refs = <FolderMediaRef>[];
       for (final file in files) {
         final size = await file.length();
-        // Web’de path genelde blob: URL — sıfırlama; önizleme/oynatma için gerekli.
         final path = file.path.isEmpty ? null : file.path;
         refs.add(
           FolderMediaRef(
@@ -1835,7 +1876,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         _importFavorites();
                       },
                 child: Text(
-                  kIsWeb ? '+ Favoriler (çoklu seç)' : '+ Favoriler (tümü)',
+                  kIsWeb ? '+ Favoriler (Seç→Ekle)' : '+ Favoriler (tümü)',
                 ),
               ),
               if (!_isDesktop || kIsWeb)

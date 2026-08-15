@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.16',
+    tr: 'iPhone: Favori/galeri seçimi Safari’de içeri alınır; Seç→işaretle→Ekle (video oynatmadan).',
+    en: 'iPhone: Favorites/gallery selection imports on Safari; Select→tap→Add (no video play).',
+    de: 'iPhone: Favoriten/Galerie-Auswahl in Safari; Auswählen→tippen→Hinzufügen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.15',
     tr: 'iPhone web: önizleme, foto/video oynatma ve GPS okuma (blob + Hive bayt).',
     en: 'iPhone web: preview, photo/video playback and GPS (blob + Hive bytes).',
