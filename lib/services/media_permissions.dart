@@ -1,12 +1,12 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+import 'host_platform.dart';
 
 /// Android 10+ EXIF GPS için [Permission.accessMediaLocation] şart.
 /// Google Fotoğraflar bulutu taranmaz; yerel DCIM / Dosyalar gerekir.
 Future<MediaPermissionResult> ensureAndroidMediaAccess() async {
-  if (kIsWeb || !Platform.isAndroid) {
+  if (kIsWeb || !hostIsAndroid) {
     return const MediaPermissionResult(ok: true);
   }
 

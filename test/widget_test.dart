@@ -5,6 +5,7 @@ import 'package:medyaatlas/models/library_media.dart';
 import 'package:medyaatlas/models/map_track.dart';
 import 'package:medyaatlas/services/app_updater.dart';
 import 'package:medyaatlas/services/cluster.dart';
+import 'package:medyaatlas/services/folder_types.dart';
 import 'package:medyaatlas/services/geo.dart';
 import 'package:medyaatlas/services/gpmf_gps.dart';
 import 'package:medyaatlas/services/header_gps.dart';
@@ -318,5 +319,18 @@ void main() {
       shouldSkipScanDirectory(r'D:\DCIM'),
       isFalse,
     );
+    expect(shouldSkipScanDirectory(r'E:\$RECYCLE.BIN'), isTrue);
+  });
+
+  test('büyük diskte medya klasörleri önce', () {
+    expect(mediaScanPriority('/mnt/disk/DCIM'), lessThan(mediaScanPriority('/mnt/disk/Docs')));
+    expect(mediaScanPriority('/mnt/disk/GoPro'), 0);
+    expect(mediaScanPriority(r'D:\GoPro'), 0);
+    expect(mediaScanPriority('/mnt/disk/DJI_001'), 0);
+    expect(mediaScanPriority('/mnt/disk/random'), greaterThan(0));
+  });
+
+  test('bulk GPS video head GoPro için daha büyük', () {
+    expect(bulkGpsVideoHeadBytes, greaterThan(bulkVideoHeadBytes));
   });
 }

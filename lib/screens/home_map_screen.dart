@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +25,9 @@ import '../services/exif_gps.dart';
 import '../services/folder_picker.dart';
 import '../services/geo.dart';
 import '../services/google_drive_media.dart';
+import '../services/host_platform.dart';
+import '../services/local_fs.dart';
+import '../services/media_kind.dart';
 import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
@@ -34,6 +35,7 @@ import '../services/video_gps.dart';
 import '../services/video_preview.dart';
 import '../services/photo_orient.dart';
 import '../widgets/cluster_dot.dart';
+import '../widgets/drop_host.dart';
 import '../widgets/media_viewer.dart';
 import '../widgets/photo_source.dart';
 import '../widgets/video_surface.dart';
@@ -42,10 +44,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 const _worldCenter = LatLng(20, 0);
 
-bool get _isDesktop =>
-    defaultTargetPlatform == TargetPlatform.windows ||
-    defaultTargetPlatform == TargetPlatform.linux ||
-    defaultTargetPlatform == TargetPlatform.macOS;
+bool get _isDesktop => hostIsDesktop;
 
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key});
@@ -395,7 +394,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (lower.contains('serverclientid') ||
         lower.contains('clientconfiguration') ||
         msg.contains(googleDriveConfigHelp) ||
-        (!hasGoogleServerClientId && Platform.isAndroid)) {
+        (!hasGoogleServerClientId && hostIsAndroid)) {
       return googleDriveConfigHelp;
     }
     if (msg.contains('10') || lower.contains('apiexception')) {
@@ -415,11 +414,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       });
       picked = await pickMediaFolder(
         onProgress: (n, _) {
-          if (mounted) {
+          if (mounted && !_cancel) {
             setState(() => _status = 'Klasör taranıyor… $n medya');
           }
         },
+        isCancelled: () => _cancel,
       );
+      if (_cancel && mounted) {
+        if (picked == null || picked.items.isEmpty) {
+          setState(() {
+            _endBusy();
+            _status = 'Tarama iptal edildi.';
+          });
+          return;
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -446,11 +455,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       });
       picked = await pickExternalVolume(
         onProgress: (n, _) {
-          if (mounted) {
+          if (mounted && !_cancel) {
             setState(() => _status = 'Disk taranıyor… $n medya bulundu');
           }
         },
+        isCancelled: () => _cancel,
       );
+      if (_cancel && mounted) {
+        if (picked == null || picked.items.isEmpty) {
+          setState(() {
+            _endBusy();
+            _status = 'Tarama iptal edildi.';
+          });
+          return;
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -493,16 +512,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           size: file.size,
           relativePath: file.name,
           localPath: path,
-          readHead: (maxBytes) async {
-            final io = File(path);
-            final n = file.size < maxBytes ? file.size : maxBytes;
-            final raf = await io.open();
-            try {
-              return await raf.read(n);
-            } finally {
-              await raf.close();
-            }
-          },
+          readHead: (maxBytes) => readLocalFileHead(path, maxBytes),
         ),
       );
     }
@@ -568,7 +578,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     for (final x in details.files) {
       final path = x.path;
       if (path.isEmpty) continue;
-      if (FileSystemEntity.isDirectorySync(path)) {
+      if (localIsDirectorySync(path)) {
         setState(() {
           _beginBusy();
           _status = 'Klasör listeleniyor…';
@@ -577,12 +587,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           final result = await scanMediaDirectory(
             path,
             onProgress: (n, _) {
-              if (mounted) {
+              if (mounted && !_cancel) {
                 setState(() => _status = 'Klasör taranıyor… $n medya');
               }
             },
+            isCancelled: () => _cancel,
           );
           if (!mounted) return;
+          if (_cancel && result.items.isEmpty) {
+            setState(() {
+              _endBusy();
+              _status = 'Tarama iptal edildi.';
+            });
+            return;
+          }
           await _ingestPick(result, alreadyBusy: true);
         } catch (e) {
           if (mounted) {
@@ -592,10 +610,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             });
           }
         }
-      } else if (FileSystemEntity.isFileSync(path) &&
-          isMediaName(p.basename(path))) {
-        final file = File(path);
-        final size = await file.length();
+      } else if (localIsFileSync(path) && isMediaName(p.basename(path))) {
+        final size = await localFileLength(path);
         final name = p.basename(path);
         loose.add(
           FolderMediaRef(
@@ -603,16 +619,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             size: size,
             relativePath: name,
             localPath: path,
-            lastModified: await file.lastModified(),
-            readHead: (maxBytes) async {
-              final n = size < maxBytes ? size : maxBytes;
-              final raf = await file.open();
-              try {
-                return await raf.read(n);
-              } finally {
-                await raf.close();
-              }
-            },
+            lastModified: await localFileModified(path),
+            readHead: (maxBytes) => readLocalFileHead(path, maxBytes),
           ),
         );
       }
@@ -638,7 +646,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     var failed = 0;
     final kindCounts = {for (final k in MediaKind.values) k: 0};
     final photoLimit = bulkMode ? bulkPhotoHeadBytes : photoHeadBytes;
-    final videoLimit = bulkMode ? bulkVideoHeadBytes : videoHeadBytes;
+    final videoLimitGeneric = bulkMode ? bulkVideoHeadBytes : videoHeadBytes;
+    final videoLimitGps = bulkMode ? bulkGpsVideoHeadBytes : videoHeadBytes;
     final progressEvery = bulkMode ? 40 : 8;
     final persistEvery = bulkMode ? 64 : 8;
     final yieldEvery = bulkMode ? 20 : 8;
@@ -659,6 +668,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
       final kind = detectKind(file.name) ??
           (file.isVideo ? MediaKind.video : MediaKind.photo);
+      final needsDeepGps =
+          kind == MediaKind.gopro || kind == MediaKind.drone;
+      final videoLimit = needsDeepGps ? videoLimitGps : videoLimitGeneric;
       final rel = file.relativePath ?? file.name;
       try {
         final existing = repo.findByIndex(
@@ -736,28 +748,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 localPath: file.localPath,
                 head: head,
                 relativePath: file.relativePath,
-                deepScan: !bulkMode,
+                // GoPro/DJI: toplu taramada da GPMF / derin head.
+                deepScan: !bulkMode || needsDeepGps,
+                maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
               );
             }
           } catch (_) {
             // GPS okunamasa da dosya kütüphaneye girer.
           }
-        } else if (gps == null && !isPhoto && !bulkMode) {
+        } else if (gps == null && !isPhoto) {
           try {
             gps = await extractVideoGps(
               localPath: file.localPath,
               head: head,
               relativePath: file.relativePath,
-            );
-          } catch (_) {}
-        } else if (gps == null && !isPhoto && bulkMode) {
-          // SRT yan dosyası ucuz; 24MB GPMF yok.
-          try {
-            gps = await extractVideoGps(
-              localPath: file.localPath,
-              head: head,
-              relativePath: file.relativePath,
-              deepScan: false,
+              deepScan: !bulkMode || needsDeepGps,
+              maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
             );
           } catch (_) {}
         }
@@ -846,7 +852,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           LatLng? gps;
           DateTime? taken;
           final phoneId = phoneAssetIdFromRelativePath(item.relativePath);
-          if (phoneId != null && Platform.isAndroid) {
+          if (phoneId != null && hostIsAndroid) {
             final got = await readPhoneAssetGps(
               assetId: phoneId,
               isPhoto: item.kind == MediaKind.photo,
@@ -878,22 +884,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           } else {
             Uint8List? head;
             final path = item.localPath;
-            if (path != null && path.isNotEmpty && File(path).existsSync()) {
-              final file = File(path);
-              final size = await file.length();
+            if (path != null &&
+                path.isNotEmpty &&
+                await localFileExists(path)) {
+              final size = await localFileLength(path);
               final limit = item.kind == MediaKind.photo
                   ? (size <= 0
                       ? photoHeadBytes
                       : (size <= previewStoreBytes ? size : photoHeadBytes))
                   : videoHeadBytes;
-              final n = size < limit ? size : limit;
-              if (n > 0) {
-                final raf = await file.open();
-                try {
-                  head = await raf.read(n);
-                } finally {
-                  await raf.close();
-                }
+              if (size > 0 && limit > 0) {
+                head = await readLocalFileHead(path, limit);
               }
             } else {
               head = await repo.bytesOf(item.id);
@@ -1220,13 +1221,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       ),
     );
 
-    return DropTarget(
-      onDragEntered: (_) => setState(() => _dropping = true),
-      onDragExited: (_) => setState(() => _dropping = false),
-      onDragDone: (d) async {
-        setState(() => _dropping = false);
-        await _onDrop(d);
-      },
+    return wrapDropTarget(
+      onDragging: (v) => setState(() => _dropping = v),
+      onDrop: _onDrop,
       child: Stack(
         children: [
           body,
@@ -1332,20 +1329,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     ),
                   ),
                 ),
-                if (_busy)
-                  TextButton(
-                    onPressed: () => setState(() => _cancel = true),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFFF7A59),
-                    ),
-                    child: Text(s.cancel),
-                  )
-                else
-                  _TopIcon(
-                    tooltip: s.settings,
-                    icon: Icons.settings_outlined,
-                    onPressed: () => openSettingsSheet(context),
-                  ),
+                _TopIcon(
+                  tooltip: s.settings,
+                  icon: Icons.settings_outlined,
+                  onPressed: _busy ? null : () => openSettingsSheet(context),
+                ),
               ],
             ),
             const SizedBox(height: 2),
@@ -1424,8 +1412,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     required int clusterCount,
     required int missingCount,
   }) {
+    final s = S.of(context.watch<AppSettings>());
     final text = _busy
-        ? '${_status ?? 'Dosyalar aranıyor…'} — İptal üstte'
+        ? (_status ?? 'Dosyalar aranıyor…')
         : (_status ??
             _libraryStatus(
               repo: repo,
@@ -1434,25 +1423,57 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               missingCount: missingCount,
             ));
     return Material(
-      elevation: 6,
-      color: const Color(0xE00A1C28),
-      borderRadius: BorderRadius.circular(12),
+      elevation: 8,
+      color: const Color(0xF00A1C28),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: _busy
+              ? const Color(0xFF2EC4B6)
+              : Colors.white.withValues(alpha: 0.22),
+          width: _busy ? 1.5 : 1,
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
         child: Row(
           children: [
             if (_busy) ...[
               const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: Color(0xFF2EC4B6),
+                ),
               ),
               const SizedBox(width: 10),
             ],
             Expanded(
-              child: Text(text, style: const TextStyle(fontSize: 13)),
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.25,
+                  color: Colors.white.withValues(alpha: _busy ? 0.95 : 0.88),
+                ),
+              ),
             ),
-            if (!_busy && _status != null)
+            if (_busy)
+              TextButton(
+                onPressed: () => setState(() {
+                  _cancel = true;
+                  _status = 'İptal ediliyor…';
+                }),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFFF7A59),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(56, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(s.cancel),
+              )
+            else if (_status != null)
               IconButton(
                 icon: const Icon(Icons.close, size: 16),
                 onPressed: () => setState(() => _status = null),

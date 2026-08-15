@@ -12,11 +12,12 @@ import 'volume_mount.dart';
 
 export 'folder_types.dart';
 
-/// SD / büyük klasör: tek [stat], ilerleme, UI’ye nefes aldırma.
+/// SD / büyük klasör: tek [stat], ilerleme, UI’ye nefes aldırma, iptal.
 Future<FolderPickResult> scanMediaDirectory(
   String dirPath, {
   String? folderName,
   void Function(int found, String currentPath)? onProgress,
+  bool Function()? isCancelled,
 }) async {
   final items = <FolderMediaRef>[];
   final normalized = normalizeRootPath(dirPath);
@@ -25,6 +26,7 @@ Future<FolderPickResult> scanMediaDirectory(
   var seen = 0;
 
   while (queue.isNotEmpty) {
+    if (isCancelled?.call() == true) break;
     final dir = queue.removeFirst();
     if (shouldSkipScanDirectory(dir.path)) {
       continue;
@@ -42,15 +44,17 @@ Future<FolderPickResult> scanMediaDirectory(
       continue;
     }
 
+    final subdirs = <Directory>[];
     for (final entity in children) {
       seen++;
-      if (seen % 80 == 0) {
+      if (seen % 40 == 0) {
+        if (isCancelled?.call() == true) break;
         await Future<void>.delayed(Duration.zero);
       }
       try {
         if (entity is Directory) {
           if (!shouldSkipScanDirectory(entity.path)) {
-            queue.add(entity);
+            subdirs.add(entity);
           }
           continue;
         }
@@ -74,7 +78,7 @@ Future<FolderPickResult> scanMediaDirectory(
           ),
         );
         found++;
-        if (found % 25 == 0) {
+        if (found % 15 == 0 || found == 1) {
           onProgress?.call(found, entity.path);
           await Future<void>.delayed(Duration.zero);
         }
@@ -83,6 +87,16 @@ Future<FolderPickResult> scanMediaDirectory(
       } on FileSystemException {
         // Tek dosya/klasör — devam.
       } catch (_) {}
+    }
+
+    if (isCancelled?.call() == true) break;
+
+    // Önce DCIM / GoPro / DJI — 5TB kökte medya erken bulunur.
+    subdirs.sort(
+      (a, b) => mediaScanPriority(a.path).compareTo(mediaScanPriority(b.path)),
+    );
+    for (final d in subdirs) {
+      queue.add(d);
     }
   }
 
@@ -105,17 +119,23 @@ Future<FolderPickResult> scanMediaDirectory(
 
 Future<FolderPickResult?> pickMediaFolder({
   void Function(int found, String currentPath)? onProgress,
+  bool Function()? isCancelled,
 }) async {
   final dirPath = await FilePicker.platform.getDirectoryPath(
     dialogTitle: 'Medya klasörü seç (foto + video)',
   );
   if (dirPath == null) return null;
-  return scanMediaDirectory(dirPath, onProgress: onProgress);
+  return scanMediaDirectory(
+    dirPath,
+    onProgress: onProgress,
+    isCancelled: isCancelled,
+  );
 }
 
 /// SD kart / harici HDD / USB sürücü kökünü seçip tamamını tara.
 Future<FolderPickResult?> pickExternalVolume({
   void Function(int found, String currentPath)? onProgress,
+  bool Function()? isCancelled,
 }) async {
   final dirPath = await FilePicker.platform.getDirectoryPath(
     dialogTitle: 'SD kart veya harici disk kökünü seç (DCIM / tüm kart)',
@@ -126,6 +146,7 @@ Future<FolderPickResult?> pickExternalVolume({
     dirPath,
     folderName: 'Disk · $name',
     onProgress: onProgress,
+    isCancelled: isCancelled,
   );
 }
 

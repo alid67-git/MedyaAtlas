@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.9',
+    tr: 'İptal alt tarama çubuğunda; büyük diskte DCIM/GoPro/DJI önce ve GPS okuma; iPhone için web (dosya seçici).',
+    en: 'Cancel on bottom scan bar; prioritize DCIM/GoPro/DJI + GPS on large disks; web for iPhone file pick.',
+    de: 'Abbruch in der unteren Scan-Leiste; DCIM/GoPro/DJI zuerst + GPS; Web für iPhone-Dateiauswahl.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.8',
     tr: 'SD kart Android/data izin hatası atlanır; tarama DCIM ve diğer klasörlerde devam eder.',
     en: 'Skip SD Android/data permission errors; scan continues in DCIM and other folders.',

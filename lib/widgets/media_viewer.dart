@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
+import '../services/host_platform.dart';
 import '../services/media_kind.dart';
 import '../services/photo_orient.dart';
 import '../services/video_preview.dart';
@@ -234,8 +234,7 @@ class _VideoPageState extends State<_VideoPage> {
       kind: widget.media.kind,
       posterBytes: _poster,
       // GoPro/DJI HEVC: yalnızca Windows’ta önce dış oynatıcı.
-      preferExternal: !kIsWeb &&
-          Platform.isWindows &&
+      preferExternal: hostIsWindows &&
           (widget.media.kind == MediaKind.gopro ||
               widget.media.kind == MediaKind.drone),
     );

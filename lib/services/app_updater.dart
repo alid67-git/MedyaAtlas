@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '../app_version.dart';
 import 'android_media_scan.dart';
+import 'host_platform.dart';
+import 'update_fs.dart';
 
 const githubRepo = 'alid67-git/MedyaAtlas';
 
@@ -73,13 +74,13 @@ class AppUpdateInfo {
 
 bool get supportsInAppUpdate {
   if (kIsWeb) return false;
-  return Platform.isAndroid || Platform.isWindows;
+  return hostIsAndroid || hostIsWindows;
 }
 
 UpdatePlatform? get currentUpdatePlatform {
   if (kIsWeb) return null;
-  if (Platform.isAndroid) return UpdatePlatform.android;
-  if (Platform.isWindows) return UpdatePlatform.windows;
+  if (hostIsAndroid) return UpdatePlatform.android;
+  if (hostIsWindows) return UpdatePlatform.windows;
   return null;
 }
 
@@ -112,7 +113,7 @@ Future<AppUpdateInfo?> fetchLatestRelease() async {
     final assets = (json['assets'] as List?) ?? const [];
 
     String? url;
-    String assetName = preferred;
+    var assetName = preferred;
     for (final a in assets) {
       if (a is! Map) continue;
       final name = a['name'] as String? ?? '';
@@ -158,119 +159,56 @@ Future<String?> _downloadAndroidApk(
   String url, {
   void Function(double progress)? onProgress,
 }) async {
-  if (!Platform.isAndroid) return 'Yalnızca Android.';
+  if (!hostIsAndroid) return 'Yalnızca Android.';
   final dir = await apkDownloadDirectory();
-  final file = File(p.join(dir.path, apkAssetName));
-  final err = await _downloadToFile(
+  final path = p.join(dir.path, apkAssetName);
+  final err = await downloadUrlToPath(
     url.trim().isEmpty ? apkLatestUrl : url,
-    file,
+    path,
     onProgress: onProgress,
     minBytes: 1024,
   );
   if (err != null) return err;
+  final file = updateFile(path);
   if (!looksLikeApk(file)) {
-    try {
-      await file.delete();
-    } catch (_) {}
+    await deleteUpdatePath(path);
     return 'İndirilen dosya geçerli bir APK değil (ağ/HTML). Tekrar deneyin.';
   }
 
-  return installApkFile(file.path);
+  return installApkFile(path);
 }
 
 Future<String?> _downloadWindowsZip(
   String url, {
   void Function(double progress)? onProgress,
 }) async {
-  if (!Platform.isWindows) return 'Yalnızca Windows.';
+  if (!hostIsWindows) return 'Yalnızca Windows.';
 
-  Directory outDir;
+  late final String outDirPath;
   try {
-    outDir = await getDownloadsDirectory() ?? await getTemporaryDirectory();
+    outDirPath =
+        (await getDownloadsDirectory() ?? await getTemporaryDirectory()).path;
   } catch (_) {
-    outDir = await getTemporaryDirectory();
+    outDirPath = (await getTemporaryDirectory()).path;
   }
-  final zipFile = File(p.join(outDir.path, windowsZipAssetName));
-  final err = await _downloadToFile(
+  final zipPath = p.join(outDirPath, windowsZipAssetName);
+  final err = await downloadUrlToPath(
     url.trim().isEmpty ? windowsZipLatestUrl : url,
-    zipFile,
+    zipPath,
     onProgress: onProgress,
     minBytes: 1024,
   );
   if (err != null) return err;
 
-  final extractDir = Directory(p.join(outDir.path, 'MedyaAtlas-update'));
-  if (await extractDir.exists()) {
-    try {
-      await extractDir.delete(recursive: true);
-    } catch (_) {}
-  }
-  await extractDir.create(recursive: true);
-
-  final unzip = await Process.run(
-    'powershell',
-    [
-      '-NoProfile',
-      '-Command',
-      "Expand-Archive -LiteralPath '${zipFile.path.replaceAll("'", "''")}' "
-          "-DestinationPath '${extractDir.path.replaceAll("'", "''")}' -Force",
-    ],
-    runInShell: true,
-  );
-  if (unzip.exitCode != 0) {
-    // Zip açılamazsa en azından dosyayı göster.
-    await OpenFilex.open(zipFile.path);
-    return 'Zip indirildi ama açılamadı. Dosya: ${zipFile.path}';
+  final extractPath = p.join(outDirPath, 'MedyaAtlas-update');
+  final unzipErr = await unzipWindowsUpdate(zipPath, extractPath);
+  if (unzipErr != null) {
+    await OpenFilex.open(zipPath);
+    return unzipErr;
   }
 
-  await OpenFilex.open(extractDir.path);
+  await OpenFilex.open(extractPath);
   return null;
-}
-
-Future<String?> _downloadToFile(
-  String url,
-  File file, {
-  void Function(double progress)? onProgress,
-  required int minBytes,
-}) async {
-  if (await file.exists()) {
-    try {
-      await file.delete();
-    } catch (_) {}
-  }
-  final client = http.Client();
-  try {
-    final req = http.Request('GET', Uri.parse(url));
-    req.headers['User-Agent'] = 'MedyaAtlas/$appVersion';
-    final res = await client.send(req).timeout(const Duration(minutes: 8));
-    if (res.statusCode != 200) {
-      return 'İndirme başarısız (${res.statusCode}).';
-    }
-    final total = res.contentLength ?? 0;
-    final sink = file.openWrite();
-    var received = 0;
-    await for (final chunk in res.stream) {
-      sink.add(chunk);
-      received += chunk.length;
-      if (total > 0) {
-        onProgress?.call(received / total);
-      } else if (received > 0) {
-        onProgress?.call(
-          (received / (received + 5 * 1024 * 1024)).clamp(0.0, 0.9),
-        );
-      }
-    }
-    await sink.close();
-    if (!await file.exists() || await file.length() < minBytes) {
-      return 'İndirilen dosya geçersiz veya boş.';
-    }
-    onProgress?.call(1.0);
-    return null;
-  } catch (e) {
-    return 'Güncelleme: $e';
-  } finally {
-    client.close();
-  }
 }
 
 /// a > b → 1, a == b → 0, a < b → -1

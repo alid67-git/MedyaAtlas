@@ -1,8 +1,8 @@
 # MedyaAtlas
 
-Windows ve Android uygulaması: fotoğraf/video GPS konumlarını dünya haritasında gösterir.
+Windows, Android ve **web** (iPhone Safari / Ana Ekrana Ekle): fotoğraf/video GPS konumlarını dünya haritasında gösterir.
 
-Dağıtım: GitHub **Releases**. Web / GitHub Pages yok.
+Dağıtım: GitHub **Releases** (APK / Windows zip). Web derlemesi: `flutter build web`.
 
 ## İndirme (sabit dosya adları)
 
@@ -10,6 +10,10 @@ Dağıtım: GitHub **Releases**. Web / GitHub Pages yok.
 - **Windows:** https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas-windows.zip  
 
 Dosya adında sürüm numarası yok; her release aynı isimle yayınlanır.
+
+## iPhone (web)
+
+Safari’de açıp **Paylaş → Ana Ekrana Ekle**. Klasör tarama (5TB disk kökü) web’de yok; **foto/video seçici** ile medya eklenir. Tam SD/HDD kök tarama için Android veya Windows uygulaması gerekir.
 
 ## Uygulama içi güncelleme
 
@@ -19,6 +23,7 @@ Play Store yok. Uygulama **GitHub Releases**’e bakarak yeni sürüm bildirir v
 - Elle: üst çubuktaki güncelleme ikonu  
 - Android: `MedyaAtlas.apk` indirilir, kurulum ekranı açılır  
 - Windows: `MedyaAtlas-windows.zip` indirilip açılır; uygulamayı kapatıp yeni `medyaatlas.exe` çalıştırın  
+- Web: uygulama içi güncelleme yok (sayfayı yenileyin)
 
 Geliştirme (Windows kaynak): `guncelle.bat` / `run_windows.bat` hâlâ `C:\src\MedyaAtlas`’a git çeker.
 
@@ -41,18 +46,16 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
+- Web: `flutter run -d chrome` veya `flutter build web`
 
-## Ne var (0.8.0)
+## Ne var (1.0.9)
 
-- Net üst başlık: MedyaAtlas + sürüm, altında geliştiren, altında ikonlar
-- TR / EN / DE dil; ayarlar (dil, geliştiren); ayrıntılı yardım
-- Harita türü: uydu / sokak / topo / koyu
-- Arama ikonu kaldırıldı; harita odaklı ekran
-- Sabit APK imzası; açılışta otomatik güncelleme
-- PC: `C:\src\MedyaAtlas`
+- Tarama durumu altta çerçeveli kutu; **İptal** satırın sağında
+- Büyük harici disk: DCIM / GoPro / DJI önce; GoPro GPMF + DJI SRT/GPS toplu taramada
+- iPhone web: dosya seçici + harita (sınırlı)
+- TR / EN / DE; harita türleri; sabit APK imzası
 
-
-GoPro GPMF telemetrisi henüz yok. GPX/KML ride çizgileri henüz yok.
+GPX/KML ride çizgileri henüz yok.
 
 ## Eski React (PC, yerel web)
 

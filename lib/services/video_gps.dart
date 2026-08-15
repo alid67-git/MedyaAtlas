@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'geo.dart';
 import 'gpmf_gps.dart';
 import 'header_gps.dart';
+import 'local_fs.dart';
 
 /// Video GPS tarama üst sınırı (GoPro GPMF / DJI gömülü metin).
 const videoGpsScanBytes = 24 * 1024 * 1024;
@@ -49,12 +50,11 @@ Future<LatLng?> extractDjiSidecarGps(String? videoPath) async {
   final dir = p.dirname(videoPath);
   final base = p.basenameWithoutExtension(videoPath);
   for (final ext in ['.SRT', '.srt', '.ASS', '.ass']) {
-    final file = File(p.join(dir, '$base$ext'));
-    if (!await file.exists()) continue;
+    final path = p.join(dir, '$base$ext');
     try {
-      final len = await file.length();
-      if (len <= 0 || len > 8 * 1024 * 1024) continue;
-      final text = await file.readAsString();
+      final bytes = await readLocalTextFileLimited(path);
+      if (bytes == null || bytes.isEmpty) continue;
+      final text = String.fromCharCodes(bytes);
       final point = parseDjiSrtGps(text);
       if (point != null) return point;
     } catch (_) {}
@@ -72,7 +72,7 @@ LatLng? extractAsciiGpsHints(Uint8List bytes) {
 /// Video konumu: ©xyz / ISO6709 → DJI SRT → GPMF → ASCII ipuçları.
 ///
 /// [deepScan]=false: yalnızca verilen head + SRT (SD toplu tarama).
-/// [deepScan]=true: dosyadan en fazla [videoGpsScanBytes] okur (yeniden dene).
+/// [deepScan]=true: dosyadan en fazla [maxScanBytes] okur (yeniden dene / GoPro).
 Future<LatLng?> extractVideoGps({
   required String? localPath,
   Uint8List? head,
@@ -95,25 +95,19 @@ Future<LatLng?> extractVideoGps({
   if (!deepScan) return null;
   if (kIsWeb || localPath == null || localPath.isEmpty) return null;
   try {
-    final file = File(localPath);
-    if (!await file.exists()) return null;
-    final size = await file.length();
+    if (!await localFileExists(localPath)) return null;
+    final size = await localFileLength(localPath);
     if (size <= 0) return null;
     final limit = math.min(maxScanBytes, size);
     // head zaten yeterince büyükse tekrar okuma.
     if (head != null && head.length >= limit) {
       return extractGpmfGps(head) ?? extractAsciiGpsHints(head);
     }
-    final raf = await file.open();
-    try {
-      final bytes = await raf.read(limit);
-      point = extractHeaderGps(bytes);
-      point ??= extractGpmfGps(bytes);
-      point ??= extractAsciiGpsHints(bytes);
-      return point;
-    } finally {
-      await raf.close();
-    }
+    final bytes = await readLocalFileHead(localPath, limit);
+    point = extractHeaderGps(bytes);
+    point ??= extractGpmfGps(bytes);
+    point ??= extractAsciiGpsHints(bytes);
+    return point;
   } catch (_) {
     return null;
   }

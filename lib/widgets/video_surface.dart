@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -7,14 +6,17 @@ import 'package:open_filex/open_filex.dart';
 import 'package:video_player/video_player.dart';
 
 import '../models/library_media.dart';
+import '../services/host_platform.dart';
 import '../services/photo_orient.dart';
+import 'process_host.dart';
+import 'video_file.dart';
 
 IconData kindVideoIcon(MediaKind kind) =>
     kind == MediaKind.drone ? Icons.flight : Icons.videocam;
 
 String _externalReopenLabel() {
-  if (!kIsWeb && Platform.isAndroid) return 'Yeniden aç';
-  if (!kIsWeb && Platform.isWindows) return 'Windows’ta aç';
+  if (hostIsAndroid) return 'Yeniden aç';
+  if (hostIsWindows) return 'Windows’ta aç';
   return 'Sistem oynatıcıda aç';
 }
 
@@ -59,12 +61,11 @@ class _VideoThumbState extends State<VideoThumb> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final file = File(path);
-    if (!await file.exists()) {
+    final controller = await openVideoFileController(path);
+    if (controller == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final controller = VideoPlayerController.file(file);
     try {
       await controller.initialize();
       await controller.setVolume(0);
@@ -169,7 +170,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   var _openedExternal = false;
 
   bool get _windowsExternalFirst =>
-      widget.preferExternal && !kIsWeb && Platform.isWindows;
+      widget.preferExternal && hostIsWindows;
 
   @override
   void initState() {
@@ -216,8 +217,8 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       }
       return;
     }
-    final file = File(path);
-    if (!await file.exists()) {
+    final controller = await openVideoFileController(path);
+    if (controller == null) {
       if (mounted) {
         setState(() {
           _loading = false;
@@ -227,7 +228,6 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       return;
     }
 
-    final controller = VideoPlayerController.file(file);
     try {
       await controller.initialize();
       await controller.setLooping(true);
@@ -252,7 +252,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
         setState(() {
           _loading = false;
           _status = _openedExternal
-              ? (!kIsWeb && Platform.isAndroid
+              ? (hostIsAndroid
                   ? 'Telefon oynatıcısında açıldı.'
                   : 'Sistem oynatıcısında açıldı.')
               : 'Video açılamadı.';
@@ -288,12 +288,8 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
     final path = widget.path;
     if (path == null || path.isEmpty) return;
     try {
-      if (!kIsWeb && Platform.isWindows) {
-        await Process.start(
-          'cmd',
-          ['/c', 'start', '', path],
-          runInShell: false,
-        );
+      if (hostIsWindows) {
+        await openPathWithWindowsShell(path);
       } else {
         await OpenFilex.open(path);
       }

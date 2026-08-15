@@ -1,11 +1,11 @@
-import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import 'android_media_scan.dart';
 import 'folder_types.dart';
+import 'local_fs.dart';
 
 /// MP4 başlığındaki gömülü JPEG kapak / önizleme (covr vb.).
 Uint8List? largestJpegIn(Uint8List data, {int minBytes = 2048}) {
@@ -61,28 +61,26 @@ Future<Uint8List?> siblingPreviewBytes(String? videoPath) async {
     '.webp',
   ];
   for (final ext in exts) {
-    final file = File(p.join(dir, '$base$ext'));
-    if (!await file.exists()) continue;
+    final path = p.join(dir, '$base$ext');
+    if (!await localFileExists(path)) continue;
     try {
-      final size = await file.length();
+      final size = await localFileLength(path);
       if (size < 256 || size > previewStoreBytes) continue;
-      final bytes = await file.readAsBytes();
+      final bytes = await readLocalFileHead(path, size);
       if (looksLikeJpeg(bytes)) return bytes;
-      if (bytes.length >= 8 &&
-          bytes[0] == 0x89 &&
-          bytes[1] == 0x50) {
+      if (bytes.length >= 8 && bytes[0] == 0x89 && bytes[1] == 0x50) {
         return bytes;
       }
     } catch (_) {}
   }
   // DJI: bazen DJI_xxxx_THUM.JPG / .SCR.jpg
   for (final suffix in ['_THUM.JPG', '_THUM.jpg', '.SCR.jpg', '.scr.jpg']) {
-    final file = File(p.join(dir, '$base$suffix'));
-    if (!await file.exists()) continue;
+    final path = p.join(dir, '$base$suffix');
+    if (!await localFileExists(path)) continue;
     try {
-      final size = await file.length();
+      final size = await localFileLength(path);
       if (size < 256 || size > previewStoreBytes) continue;
-      return await file.readAsBytes();
+      return await readLocalFileHead(path, size);
     } catch (_) {}
   }
   return null;
@@ -111,17 +109,11 @@ Future<Uint8List?> extractVideoPreviewBytes({
 
   if (localPath == null || localPath.isEmpty) return null;
   try {
-    final file = File(localPath);
-    if (!await file.exists()) return null;
-    final raf = await file.open();
-    try {
-      final n = math.min(videoHeadBytes, await file.length());
-      final more = await raf.read(n);
-      final embedded = largestJpegIn(more);
-      if (embedded != null && looksLikeJpeg(embedded)) return embedded;
-    } finally {
-      await raf.close();
-    }
+    if (!await localFileExists(localPath)) return null;
+    final n = math.min(videoHeadBytes, await localFileLength(localPath));
+    final more = await readLocalFileHead(localPath, n);
+    final embedded = largestJpegIn(more);
+    if (embedded != null && looksLikeJpeg(embedded)) return embedded;
   } catch (_) {}
   return null;
 }

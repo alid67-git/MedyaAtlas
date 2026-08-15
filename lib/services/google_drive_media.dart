@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -9,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import '../google_oauth_config.dart';
 import 'folder_types.dart';
+import 'host_platform.dart';
 
 const _driveScopes = <String>[drive.DriveApi.driveReadonlyScope];
 
@@ -16,7 +16,7 @@ var _signInReady = false;
 
 Future<void> _ensureSignInInitialized() async {
   if (_signInReady) return;
-  if (Platform.isAndroid && !hasGoogleServerClientId) {
+  if (hostIsAndroid && !hasGoogleServerClientId) {
     throw StateError(googleDriveConfigHelp);
   }
   await GoogleSignIn.instance.initialize(

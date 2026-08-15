@@ -8,9 +8,12 @@ const photoHeadBytes = 2 * 1024 * 1024;
 const videoHeadBytes = 4 * 1024 * 1024;
 const previewStoreBytes = 3 * 1024 * 1024;
 
-/// SD / büyük disk taraması — EXIF / ©xyz için yeterli, derin GPMF yok.
+/// SD / büyük disk taraması — EXIF / ©xyz için yeterli.
 const bulkPhotoHeadBytes = 512 * 1024;
 const bulkVideoHeadBytes = 1024 * 1024;
+
+/// GoPro GPMF / DJI gömülü GPS — toplu taramada da okunacak kadar head.
+const bulkGpsVideoHeadBytes = 8 * 1024 * 1024;
 
 class FolderMediaRef {
   const FolderMediaRef({
