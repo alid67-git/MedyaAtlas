@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.4',
+    tr: 'Videolar telefonda düğmesiz otomatik oynar; gerekirse telefon oynatıcısı açılır. Küçük hata düzeltmeleri.',
+    en: 'Videos auto-play on phone without a play button; falls back to the phone player if needed. Minor bug fixes.',
+    de: 'Videos starten auf dem Telefon automatisch ohne Play-Button; sonst Telefon-Player. Kleine Fehlerkorrekturen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.3',
     tr: 'Telefonda GoPro/DJI için “Telefonda oynat”; Windows ifadesi kaldırıldı. Küçük hata düzeltmeleri.',
     en: 'Phone playback label for GoPro/DJI on Android; removed Windows wording. Minor bug fixes.',
