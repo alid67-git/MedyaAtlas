@@ -1091,7 +1091,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             ),
             const SizedBox(height: 2),
             Text(
-              '${s.developedBy}: ${settings.developerName}',
+              '${s.developedBy}: $appDeveloperName',
               style: TextStyle(
                 fontSize: 13,
                 color: Colors.white.withValues(alpha: 0.55),

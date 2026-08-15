@@ -6,9 +6,6 @@ import '../l10n/app_strings.dart';
 import '../services/app_settings.dart';
 
 Future<void> openSettingsSheet(BuildContext context) async {
-  final settings = context.read<AppSettings>();
-  final nameCtrl = TextEditingController(text: settings.developerName);
-
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -64,29 +61,12 @@ Future<void> openSettingsSheet(BuildContext context) async {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(t.developerName, style: const TextStyle(fontSize: 13)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (v) => st.setDeveloperName(v),
-                  ),
                   const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton(
-                      onPressed: () async {
-                        await st.setDeveloperName(nameCtrl.text);
-                        if (ctx.mounted) Navigator.pop(ctx);
-                      },
-                      child: Text(t.save),
-                    ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(t.developedBy),
+                    subtitle: const Text(appDeveloperName),
                   ),
-                  const SizedBox(height: 12),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(t.version),
@@ -101,7 +81,6 @@ Future<void> openSettingsSheet(BuildContext context) async {
       );
     },
   );
-  nameCtrl.dispose();
 }
 
 Future<void> openHelpSheet(BuildContext context) async {

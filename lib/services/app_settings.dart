@@ -10,6 +10,9 @@ enum MapLayer {
   dark,
 }
 
+/// Sabit kredi — kullanıcı tarafından değiştirilmez.
+const appDeveloperName = 'Ali Dinçer';
+
 class AppSettings extends ChangeNotifier {
   AppSettings._();
   static final instance = AppSettings._();
@@ -18,7 +21,6 @@ class AppSettings extends ChangeNotifier {
   late Box _box;
 
   AppLang lang = AppLang.tr;
-  String developerName = 'Ali Dinçer';
   MapLayer mapLayer = MapLayer.satellite;
 
   Future<void> init() async {
@@ -27,10 +29,6 @@ class AppSettings extends ChangeNotifier {
       (e) => e.name == (_box.get('lang') as String? ?? 'tr'),
       orElse: () => AppLang.tr,
     );
-    developerName =
-        (_box.get('developerName') as String?)?.trim().isNotEmpty == true
-            ? (_box.get('developerName') as String).trim()
-            : 'Ali Dinçer';
     mapLayer = MapLayer.values.firstWhere(
       (e) => e.name == (_box.get('mapLayer') as String? ?? 'satellite'),
       orElse: () => MapLayer.satellite,
@@ -40,13 +38,6 @@ class AppSettings extends ChangeNotifier {
   Future<void> setLang(AppLang value) async {
     lang = value;
     await _box.put('lang', value.name);
-    notifyListeners();
-  }
-
-  Future<void> setDeveloperName(String value) async {
-    final v = value.trim().isEmpty ? 'Ali Dinçer' : value.trim();
-    developerName = v;
-    await _box.put('developerName', v);
     notifyListeners();
   }
 
