@@ -59,6 +59,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   bool _cancel = false;
   bool _dropping = false;
   bool _sourcesOpen = false;
+  bool _searchOpen = false;
   String? _kindMenu;
   String? _status;
   bool _showMissing = false;
@@ -118,12 +119,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       if (manual) setState(() => _status = 'Sürüm kontrolü başarısız (ağ).');
       return;
     }
-    if (!info.isNewer) {
-      if (manual) {
-        setState(() => _status = 'Güncelsiniz — v$appVersion');
-      }
-      return;
-    }
+    if (!info.isNewer) return;
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -744,6 +740,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   void _closeMenus() {
     _sourcesOpen = false;
     _kindMenu = null;
+    _searchOpen = false;
   }
 
   void _onSearchChanged(String raw) {
@@ -937,29 +934,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         child: Scaffold(
           backgroundColor: const Color(0xFF071018),
           body: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Stack(
               children: [
-                _brandBar(clusters.isNotEmpty),
-                _filterBar(
-                  locatedCount: locatedCount,
-                  missingCount: missing.length,
-                  sourceCount: sourceCount,
-                ),
-                if (_sourcesOpen) _sourcesPanel(repo),
-                if (_kindMenu != null)
-                  _kindsPanel(
-                    located: _kindMenu == 'located',
-                    locatedItems: visible.where((m) => m.hasLocation),
-                    missingItems: missing,
-                  ),
-                _statusBar(
-                  repo: repo,
-                  visible: visible,
-                  clusterCount: clusters.length,
-                  missingCount: missing.length,
-                ),
-                Expanded(
+                Positioned.fill(
                   child: Row(
                     children: [
                       Expanded(child: _buildMain(clusters, missing)),
@@ -983,6 +960,62 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     ],
                   ),
                 ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _mapTopBar(
+                        hasPins: clusters.isNotEmpty,
+                        locatedCount: locatedCount,
+                        missingCount: missing.length,
+                        sourceCount: sourceCount,
+                      ),
+                      if (_searchOpen) _searchOverlay(),
+                      if (_sourcesOpen)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                          child: Material(
+                            elevation: 8,
+                            color: const Color(0xF00A1C28),
+                            borderRadius: BorderRadius.circular(12),
+                            clipBehavior: Clip.antiAlias,
+                            child: _sourcesPanel(repo),
+                          ),
+                        ),
+                      if (_kindMenu != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                          child: Material(
+                            elevation: 8,
+                            color: const Color(0xF00A1C28),
+                            borderRadius: BorderRadius.circular(12),
+                            clipBehavior: Clip.antiAlias,
+                            child: _kindsPanel(
+                              located: _kindMenu == 'located',
+                              locatedItems:
+                                  visible.where((m) => m.hasLocation),
+                              missingItems: missing,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (_busy || (_status != null && _status!.isNotEmpty))
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: _statusChip(
+                      repo: repo,
+                      visible: visible,
+                      clusterCount: clusters.length,
+                      missingCount: missing.length,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1015,328 +1048,157 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
   }
 
-  Widget _brandBar(bool hasPins) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text.rich(
-                  TextSpan(
-                    text: 'MedyaAtlas',
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w600,
-                      height: 1.05,
-                      letterSpacing: -0.6,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: '  v$appVersion',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white.withValues(alpha: 0.55),
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Dünya haritasında medya izlerin',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.55),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_busy)
-            TextButton(
-              onPressed: () => setState(() => _cancel = true),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFFF7A59),
-              ),
-              child: const Text('İptal'),
-            )
-          else ...[
-            if (supportsInAppUpdate)
-              IconButton(
-                tooltip: 'Güncelleme kontrol (GitHub Releases)',
-                onPressed: () => _checkForUpdates(manual: true),
-                icon: const Icon(Icons.system_update_alt),
-              ),
-            IconButton(
-              tooltip: 'Tüm pinler',
-              onPressed: hasPins ? _fitVisible : null,
-              icon: const Icon(Icons.zoom_out_map),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _filterBar({
+  Widget _mapTopBar({
+    required bool hasPins,
     required int locatedCount,
     required int missingCount,
     required String sourceCount,
   }) {
     return Material(
-      color: const Color(0x85050E16),
+      color: const Color(0xCC050E16),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+        child: Row(
           children: [
-            SizedBox(
-              width: 240,
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: _onSearchChanged,
-                style: const TextStyle(fontSize: 13),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'Dosya veya konum ara…',
-                  prefixIcon: const Icon(Icons.search, size: 18),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.close, size: 16),
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            _onSearchChanged('');
-                          },
-                        ),
-                  filled: true,
-                  fillColor: const Color(0xFF0C2230),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  text: 'MedyaAtlas',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                    letterSpacing: -0.5,
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: const BorderSide(color: Color(0x1FF2F6F8)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: const BorderSide(color: Color(0x1FF2F6F8)),
-                  ),
-                ),
-              ),
-            ),
-            _CountPill(
-              label: 'Medya kaynakları',
-              count: sourceCount,
-              selected: _sourcesOpen,
-              onTap: () => setState(() {
-                _sourcesOpen = !_sourcesOpen;
-                if (_sourcesOpen) _kindMenu = null;
-              }),
-            ),
-            _CountPill(
-              label: 'GPS konumlu',
-              count: '$locatedCount',
-              selected: !_showMissing,
-              onTap: () => setState(() {
-                _showMissing = false;
-                _panelCluster = null;
-                _sourcesOpen = false;
-                _kindMenu = _kindMenu == 'located' ? null : 'located';
-              }),
-            ),
-            _CountPill(
-              label: 'Konum bulunamayan',
-              count: '$missingCount',
-              selected: _showMissing,
-              onTap: () => setState(() {
-                _showMissing = true;
-                _panelCluster = null;
-                _sourcesOpen = false;
-                _kindMenu = _kindMenu == 'missing' ? null : 'missing';
-              }),
-            ),
-            if (missingCount > 0)
-              TextButton(
-                onPressed: _busy ? null : _retryMissingGps,
-                child: const Text('Konum yokları yeniden dene'),
-              ),
-            if (MediaQuery.sizeOf(context).width >= 1100)
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: Text(
-                  'Geliştiren Ali Dinçer',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.4),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sourcesPanel(MediaRepository repo) {
-    return Material(
-      color: const Color(0xF00A1C28),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 280),
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          children: [
-            if (repo.sources.isEmpty)
-              Text(
-                _isDesktop
-                    ? 'Henüz kaynak yok. Klasör veya dosya ekle — tarama kopyalamaz. Sürükle-bırak veya Ctrl+O.'
-                    : 'Henüz kaynak yok. Klasör veya galeri ekle.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
-              ),
-            for (final source in repo.sources)
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  source.hidden
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                ),
-                title: Text(source.label, overflow: TextOverflow.ellipsis),
-                subtitle: Text(
-                  '${repo.items.where((m) => m.sourceId == source.id).length} medya',
-                ),
-                onTap: () => repo.setSourceHidden(source.id, !source.hidden),
-                trailing: IconButton(
-                  tooltip: 'Kaynağı sil',
-                  onPressed: () => repo.removeSource(source.id),
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.tonal(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          setState(_closeMenus);
-                          _importFolder();
-                        },
-                  child: const Text('+ Klasör ekle'),
-                ),
-                FilledButton.tonal(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          setState(_closeMenus);
-                          _importFiles();
-                        },
-                  child: const Text('+ Dosya seç'),
-                ),
-                if (!_isDesktop)
-                  FilledButton.tonal(
-                    onPressed: _busy
-                        ? null
-                        : () {
-                            setState(_closeMenus);
-                            _importEntirePhone();
-                          },
-                    child: const Text('+ Tüm telefon'),
-                  ),
-                if (!_isDesktop)
-                  FilledButton.tonal(
-                    onPressed: _busy
-                        ? null
-                        : () {
-                            setState(_closeMenus);
-                            _importGallery();
-                          },
-                    child: const Text('+ Galeri'),
-                  ),
-                FilledButton.tonal(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          setState(_closeMenus);
-                          _importGoogleDrive();
-                        },
-                  child: const Text('+ Google Drive'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _kindsPanel({
-    required bool located,
-    required Iterable<LibraryMedia> locatedItems,
-    required List<LibraryMedia> missingItems,
-  }) {
-    final pool = located ? locatedItems : missingItems;
-    return Material(
-      color: const Color(0xF00A1C28),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                for (final kind in MediaKind.values)
-                  FilterChip(
-                    selected: _kinds.contains(kind),
-                    label: Text(
-                      '${_kindTitle(kind)} ${pool.where((m) => m.kind == kind).length}',
+                  children: [
+                    TextSpan(
+                      text: '  v$appVersion',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.5),
+                      ),
                     ),
-                    onSelected: (on) => _toggleKind(kind, on),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Filtre yalnızca görünümü etkiler — tarama foto + video + GoPro + drone ekler.',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.45),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (_busy)
+              TextButton(
+                onPressed: () => setState(() => _cancel = true),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFFF7A59),
+                ),
+                child: const Text('İptal'),
+              )
+            else ...[
+              _TopIcon(
+                tooltip: 'Ara',
+                selected: _searchOpen,
+                icon: Icons.search,
+                onPressed: () => setState(() {
+                  _searchOpen = !_searchOpen;
+                  if (_searchOpen) {
+                    _sourcesOpen = false;
+                    _kindMenu = null;
+                  }
+                }),
+              ),
+              _TopIcon(
+                tooltip: 'Medya kaynakları',
+                selected: _sourcesOpen,
+                icon: Icons.folder_outlined,
+                badge: sourceCount,
+                onPressed: () => setState(() {
+                  _sourcesOpen = !_sourcesOpen;
+                  if (_sourcesOpen) {
+                    _kindMenu = null;
+                    _searchOpen = false;
+                  }
+                }),
+              ),
+              _TopIcon(
+                tooltip: 'GPS konumlu',
+                selected: !_showMissing && _kindMenu == 'located',
+                icon: Icons.location_on_outlined,
+                badge: '$locatedCount',
+                onPressed: () => setState(() {
+                  _showMissing = false;
+                  _panelCluster = null;
+                  _sourcesOpen = false;
+                  _searchOpen = false;
+                  _kindMenu = _kindMenu == 'located' ? null : 'located';
+                }),
+              ),
+              _TopIcon(
+                tooltip: 'Konum bulunamayan',
+                selected: _showMissing,
+                icon: Icons.location_off_outlined,
+                badge: '$missingCount',
+                onPressed: () => setState(() {
+                  _showMissing = true;
+                  _panelCluster = null;
+                  _sourcesOpen = false;
+                  _searchOpen = false;
+                  _kindMenu = _kindMenu == 'missing' ? null : 'missing';
+                }),
+              ),
+              _TopIcon(
+                tooltip: 'Tüm pinler',
+                icon: Icons.zoom_out_map,
+                onPressed: hasPins ? _fitVisible : null,
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _statusBar({
+  Widget _searchOverlay() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+      child: Material(
+        elevation: 6,
+        color: const Color(0xF00A1C28),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
+          child: TextField(
+            controller: _searchCtrl,
+            autofocus: true,
+            onChanged: _onSearchChanged,
+            style: const TextStyle(fontSize: 14),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'Dosya veya konum ara…',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () {
+                  _searchCtrl.clear();
+                  _onSearchChanged('');
+                  setState(() => _searchOpen = false);
+                },
+              ),
+              border: InputBorder.none,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusChip({
     required MediaRepository repo,
     required List<LibraryMedia> visible,
     required int clusterCount,
     required int missingCount,
   }) {
-    if (!_busy && repo.items.isEmpty && _status == null) {
-      return const SizedBox.shrink();
-    }
     final text = _busy
-        ? '${_status ?? 'Dosyalar aranıyor…'} — durdurmak için İptal'
+        ? '${_status ?? 'Dosyalar aranıyor…'} — İptal üstte'
         : (_status ??
             _libraryStatus(
               repo: repo,
@@ -1345,9 +1207,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               missingCount: missingCount,
             ));
     return Material(
-      color: const Color(0x33000000),
+      elevation: 6,
+      color: const Color(0xE00A1C28),
+      borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
         child: Row(
           children: [
             if (_busy) ...[
@@ -1359,10 +1223,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               const SizedBox(width: 10),
             ],
             Expanded(
-              child: Text(
-                text,
-                style: const TextStyle(fontSize: 13),
-              ),
+              child: Text(text, style: const TextStyle(fontSize: 13)),
             ),
             if (!_busy && _status != null)
               IconButton(
@@ -1371,6 +1232,150 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _sourcesPanel(MediaRepository repo) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 280),
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        children: [
+          if (repo.sources.isEmpty)
+            Text(
+              _isDesktop
+                  ? 'Henüz kaynak yok. Klasör veya dosya ekle — tarama kopyalamaz. Sürükle-bırak veya Ctrl+O.'
+                  : 'Henüz kaynak yok. Klasör veya galeri ekle.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
+            ),
+          for (final source in repo.sources)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                source.hidden
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+              ),
+              title: Text(source.label, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                '${repo.items.where((m) => m.sourceId == source.id).length} medya',
+              ),
+              onTap: () => repo.setSourceHidden(source.id, !source.hidden),
+              trailing: IconButton(
+                tooltip: 'Kaynağı sil',
+                onPressed: () => repo.removeSource(source.id),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonal(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(_closeMenus);
+                        _importFolder();
+                      },
+                child: const Text('+ Klasör ekle'),
+              ),
+              FilledButton.tonal(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(_closeMenus);
+                        _importFiles();
+                      },
+                child: const Text('+ Dosya seç'),
+              ),
+              if (!_isDesktop)
+                FilledButton.tonal(
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          setState(_closeMenus);
+                          _importEntirePhone();
+                        },
+                  child: const Text('+ Tüm telefon'),
+                ),
+              if (!_isDesktop)
+                FilledButton.tonal(
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          setState(_closeMenus);
+                          _importGallery();
+                        },
+                  child: const Text('+ Galeri'),
+                ),
+              FilledButton.tonal(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(_closeMenus);
+                        _importGoogleDrive();
+                      },
+                child: const Text('+ Google Drive'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _kindsPanel({
+    required bool located,
+    required Iterable<LibraryMedia> locatedItems,
+    required List<LibraryMedia> missingItems,
+  }) {
+    final pool = located ? locatedItems : missingItems;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            located ? 'GPS konumlu filtre' : 'Konumu olmayanlar',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final kind in MediaKind.values)
+                FilterChip(
+                  selected: _kinds.contains(kind),
+                  label: Text(
+                    '${_kindTitle(kind)} ${pool.where((m) => m.kind == kind).length}',
+                  ),
+                  onSelected: (on) => _toggleKind(kind, on),
+                ),
+            ],
+          ),
+          if (!located && missingItems.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _busy ? null : _retryMissingGps,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Konum yokları yeniden dene'),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1408,7 +1413,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           Positioned(
             left: 12,
             right: 12,
-            top: 8,
+            top: 56,
             child: Material(
               elevation: 6,
               borderRadius: BorderRadius.circular(8),
@@ -1453,63 +1458,37 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 }
 
-class _CountPill extends StatelessWidget {
-  const _CountPill({
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
+class _TopIcon extends StatelessWidget {
+  const _TopIcon({
+    required this.tooltip,
+    required this.icon,
+    this.badge,
+    this.selected = false,
+    this.onPressed,
   });
 
-  final String label;
-  final String count;
+  final String tooltip;
+  final IconData icon;
+  final String? badge;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? const Color(0x212EC4B6) : const Color(0x0DFFFFFF),
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: selected
-              ? const Color(0x732EC4B6)
-              : const Color(0x1FF2F6F8),
+    final color = selected
+        ? const Color(0xFF2EC4B6)
+        : Colors.white.withValues(alpha: 0.85);
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Badge(
+        isLabelVisible: badge != null && badge != '0' && badge != '0/0',
+        label: Text(
+          badge ?? '',
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
         ),
-      ),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-                decoration: BoxDecoration(
-                  color: const Color(0x14FFFFFF),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  count,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        backgroundColor: const Color(0xFFFF7A59),
+        child: Icon(icon, color: color),
       ),
     );
   }
