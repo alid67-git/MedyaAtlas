@@ -1,17 +1,33 @@
 # MedyaAtlas
 
-Windows ve Android uygulaması: fotoğraf/video GPS konumlarını dünya haritasında gösterir.
+Windows, Android ve **web** (iPhone Safari / Ana Ekrana Ekle): fotoğraf/video GPS konumlarını dünya haritasında gösterir.
 
-Dağıtım: GitHub **Releases** (Android APK; Windows zip yakında). Web / GitHub Pages yok.
+Dağıtım: GitHub **Releases** (APK / Windows zip). Web derlemesi: `flutter build web`.
 
-## Android — GitHub’dan kur
+## İndirme (sabit dosya adları)
 
-1. Aç: https://github.com/alid67-git/MedyaAtlas/releases  
-2. En son **`MedyaAtlas-*-android.apk`** indir / kur  
-3. İlk taramada **Fotoğraf/Video** ve **medya konumu** izinlerini ver (Android EXIF GPS için şart)  
-4. **Google Fotoğraflar bulutu taranmaz** — Dosyalar / DCIM / Kamera klasöründen seç  
+- **Android:** https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk  
+- **Windows:** https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas-windows.zip  
 
-Direkt APK (güncel sürüm yayınlandıkça değişir): Releases sayfasındaki son APK.
+Dosya adında sürüm numarası yok; her release aynı isimle yayınlanır.
+
+## iPhone (web)
+
+Safari’de açıp **Paylaş → Ana Ekrana Ekle**. Klasör tarama (5TB disk kökü) web’de yok; **foto/video seçici** ile medya eklenir. Tam SD/HDD kök tarama için Android veya Windows uygulaması gerekir.
+
+## Uygulama içi güncelleme
+
+Play Store yok. Uygulama **GitHub Releases**’e bakarak yeni sürüm bildirir ve indirir:
+
+- Açılışta otomatik kontrol → “Güncelleme var” diyaloğu  
+- Elle: üst çubuktaki güncelleme ikonu  
+- Android: `MedyaAtlas.apk` indirilir, kurulum ekranı açılır  
+- Windows: `MedyaAtlas-windows.zip` indirilip açılır; uygulamayı kapatıp yeni `medyaatlas.exe` çalıştırın  
+- Web: uygulama içi güncelleme yok (sayfayı yenileyin)
+
+Geliştirme (Windows kaynak): `guncelle.bat` / `run_windows.bat` hâlâ `C:\src\MedyaAtlas`’a git çeker.
+
+Google Drive: [GOOGLE_DRIVE.md](GOOGLE_DRIVE.md)
 
 ## Kurulum (Windows) — yerel disk
 
@@ -22,7 +38,7 @@ Google Drive üzerinde geliştirme / `flutter run` yapma.
 2. Sonra sadece o kısayol / `run_windows.bat`  
 3. Drive `MedyaAtlasApp` kullanma
 
-Elle: `kisayol_olustur.bat` · `guncelle.bat` · `temizle_build.bat` · `build_apk.bat`
+Elle: `kisayol_olustur.bat` · `guncelle.bat` · `temizle_build.bat` · `build_apk.bat` · `build_windows.bat`
 
 Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 
@@ -30,17 +46,16 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
+- Web: `flutter run -d chrome` veya `flutter build web`
 
-## Ne var (0.6.7)
+## Ne var (1.0.9)
 
-- Android: `ACCESS_MEDIA_LOCATION` + tarama öncesi izin (EXIF GPS)
-- GitHub Actions Android APK Release
-- Klasör / dosya taraması — foto + video + GoPro + DJI
-- EXIF GPS + Orientation; video başlık GPS; tarama önizleme JPEG
-- GoPro/DJI tıklanınca Windows oynatıcı; kapat sağda
-- Çalışma yolu (PC): `C:\src\MedyaAtlas`
+- Tarama durumu altta çerçeveli kutu; **İptal** satırın sağında
+- Büyük harici disk: DCIM / GoPro / DJI önce; GoPro GPMF + DJI SRT/GPS toplu taramada
+- iPhone web: dosya seçici + harita (sınırlı)
+- TR / EN / DE; harita türleri; sabit APK imzası
 
-GoPro GPMF telemetrisi henüz yok. GPX/KML ride çizgileri henüz yok.
+GPX/KML ride çizgileri henüz yok.
 
 ## Eski React (PC, yerel web)
 

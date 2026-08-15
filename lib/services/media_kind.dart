@@ -13,10 +13,13 @@ const videoExt = {
 };
 
 final _goproName = RegExp(
-  r'^(gopr|g[xhs]\d{6}|gpfr|gp\d{6}|go\d{6})',
+  r'^(gopr|gpfr|g[xhslaf]\d{6}|gp\d{6}|go\d{6})',
   caseSensitive: false,
 );
-final _djiVideoName = RegExp(r'^DJI[_-]', caseSensitive: false);
+final _djiVideoName = RegExp(
+  r'^(DJI[_-]|Osmo[_-]?)',
+  caseSensitive: false,
+);
 
 /// MedyaAtlas gibi dosya kopyalanmaz; üst sınır yok.
 

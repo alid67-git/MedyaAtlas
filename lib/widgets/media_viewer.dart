@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
+import '../services/host_platform.dart';
 import '../services/media_kind.dart';
 import '../services/photo_orient.dart';
 import '../services/video_preview.dart';
@@ -209,6 +211,7 @@ class _VideoPageState extends State<_VideoPage> {
     if (bytes == null || bytes.isEmpty) {
       bytes = await extractVideoPreviewBytes(
         localPath: widget.media.localPath,
+        relativePath: widget.media.relativePath,
       );
       if (bytes != null && bytes.isNotEmpty) {
         await repo.putPreviewBytes(widget.media.id, bytes);
@@ -230,8 +233,10 @@ class _VideoPageState extends State<_VideoPage> {
       name: widget.media.name,
       kind: widget.media.kind,
       posterBytes: _poster,
-      preferExternal: widget.media.kind == MediaKind.gopro ||
-          widget.media.kind == MediaKind.drone,
+      // GoPro/DJI HEVC: yalnızca Windows’ta önce dış oynatıcı.
+      preferExternal: hostIsWindows &&
+          (widget.media.kind == MediaKind.gopro ||
+              widget.media.kind == MediaKind.drone),
     );
   }
 }

@@ -117,18 +117,31 @@ class MediaSource {
     required this.label,
     required this.addedAt,
     this.hidden = false,
+    this.rootPath,
   });
 
   final String id;
   final String label;
   final DateTime addedAt;
   final bool hidden;
+  /// Yerel disk/klasör kökü. Doluysa yalnızca kök erişilebilirken haritada görünür.
+  final String? rootPath;
 
-  MediaSource copyWith({bool? hidden, String? label}) => MediaSource(
+  bool get isRemovableVolume =>
+      rootPath != null && rootPath!.trim().isNotEmpty;
+
+  MediaSource copyWith({
+    bool? hidden,
+    String? label,
+    String? rootPath,
+    bool clearRootPath = false,
+  }) =>
+      MediaSource(
         id: id,
         label: label ?? this.label,
         addedAt: addedAt,
         hidden: hidden ?? this.hidden,
+        rootPath: clearRootPath ? null : (rootPath ?? this.rootPath),
       );
 
   Map<String, dynamic> toJson() => {
@@ -136,6 +149,7 @@ class MediaSource {
         'label': label,
         'addedAt': addedAt.toIso8601String(),
         'hidden': hidden,
+        if (rootPath != null) 'rootPath': rootPath,
       };
 
   factory MediaSource.fromJson(Map<String, dynamic> json) => MediaSource(
@@ -144,6 +158,7 @@ class MediaSource {
         addedAt: DateTime.tryParse(json['addedAt'] as String? ?? '') ??
             DateTime.now(),
         hidden: json['hidden'] as bool? ?? false,
+        rootPath: json['rootPath'] as String?,
       );
 }
 

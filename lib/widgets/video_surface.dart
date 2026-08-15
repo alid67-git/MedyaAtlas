@@ -1,15 +1,24 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:video_player/video_player.dart';
 
 import '../models/library_media.dart';
+import '../services/host_platform.dart';
 import '../services/photo_orient.dart';
+import 'process_host.dart';
+import 'video_file.dart';
 
 IconData kindVideoIcon(MediaKind kind) =>
     kind == MediaKind.drone ? Icons.flight : Icons.videocam;
+
+String _externalReopenLabel() {
+  if (hostIsAndroid) return 'Yeniden aç';
+  if (hostIsWindows) return 'Windows’ta aç';
+  return 'Sistem oynatıcıda aç';
+}
 
 /// Sağ panel / ızgara için ilk kare (sessiz, duraklatılmış).
 class VideoThumb extends StatefulWidget {
@@ -52,12 +61,11 @@ class _VideoThumbState extends State<VideoThumb> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final file = File(path);
-    if (!await file.exists()) {
+    final controller = await openVideoFileController(path);
+    if (controller == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final controller = VideoPlayerController.file(file);
     try {
       await controller.initialize();
       await controller.setVolume(0);
@@ -148,7 +156,7 @@ class VideoPlaybackPane extends StatefulWidget {
   final String name;
   final MediaKind kind;
   final Uint8List? posterBytes;
-  /// GoPro/DJI HEVC sık sık texture/codec kırılır — sistem oynatıcı.
+  /// Windows’ta HEVC (GoPro/DJI) için önce sistem oynatıcı.
   final bool preferExternal;
 
   @override
@@ -157,17 +165,17 @@ class VideoPlaybackPane extends StatefulWidget {
 
 class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   VideoPlayerController? _controller;
-  String? _error;
+  String? _status;
   var _loading = true;
   var _openedExternal = false;
+
+  bool get _windowsExternalFirst =>
+      widget.preferExternal && hostIsWindows;
 
   @override
   void initState() {
     super.initState();
-    if (widget.preferExternal) {
-      _openExternally();
-    }
-    _open();
+    _start();
   }
 
   @override
@@ -175,48 +183,51 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.path != widget.path) {
       _disposeController();
-      _error = null;
+      _status = null;
       _loading = true;
       _openedExternal = false;
-      if (widget.preferExternal) {
-        _openExternally();
-      }
-      _open();
+      _start();
     }
   }
 
-  Future<void> _open() async {
+  Future<void> _start() async {
+    if (_windowsExternalFirst) {
+      await _openExternally();
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _status = _openedExternal
+              ? 'Windows oynatıcısında açıldı.'
+              : 'Windows oynatıcısı açılamadı.';
+        });
+      }
+      return;
+    }
+    await _openInApp();
+  }
+
+  Future<void> _openInApp() async {
     final path = widget.path;
     if (kIsWeb || path == null || path.isEmpty) {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Yerel dosya yolu yok.';
+          _status = 'Yerel dosya yolu yok.';
         });
       }
       return;
     }
-    final file = File(path);
-    if (!await file.exists()) {
+    final controller = await openVideoFileController(path);
+    if (controller == null) {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Dosya bulunamadı:\n$path';
+          _status = 'Dosya bulunamadı:\n$path';
         });
       }
       return;
     }
-    // GoPro/drone: önce dış oynatıcı; uygulama içinde poster yeter.
-    if (widget.preferExternal) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = null;
-        });
-      }
-      return;
-    }
-    final controller = VideoPlayerController.file(file);
+
     try {
       await controller.initialize();
       await controller.setLooping(true);
@@ -230,16 +241,21 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       setState(() {
         _controller = controller;
         _loading = false;
+        _status = null;
       });
       await controller.play();
-    } catch (e) {
+    } catch (_) {
       await controller.dispose();
+      // Codec (HEVC vb.) uygulama içinde yoksa telefon/sistem oynatıcısına düş.
       await _openExternally();
       if (mounted) {
         setState(() {
           _loading = false;
-          _error =
-              'Uygulama içi oynatma olmadı; Windows oynatıcıya gönderildi.\n$e';
+          _status = _openedExternal
+              ? (hostIsAndroid
+                  ? 'Telefon oynatıcısında açıldı.'
+                  : 'Sistem oynatıcısında açıldı.')
+              : 'Video açılamadı.';
         });
       }
     }
@@ -271,15 +287,12 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   Future<void> _openExternally() async {
     final path = widget.path;
     if (path == null || path.isEmpty) return;
-    if (_openedExternal && widget.preferExternal) {
-      // Tekrar tıklamada yine açılabilir.
-    }
     try {
-      await Process.start(
-        'cmd',
-        ['/c', 'start', '', path],
-        runInShell: false,
-      );
+      if (hostIsWindows) {
+        await openPathWithWindowsShell(path);
+      } else {
+        await OpenFilex.open(path);
+      }
       _openedExternal = true;
       if (mounted) setState(() {});
     } catch (_) {}
@@ -349,7 +362,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Windows’ta aç',
+                  tooltip: _externalReopenLabel(),
                   onPressed: _openExternally,
                   icon: const Icon(Icons.open_in_new),
                 ),
@@ -359,6 +372,8 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
         ],
       );
     }
+
+    // Uygulama içi oynatılamadı — dış oynatıcı zaten otomatik açıldı.
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -371,34 +386,34 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                 child: OrientedMemoryImage(poster, fit: BoxFit.contain),
               ),
               const SizedBox(height: 16),
-            ] else
+            ] else if (_loading)
+              const CircularProgressIndicator()
+            else
               Icon(kindVideoIcon(widget.kind), size: 56, color: Colors.white70),
             Text(
               widget.name,
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white),
             ),
-            const SizedBox(height: 8),
-            Text(
-              _error ??
-                  (widget.preferExternal
-                      ? (_openedExternal
-                          ? 'Windows oynatıcıda açıldı.'
-                          : 'Windows oynatıcıda açılıyor…')
-                      : 'Video önizlemesi yok.'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.tonalIcon(
-              onPressed: _openExternally,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Windows’ta oynat'),
-            ),
+            if (_status != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _status!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white54),
+              ),
+            ],
+            if (_openedExternal || _windowsExternalFirst) ...[
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: _openExternally,
+                icon: const Icon(Icons.refresh),
+                label: Text(_externalReopenLabel()),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 }
-

@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,27 +13,38 @@ import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../app_version.dart';
+import '../google_oauth_config.dart';
+import '../l10n/app_strings.dart';
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
+import '../services/android_media_scan.dart';
+import '../services/app_settings.dart';
+import '../services/app_updater.dart';
 import '../services/cluster.dart';
 import '../services/exif_gps.dart';
 import '../services/folder_picker.dart';
-import '../services/header_gps.dart';
+import '../services/geo.dart';
+import '../services/google_drive_media.dart';
+import '../services/host_platform.dart';
+import '../services/local_fs.dart';
+import '../services/media_kind.dart';
 import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
+import '../services/video_gps.dart';
 import '../services/video_preview.dart';
+import '../services/photo_orient.dart';
 import '../widgets/cluster_dot.dart';
+import '../widgets/drop_host.dart';
 import '../widgets/media_viewer.dart';
 import '../widgets/photo_source.dart';
-import '../services/photo_orient.dart';
+import '../widgets/video_surface.dart';
+import 'settings_sheets.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 const _worldCenter = LatLng(20, 0);
 
-bool get _isDesktop =>
-    defaultTargetPlatform == TargetPlatform.windows ||
-    defaultTargetPlatform == TargetPlatform.linux ||
-    defaultTargetPlatform == TargetPlatform.macOS;
+bool get _isDesktop => hostIsDesktop;
 
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key});
@@ -44,11 +53,10 @@ class HomeMapScreen extends StatefulWidget {
   State<HomeMapScreen> createState() => _HomeMapScreenState();
 }
 
-class _HomeMapScreenState extends State<HomeMapScreen> {
+class _HomeMapScreenState extends State<HomeMapScreen>
+    with WidgetsBindingObserver {
   final _map = MapController();
   final _picker = ImagePicker();
-  final _searchCtrl = TextEditingController();
-  Timer? _searchDebounce;
   bool _busy = false;
   bool _cancel = false;
   bool _dropping = false;
@@ -56,10 +64,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   String? _kindMenu;
   String? _status;
   bool _showMissing = false;
-  String _query = '';
+  final _query = '';
   List<PlaceHit> _places = [];
   LocationCluster? _panelCluster;
   final Set<MediaKind> _kinds = {...MediaKind.values};
+  Timer? _mountTimer;
+  /// Zorunlu güncelleme — harita kullanılmaz.
+  AppUpdateInfo? _forceUpdate;
+  var _updateDialogOpen = false;
 
   /// Tarama sırasında harita pinlerini dondur — ara notifyListeners NaN pin
   /// ile MarkerLayer'ı düşürmesin.
@@ -89,10 +101,171 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _mountTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || _busy) return;
+      context.read<MediaRepository>().refreshMountStates();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdates();
+      context.read<MediaRepository>().refreshMountStates();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<MediaRepository>().refreshMountStates();
+      if (_forceUpdate != null && !_updateDialogOpen) {
+        _promptUpdate(_forceUpdate!, force: true);
+      } else {
+        _checkForUpdates();
+      }
+    }
+  }
+
+  @override
   void dispose() {
-    _searchDebounce?.cancel();
-    _searchCtrl.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _mountTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _checkForUpdates({bool manual = false}) async {
+    if (kIsWeb || !supportsInAppUpdate) {
+      if (manual && mounted) {
+        setState(() => _status = 'Bu platformda uygulama içi güncelleme yok.');
+      }
+      return;
+    }
+    if (manual && mounted) {
+      setState(() => _status = 'Güncelleme kontrol ediliyor…');
+    }
+    final info = await fetchLatestRelease();
+    if (!mounted) return;
+    if (info == null) {
+      if (manual) setState(() => _status = 'Sürüm kontrolü başarısız (ağ).');
+      return;
+    }
+    if (!info.isNewer) {
+      if (_forceUpdate != null) setState(() => _forceUpdate = null);
+      return;
+    }
+    final force = info.isForceRequired;
+    if (force) {
+      setState(() => _forceUpdate = info);
+    } else if (_forceUpdate != null) {
+      setState(() => _forceUpdate = null);
+    }
+    await _promptUpdate(info, force: force);
+  }
+
+  Future<void> _promptUpdate(
+    AppUpdateInfo info, {
+    required bool force,
+  }) async {
+    if (!mounted || _updateDialogOpen) return;
+    _updateDialogOpen = true;
+    try {
+      final go = await showDialog<bool>(
+        context: context,
+        barrierDismissible: !force,
+        builder: (ctx) => PopScope(
+          canPop: !force,
+          child: AlertDialog(
+            title: Text(
+              force
+                  ? 'Zorunlu güncelleme: v${info.latestVersion}'
+                  : 'Güncelleme var: v${info.latestVersion}',
+            ),
+            content: Text(force ? info.forceDialogBody : info.dialogBody),
+            actions: [
+              if (!force)
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Sonra'),
+                ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(force ? 'Güncelle' : 'İndir'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (go == true && mounted) {
+        await _downloadUpdate(info);
+      } else if (force && mounted) {
+        // Kullanıcı kapatamadı; yine de engeli tut.
+        setState(() => _forceUpdate = info);
+      }
+    } finally {
+      _updateDialogOpen = false;
+    }
+  }
+
+  Future<void> _downloadUpdate(AppUpdateInfo info) async {
+    if (info.platform == UpdatePlatform.android) {
+      final installPerm = await Permission.requestInstallPackages.request();
+      if (!installPerm.isGranted) {
+        if (!mounted) return;
+        setState(
+          () => _status =
+              'Kurulum izni gerekli: Ayarlar → Bilinmeyen uygulamaları yükle.',
+        );
+        await openAppSettings();
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    final progress = ValueNotifier<double>(0);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('Güncelleme indiriliyor'),
+          content: ValueListenableBuilder<double>(
+            valueListenable: progress,
+            builder: (context, value, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LinearProgressIndicator(
+                  value: value <= 0 ? null : value.clamp(0.0, 1.0),
+                ),
+                const SizedBox(height: 12),
+                Text('%${(value * 100).round()} — ${info.assetName}'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final err = await downloadAndApplyUpdate(
+      info,
+      onProgress: (p) => progress.value = p,
+    );
+    progress.dispose();
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    if (!mounted) return;
+    setState(() {
+      if (err != null) {
+        _status = err;
+      } else if (info.platform == UpdatePlatform.android) {
+        _status =
+            'Kurulum ekranı açıldı — Güncelle’ye basın (silmeden üzerine kurar).';
+      } else {
+        _status =
+            'v${info.latestVersion} indirildi. Bu uygulamayı kapatıp '
+            'yeni medyaatlas.exe ile açın.';
+      }
+    });
   }
 
   Future<bool> _ensureAndroidMediaAccess() async {
@@ -104,6 +277,38 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       return false;
     }
     return true;
+  }
+
+  Future<void> _importEntirePhone() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      setState(() => _status = 'Tüm telefon tarama yalnızca Android’de.');
+      return;
+    }
+    if (!await _ensureAndroidMediaAccess()) return;
+    setState(() {
+      _beginBusy();
+      _status = 'Telefon taranıyor…';
+    });
+    try {
+      final picked = await scanEntirePhoneMedia(
+        onProgress: (s) {
+          if (mounted) setState(() => _status = s);
+        },
+      );
+      if (!mounted) return;
+      setState(_endBusy);
+      if (picked.items.isEmpty) {
+        setState(() => _status = 'Telefonda foto/video bulunamadı.');
+        return;
+      }
+      await _ingestPick(picked);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _endBusy();
+        _status = 'Telefon tarama: $e';
+      });
+    }
   }
 
   Future<void> _importGallery() async {
@@ -150,19 +355,140 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
   }
 
+  Future<void> _importGoogleDrive() async {
+    setState(() {
+      _beginBusy();
+      _status = 'Google Drive’a bağlanılıyor…';
+    });
+    GoogleDriveSession? session;
+    try {
+      session = await connectGoogleDrive();
+      if (!mounted) return;
+      setState(() => _status = 'Drive: ${session!.email} — medya listeleniyor…');
+      final picked = await listDriveMedia(
+        session,
+        onProgress: (s) {
+          if (mounted) setState(() => _status = s);
+        },
+      );
+      if (!mounted) return;
+      if (picked.items.isEmpty) {
+        setState(() => _status = 'Drive’da foto/video bulunamadı.');
+        return;
+      }
+      final repo = context.read<MediaRepository>();
+      final source = await repo.ensureSource(label: picked.folderName);
+      await _ingest(picked.items, source: source);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _status = _googleDriveErrorMessage(e));
+    } finally {
+      session?.close();
+      if (mounted) setState(_endBusy);
+    }
+  }
+
+  String _googleDriveErrorMessage(Object e) {
+    final msg = '$e';
+    final lower = msg.toLowerCase();
+    if (lower.contains('serverclientid') ||
+        lower.contains('clientconfiguration') ||
+        msg.contains(googleDriveConfigHelp) ||
+        (!hasGoogleServerClientId && hostIsAndroid)) {
+      return googleDriveConfigHelp;
+    }
+    if (msg.contains('10') || lower.contains('apiexception')) {
+      return 'Google oturum açılamadı. Android OAuth istemcisine '
+          'SHA-1 ekleyin ve Drive API’yi açın (GOOGLE_DRIVE.md).';
+    }
+    return 'Google Drive: $e';
+  }
+
   Future<void> _importFolder() async {
     if (!await _ensureAndroidMediaAccess()) return;
     FolderPickResult? picked;
     try {
-      picked = await pickMediaFolder();
+      setState(() {
+        _beginBusy();
+        _status = 'Klasör listeleniyor…';
+      });
+      picked = await pickMediaFolder(
+        onProgress: (n, _) {
+          if (mounted && !_cancel) {
+            setState(() => _status = 'Klasör taranıyor… $n medya');
+          }
+        },
+        isCancelled: () => _cancel,
+      );
+      if (_cancel && mounted) {
+        if (picked == null || picked.items.isEmpty) {
+          setState(() {
+            _endBusy();
+            _status = 'Tarama iptal edildi.';
+          });
+          return;
+        }
+      }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _status = 'Klasör açılamadı: $e');
+      setState(() {
+        _endBusy();
+        _status = 'Klasör açılamadı: $e';
+      });
       return;
     }
     if (!mounted) return;
-    if (picked == null) return;
-    await _ingestPick(picked);
+    if (picked == null) {
+      setState(_endBusy);
+      return;
+    }
+    await _ingestPick(picked, alreadyBusy: true);
+  }
+
+  Future<void> _importExternalVolume() async {
+    if (!await _ensureAndroidMediaAccess()) return;
+    FolderPickResult? picked;
+    try {
+      setState(() {
+        _beginBusy();
+        _status = 'Disk listeleniyor…';
+      });
+      picked = await pickExternalVolume(
+        onProgress: (n, _) {
+          if (mounted && !_cancel) {
+            setState(() => _status = 'Disk taranıyor… $n medya bulundu');
+          }
+        },
+        isCancelled: () => _cancel,
+      );
+      if (_cancel && mounted) {
+        if (picked == null || picked.items.isEmpty) {
+          setState(() {
+            _endBusy();
+            _status = 'Tarama iptal edildi.';
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _endBusy();
+        final msg = '$e';
+        _status = msg.contains('Permission denied') ||
+                msg.contains('PathAccessException')
+            ? 'Disk tarandı ama bazı klasörler kapalı (Android/data). '
+                'DCIM veya kart kökünü tekrar seçin; izinli klasörler okunur.'
+            : 'Disk açılamadı: $e';
+      });
+      return;
+    }
+    if (!mounted) return;
+    if (picked == null) {
+      setState(_endBusy);
+      return;
+    }
+    await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
   }
 
   Future<void> _importFiles() async {
@@ -186,16 +512,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           size: file.size,
           relativePath: file.name,
           localPath: path,
-          readHead: (maxBytes) async {
-            final io = File(path);
-            final n = file.size < maxBytes ? file.size : maxBytes;
-            final raf = await io.open();
-            try {
-              return await raf.read(n);
-            } finally {
-              await raf.close();
-            }
-          },
+          readHead: (maxBytes) => readLocalFileHead(path, maxBytes),
         ),
       );
     }
@@ -214,24 +531,34 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
   }
 
-  Future<void> _ingestPick(FolderPickResult result) async {
+  Future<void> _ingestPick(
+    FolderPickResult result, {
+    bool alreadyBusy = false,
+    bool? bulkMode,
+  }) async {
     if (result.items.isEmpty) {
       setState(() {
+        if (alreadyBusy) _endBusy();
         _status = '"${result.folderName}" içinde foto/video bulunamadı.';
       });
       return;
     }
     final videoCount = result.items.where((f) => f.isVideo).length;
     final photoCount = result.items.length - videoCount;
+    final bulk = bulkMode ?? result.rootPath != null;
     setState(() {
-      _beginBusy();
+      if (!alreadyBusy) _beginBusy();
       _status =
-          '"${result.folderName}" okunuyor… ($photoCount foto · $videoCount video)';
+          '"${result.folderName}" okunuyor… ($photoCount foto · $videoCount video)'
+          '${bulk ? ' · hızlı tarama' : ''}';
     });
     try {
       final repo = context.read<MediaRepository>();
-      final source = await repo.ensureSource(label: result.folderName);
-      await _ingest(result.items, source: source);
+      final source = await repo.ensureSource(
+        label: result.folderName,
+        rootPath: result.rootPath,
+      );
+      await _ingest(result.items, source: source, bulkMode: bulk);
     } catch (e) {
       if (!mounted) return;
       final msg = '$e';
@@ -251,14 +578,40 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     for (final x in details.files) {
       final path = x.path;
       if (path.isEmpty) continue;
-      if (FileSystemEntity.isDirectorySync(path)) {
-        final result = await scanMediaDirectory(path);
-        if (!mounted) return;
-        await _ingestPick(result);
-      } else if (FileSystemEntity.isFileSync(path) &&
-          isMediaName(p.basename(path))) {
-        final file = File(path);
-        final size = await file.length();
+      if (localIsDirectorySync(path)) {
+        setState(() {
+          _beginBusy();
+          _status = 'Klasör listeleniyor…';
+        });
+        try {
+          final result = await scanMediaDirectory(
+            path,
+            onProgress: (n, _) {
+              if (mounted && !_cancel) {
+                setState(() => _status = 'Klasör taranıyor… $n medya');
+              }
+            },
+            isCancelled: () => _cancel,
+          );
+          if (!mounted) return;
+          if (_cancel && result.items.isEmpty) {
+            setState(() {
+              _endBusy();
+              _status = 'Tarama iptal edildi.';
+            });
+            return;
+          }
+          await _ingestPick(result, alreadyBusy: true);
+        } catch (e) {
+          if (mounted) {
+            setState(() {
+              _endBusy();
+              _status = 'Klasör okunamadı: $e';
+            });
+          }
+        }
+      } else if (localIsFileSync(path) && isMediaName(p.basename(path))) {
+        final size = await localFileLength(path);
         final name = p.basename(path);
         loose.add(
           FolderMediaRef(
@@ -266,16 +619,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             size: size,
             relativePath: name,
             localPath: path,
-            lastModified: await file.lastModified(),
-            readHead: (maxBytes) async {
-              final n = size < maxBytes ? size : maxBytes;
-              final raf = await file.open();
-              try {
-                return await raf.read(n);
-              } finally {
-                await raf.close();
-              }
-            },
+            lastModified: await localFileModified(path),
+            readHead: (maxBytes) => readLocalFileHead(path, maxBytes),
           ),
         );
       }
@@ -292,6 +637,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   Future<void> _ingest(
     List<FolderMediaRef> files, {
     required MediaSource source,
+    bool bulkMode = false,
   }) async {
     final repo = context.read<MediaRepository>();
     var withGps = 0;
@@ -299,20 +645,32 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     var missing = 0;
     var failed = 0;
     final kindCounts = {for (final k in MediaKind.values) k: 0};
+    final photoLimit = bulkMode ? bulkPhotoHeadBytes : photoHeadBytes;
+    final videoLimitGeneric = bulkMode ? bulkVideoHeadBytes : videoHeadBytes;
+    final videoLimitGps = bulkMode ? bulkGpsVideoHeadBytes : videoHeadBytes;
+    final progressEvery = bulkMode ? 40 : 8;
+    final persistEvery = bulkMode ? 64 : 8;
+    final yieldEvery = bulkMode ? 20 : 8;
 
     // Tür filtresi yalnızca harita/liste görünümünü etkiler — tarama her
     // zaman foto + video + GoPro + drone ekler.
     for (var i = 0; i < files.length; i++) {
       if (_cancel) break;
       final file = files[i];
-      if (mounted && i % 4 == 0) {
+      if (mounted && i % progressEvery == 0) {
         setState(
           () => _status =
               '${source.label}: ${i + 1}/${files.length} · $withGps GPS · $missing yok · ${kindCountsLabel(kindCounts)}',
         );
       }
+      if (i % yieldEvery == 0) {
+        await Future<void>.delayed(Duration.zero);
+      }
       final kind = detectKind(file.name) ??
           (file.isVideo ? MediaKind.video : MediaKind.photo);
+      final needsDeepGps =
+          kind == MediaKind.gopro || kind == MediaKind.drone;
+      final videoLimit = needsDeepGps ? videoLimitGps : videoLimitGeneric;
       final rel = file.relativePath ?? file.name;
       try {
         final existing = repo.findByIndex(
@@ -321,17 +679,18 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           size: file.size,
         );
         if (existing != null) {
-          // Eski kayıtta video önizlemesi yoksa tarama sırasında doldur.
-          if (existing.isVideo) {
+          // Toplu/SD taramada önizleme doldurma SD’yi kilitlemesin.
+          if (!bulkMode && existing.isVideo) {
             final hasPreview = repo.cachedBytes(existing.id) != null ||
                 await repo.bytesOf(existing.id) != null;
             if (!hasPreview) {
               Uint8List? head;
               try {
-                head = await file.readHead(videoHeadBytes);
+                head = await file.readHead(videoLimit);
               } catch (_) {}
               final preview = await extractVideoPreviewBytes(
                 localPath: file.localPath,
+                relativePath: file.relativePath,
                 head: head,
               );
               if (preview != null) {
@@ -350,29 +709,63 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         }
         final isPhoto = kind == MediaKind.photo;
         final headLimit = isPhoto
-            ? (file.size <= previewStoreBytes ? file.size : photoHeadBytes)
-            : videoHeadBytes;
-
-        Uint8List? head;
-        try {
-          head = await file.readHead(headLimit);
-        } catch (_) {
-          head = null;
-        }
+            ? (file.size <= 0
+                ? photoLimit
+                : (file.size <= previewStoreBytes ? file.size : photoLimit))
+            : videoLimit;
 
         LatLng? gps;
         DateTime? taken = file.lastModified;
-        if (head != null && head.isNotEmpty) {
+        if (file.knownLat != null && file.knownLng != null) {
+          gps = latLngOrNull(file.knownLat, file.knownLng);
+        }
+
+        Uint8List? head;
+        final needHead = gps == null ||
+            (!bulkMode &&
+                isPhoto &&
+                file.size > 0 &&
+                file.size <= previewStoreBytes);
+        if (needHead) {
+          try {
+            head = await file.readHead(
+              gps != null && isPhoto && file.size > 0 && !bulkMode
+                  ? file.size
+                  : headLimit,
+            );
+          } catch (_) {
+            head = null;
+          }
+        }
+
+        if (gps == null && head != null && head.isNotEmpty) {
           try {
             if (isPhoto) {
               gps = await extractExifGps(head);
               taken = await extractExifTakenAt(head) ?? taken;
             } else {
-              gps = extractHeaderGps(head);
+              gps = await extractVideoGps(
+                localPath: file.localPath,
+                head: head,
+                relativePath: file.relativePath,
+                // GoPro/DJI: toplu taramada da GPMF / derin head.
+                deepScan: !bulkMode || needsDeepGps,
+                maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
+              );
             }
           } catch (_) {
             // GPS okunamasa da dosya kütüphaneye girer.
           }
+        } else if (gps == null && !isPhoto) {
+          try {
+            gps = await extractVideoGps(
+              localPath: file.localPath,
+              head: head,
+              relativePath: file.relativePath,
+              deepScan: !bulkMode || needsDeepGps,
+              maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
+            );
+          } catch (_) {}
         }
         // NaN/Infinity asla Hive/jsonEncode veya MarkerLayer'a girmesin.
         if (gps != null &&
@@ -385,12 +778,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         } else {
           missing++;
         }
-        final preview = isPhoto
-            ? (head != null && file.size <= previewStoreBytes ? head : null)
-            : await extractVideoPreviewBytes(
-                localPath: file.localPath,
-                head: head,
-              );
+        // Toplu tarama: video önizlemeyi sonraya bırak (ızgara VideoThumb).
+        final preview = bulkMode
+            ? null
+            : (isPhoto
+                ? (head != null && file.size <= previewStoreBytes ? head : null)
+                : await extractVideoPreviewBytes(
+                    localPath: file.localPath,
+                    relativePath: file.relativePath,
+                    head: head,
+                  ));
         await repo.add(
           name: file.name,
           kind: kind,
@@ -402,7 +799,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           lat: gps?.latitude,
           lng: gps?.longitude,
           takenAt: taken,
-          persist: i == files.length - 1 || i % 8 == 7,
+          persist: i == files.length - 1 || i % persistEvery == persistEvery - 1,
           // Tarama bitene kadar haritayı yenileme — NaN pin anında çökertmesin.
           notify: false,
         );
@@ -416,14 +813,17 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     if (!mounted) return;
     final kindsText = kindCountsLabel(kindCounts);
     final failText = failed > 0 ? ' · $failed okunamadı' : '';
+    final tip = bulkMode && missing > 0
+        ? ' · GPS eksikler için “yeniden dene”'
+        : '';
     setState(() {
       _showMissing = false;
       _panelCluster = null;
       // Yeni eklenen türler haritada görünsün diye filtreyi aç.
       _kinds.addAll(MediaKind.values);
       _status = _cancel
-          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText'
-          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText';
+          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip'
+          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip';
     });
     _fitVisible();
   }
@@ -449,33 +849,80 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           );
         }
         try {
-          Uint8List? head;
-          final path = item.localPath;
-          if (path != null && path.isNotEmpty && File(path).existsSync()) {
-            final file = File(path);
-            final size = await file.length();
-            final limit = item.kind == MediaKind.photo
-                ? (size <= previewStoreBytes ? size : photoHeadBytes)
-                : videoHeadBytes;
-            final n = size < limit ? size : limit;
-            final raf = await file.open();
-            try {
-              head = await raf.read(n);
-            } finally {
-              await raf.close();
+          LatLng? gps;
+          DateTime? taken;
+          final phoneId = phoneAssetIdFromRelativePath(item.relativePath);
+          if (phoneId != null && hostIsAndroid) {
+            final got = await readPhoneAssetGps(
+              assetId: phoneId,
+              isPhoto: item.kind == MediaKind.photo,
+              headLimit: item.kind == MediaKind.photo
+                  ? photoHeadBytes
+                  : videoHeadBytes,
+            );
+            checked++;
+            if (got.lat != null && got.lng != null) {
+              gps = latLngOrNull(got.lat, got.lng);
+            }
+            if (gps == null && got.head != null && got.head!.isNotEmpty) {
+              gps = item.kind == MediaKind.photo
+                  ? await extractExifGps(got.head!)
+                  : await extractVideoGps(
+                      localPath: item.localPath,
+                      head: got.head,
+                      relativePath: item.relativePath,
+                    );
+              if (item.kind == MediaKind.photo) {
+                taken = await extractExifTakenAt(got.head!);
+              }
+            } else if (gps == null && item.kind != MediaKind.photo) {
+              gps = await extractVideoGps(
+                localPath: item.localPath,
+                relativePath: item.relativePath,
+              );
             }
           } else {
-            head = await repo.bytesOf(item.id);
+            Uint8List? head;
+            final path = item.localPath;
+            if (path != null &&
+                path.isNotEmpty &&
+                await localFileExists(path)) {
+              final size = await localFileLength(path);
+              final limit = item.kind == MediaKind.photo
+                  ? (size <= 0
+                      ? photoHeadBytes
+                      : (size <= previewStoreBytes ? size : photoHeadBytes))
+                  : videoHeadBytes;
+              if (size > 0 && limit > 0) {
+                head = await readLocalFileHead(path, limit);
+              }
+            } else {
+              head = await repo.bytesOf(item.id);
+            }
+            if (head == null || head.isEmpty) {
+              if (item.kind == MediaKind.photo) continue;
+              checked++;
+              gps = await extractVideoGps(
+                localPath: item.localPath,
+                relativePath: item.relativePath,
+              );
+              if (gps == null) continue;
+            } else {
+              checked++;
+              gps = item.kind == MediaKind.photo
+                  ? await extractExifGps(head)
+                  : await extractVideoGps(
+                      localPath: item.localPath,
+                      head: head,
+                      relativePath: item.relativePath,
+                    );
+              if (item.kind == MediaKind.photo) {
+                taken = await extractExifTakenAt(head);
+              }
+            }
+            if (gps == null) continue;
           }
-          if (head == null || head.isEmpty) continue;
-          checked++;
-          final gps = item.kind == MediaKind.photo
-              ? await extractExifGps(head)
-              : extractHeaderGps(head);
           if (gps == null) continue;
-          final taken = item.kind == MediaKind.photo
-              ? await extractExifTakenAt(head)
-              : null;
           await repo.updateLocation(
             id: item.id,
             lat: gps.latitude,
@@ -504,21 +951,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   void _closeMenus() {
     _sourcesOpen = false;
     _kindMenu = null;
-  }
-
-  void _onSearchChanged(String raw) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 180), () async {
-      if (!mounted) return;
-      setState(() => _query = raw);
-      if (raw.trim().length < 2) {
-        setState(() => _places = []);
-        return;
-      }
-      final hits = await searchPlaces(raw);
-      if (!mounted || _searchCtrl.text != raw) return;
-      setState(() => _places = hits);
-    });
   }
 
   void _goToPlace(PlaceHit place) {
@@ -668,6 +1100,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<MediaRepository>();
+    final settings = context.watch<AppSettings>();
+    final s = S.of(settings);
     // Tarama sürerken dondurulmuş (sonlu) pinler; bitince taze liste.
     final clusters = _busy ? _mapClusters : _safeClusters(repo);
     final missing = _missingOf(repo);
@@ -697,29 +1131,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         child: Scaffold(
           backgroundColor: const Color(0xFF071018),
           body: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Stack(
               children: [
-                _brandBar(clusters.isNotEmpty),
-                _filterBar(
-                  locatedCount: locatedCount,
-                  missingCount: missing.length,
-                  sourceCount: sourceCount,
-                ),
-                if (_sourcesOpen) _sourcesPanel(repo),
-                if (_kindMenu != null)
-                  _kindsPanel(
-                    located: _kindMenu == 'located',
-                    locatedItems: visible.where((m) => m.hasLocation),
-                    missingItems: missing,
-                  ),
-                _statusBar(
-                  repo: repo,
-                  visible: visible,
-                  clusterCount: clusters.length,
-                  missingCount: missing.length,
-                ),
-                Expanded(
+                Positioned.fill(
                   child: Row(
                     children: [
                       Expanded(child: _buildMain(clusters, missing)),
@@ -743,6 +1157,63 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     ],
                   ),
                 ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _mapTopBar(
+                        s: s,
+                        settings: settings,
+                        hasPins: clusters.isNotEmpty,
+                        locatedCount: locatedCount,
+                        missingCount: missing.length,
+                        sourceCount: sourceCount,
+                      ),
+                      if (_sourcesOpen)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                          child: Material(
+                            elevation: 8,
+                            color: const Color(0xF00A1C28),
+                            borderRadius: BorderRadius.circular(12),
+                            clipBehavior: Clip.antiAlias,
+                            child: _sourcesPanel(repo),
+                          ),
+                        ),
+                      if (_kindMenu != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                          child: Material(
+                            elevation: 8,
+                            color: const Color(0xF00A1C28),
+                            borderRadius: BorderRadius.circular(12),
+                            clipBehavior: Clip.antiAlias,
+                            child: _kindsPanel(
+                              located: _kindMenu == 'located',
+                              locatedItems:
+                                  visible.where((m) => m.hasLocation),
+                              missingItems: missing,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (_busy || (_status != null && _status!.isNotEmpty))
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: _statusChip(
+                      repo: repo,
+                      visible: visible,
+                      clusterCount: clusters.length,
+                      missingCount: missing.length,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -750,188 +1221,262 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ),
     );
 
-    return DropTarget(
-      onDragEntered: (_) => setState(() => _dropping = true),
-      onDragExited: (_) => setState(() => _dropping = false),
-      onDragDone: (d) async {
-        setState(() => _dropping = false);
-        await _onDrop(d);
-      },
+    return wrapDropTarget(
+      onDragging: (v) => setState(() => _dropping = v),
+      onDrop: _onDrop,
       child: Stack(
         children: [
           body,
           if (_dropping)
-            const ColoredBox(
-              color: Color(0x88000000),
+            ColoredBox(
+              color: const Color(0x88000000),
               child: Center(
                 child: Text(
-                  'Klasörü bırak — MedyaAtlas tarar, kopyalamaz',
-                  style: TextStyle(fontSize: 20, color: Colors.white),
+                  s.dropHint,
+                  style: const TextStyle(fontSize: 20, color: Colors.white),
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _brandBar(bool hasPins) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text.rich(
-                  TextSpan(
-                    text: 'MedyaAtlas',
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w600,
-                      height: 1.05,
-                      letterSpacing: -0.6,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: '  v$appVersion',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white.withValues(alpha: 0.55),
-                          letterSpacing: 0.2,
+          if (_forceUpdate != null)
+            Positioned.fill(
+              child: Material(
+                color: const Color(0xF0050E16),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.system_update_alt,
+                          size: 56,
+                          color: Color(0xFF2EC4B6),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        Text(
+                          'Zorunlu güncelleme',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _forceUpdate!.forceDialogBody,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton.icon(
+                          onPressed: _updateDialogOpen
+                              ? null
+                              : () => _promptUpdate(
+                                    _forceUpdate!,
+                                    force: true,
+                                  ),
+                          icon: const Icon(Icons.download),
+                          label: Text('v${_forceUpdate!.latestVersion} güncelle'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Dünya haritasında medya izlerin',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.55),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_busy)
-            TextButton(
-              onPressed: () => setState(() => _cancel = true),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFFF7A59),
               ),
-              child: const Text('İptal'),
-            )
-          else
-            IconButton(
-              tooltip: 'Tüm pinler',
-              onPressed: hasPins ? _fitVisible : null,
-              icon: const Icon(Icons.zoom_out_map),
             ),
         ],
       ),
     );
   }
 
-  Widget _filterBar({
+  Widget _mapTopBar({
+    required S s,
+    required AppSettings settings,
+    required bool hasPins,
     required int locatedCount,
     required int missingCount,
     required String sourceCount,
   }) {
     return Material(
-      color: const Color(0x85050E16),
+      color: const Color(0xE0050E16),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        padding: const EdgeInsets.fromLTRB(14, 10, 6, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: 240,
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: _onSearchChanged,
-                style: const TextStyle(fontSize: 13),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'Dosya veya konum ara…',
-                  prefixIcon: const Icon(Icons.search, size: 18),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.close, size: 16),
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            _onSearchChanged('');
-                          },
+            Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      text: s.appName,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        height: 1.05,
+                        letterSpacing: -0.4,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: '  v$appVersion',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.55),
+                          ),
                         ),
-                  filled: true,
-                  fillColor: const Color(0xFF0C2230),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
+                      ],
+                    ),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: const BorderSide(color: Color(0x1FF2F6F8)),
+                ),
+                _TopIcon(
+                  tooltip: s.settings,
+                  icon: Icons.settings_outlined,
+                  onPressed: _busy ? null : () => openSettingsSheet(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${s.developedBy}: $appDeveloperName',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.55),
+              ),
+            ),
+            if (!_busy) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  _TopIcon(
+                    tooltip: s.sources,
+                    selected: _sourcesOpen,
+                    icon: Icons.folder_outlined,
+                    badge: sourceCount,
+                    onPressed: () => setState(() {
+                      _sourcesOpen = !_sourcesOpen;
+                      if (_sourcesOpen) _kindMenu = null;
+                    }),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: const BorderSide(color: Color(0x1FF2F6F8)),
+                  _TopIcon(
+                    tooltip: s.gpsLocated,
+                    selected: !_showMissing && _kindMenu == 'located',
+                    icon: Icons.location_on_outlined,
+                    badge: '$locatedCount',
+                    onPressed: () => setState(() {
+                      _showMissing = false;
+                      _panelCluster = null;
+                      _sourcesOpen = false;
+                      _kindMenu = _kindMenu == 'located' ? null : 'located';
+                    }),
                   ),
+                  _TopIcon(
+                    tooltip: s.noLocation,
+                    selected: _showMissing,
+                    icon: Icons.location_off_outlined,
+                    badge: '$missingCount',
+                    onPressed: () => setState(() {
+                      _showMissing = true;
+                      _panelCluster = null;
+                      _sourcesOpen = false;
+                      _kindMenu = _kindMenu == 'missing' ? null : 'missing';
+                    }),
+                  ),
+                  _TopIcon(
+                    tooltip: s.mapLayers,
+                    icon: Icons.layers_outlined,
+                    onPressed: () => openMapLayerSheet(context),
+                  ),
+                  _TopIcon(
+                    tooltip: s.fitAll,
+                    icon: Icons.zoom_out_map,
+                    onPressed: hasPins ? _fitVisible : null,
+                  ),
+                  _TopIcon(
+                    tooltip: s.help,
+                    icon: Icons.help_outline,
+                    onPressed: () => openHelpSheet(context),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statusChip({
+    required MediaRepository repo,
+    required List<LibraryMedia> visible,
+    required int clusterCount,
+    required int missingCount,
+  }) {
+    final s = S.of(context.watch<AppSettings>());
+    final text = _busy
+        ? (_status ?? 'Dosyalar aranıyor…')
+        : (_status ??
+            _libraryStatus(
+              repo: repo,
+              visible: visible,
+              clusterCount: clusterCount,
+              missingCount: missingCount,
+            ));
+    return Material(
+      elevation: 8,
+      color: const Color(0xF00A1C28),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: _busy
+              ? const Color(0xFF2EC4B6)
+              : Colors.white.withValues(alpha: 0.22),
+          width: _busy ? 1.5 : 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+        child: Row(
+          children: [
+            if (_busy) ...[
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: Color(0xFF2EC4B6),
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.25,
+                  color: Colors.white.withValues(alpha: _busy ? 0.95 : 0.88),
                 ),
               ),
             ),
-            _CountPill(
-              label: 'Medya kaynakları',
-              count: sourceCount,
-              selected: _sourcesOpen,
-              onTap: () => setState(() {
-                _sourcesOpen = !_sourcesOpen;
-                if (_sourcesOpen) _kindMenu = null;
-              }),
-            ),
-            _CountPill(
-              label: 'GPS konumlu',
-              count: '$locatedCount',
-              selected: !_showMissing,
-              onTap: () => setState(() {
-                _showMissing = false;
-                _panelCluster = null;
-                _sourcesOpen = false;
-                _kindMenu = _kindMenu == 'located' ? null : 'located';
-              }),
-            ),
-            _CountPill(
-              label: 'Konum bulunamayan',
-              count: '$missingCount',
-              selected: _showMissing,
-              onTap: () => setState(() {
-                _showMissing = true;
-                _panelCluster = null;
-                _sourcesOpen = false;
-                _kindMenu = _kindMenu == 'missing' ? null : 'missing';
-              }),
-            ),
-            if (missingCount > 0)
+            if (_busy)
               TextButton(
-                onPressed: _busy ? null : _retryMissingGps,
-                child: const Text('Konum yokları yeniden dene'),
-              ),
-            if (MediaQuery.sizeOf(context).width >= 1100)
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: Text(
-                  'Geliştiren Ali Dinçer',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.4),
-                  ),
+                onPressed: () => setState(() {
+                  _cancel = true;
+                  _status = 'İptal ediliyor…';
+                }),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFFF7A59),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(56, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
+                child: Text(s.cancel),
+              )
+            else if (_status != null)
+              IconButton(
+                icon: const Icon(Icons.close, size: 16),
+                onPressed: () => setState(() => _status = null),
               ),
           ],
         ),
@@ -940,81 +1485,116 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   Widget _sourcesPanel(MediaRepository repo) {
-    return Material(
-      color: const Color(0xF00A1C28),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 280),
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          children: [
-            if (repo.sources.isEmpty)
-              Text(
-                _isDesktop
-                    ? 'Henüz kaynak yok. Klasör veya dosya ekle — tarama kopyalamaz. Sürükle-bırak veya Ctrl+O.'
-                    : 'Henüz kaynak yok. Klasör veya galeri ekle.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 280),
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        children: [
+          if (repo.sources.isEmpty)
+            Text(
+              _isDesktop
+                  ? 'Henüz kaynak yok. Klasör veya dosya ekle — tarama kopyalamaz. Sürükle-bırak veya Ctrl+O.'
+                  : 'Henüz kaynak yok. Klasör veya galeri ekle.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.6),
               ),
-            for (final source in repo.sources)
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  source.hidden
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                ),
-                title: Text(source.label, overflow: TextOverflow.ellipsis),
-                subtitle: Text(
-                  '${repo.items.where((m) => m.sourceId == source.id).length} medya',
-                ),
-                onTap: () => repo.setSourceHidden(source.id, !source.hidden),
-                trailing: IconButton(
-                  tooltip: 'Kaynağı sil',
-                  onPressed: () => repo.removeSource(source.id),
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.tonal(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          setState(_closeMenus);
-                          _importFolder();
-                        },
-                  child: const Text('+ Klasör ekle'),
-                ),
-                FilledButton.tonal(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          setState(_closeMenus);
-                          _importFiles();
-                        },
-                  child: const Text('+ Dosya seç'),
-                ),
-                if (!_isDesktop)
-                  FilledButton.tonal(
-                    onPressed: _busy
-                        ? null
-                        : () {
-                            setState(_closeMenus);
-                            _importGallery();
-                          },
-                    child: const Text('+ Galeri'),
-                  ),
-              ],
             ),
-          ],
-        ),
+          for (final source in repo.sources)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                !repo.isSourceMounted(source)
+                    ? Icons.usb_off_outlined
+                    : source.hidden
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+              ),
+              title: Text(source.label, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                [
+                  '${repo.items.where((m) => m.sourceId == source.id).length} medya',
+                  if (source.isRemovableVolume)
+                    repo.isSourceMounted(source)
+                        ? 'disk bağlı'
+                        : 'disk çıkarıldı — pinler gizli',
+                ].join(' · '),
+              ),
+              onTap: () => repo.setSourceHidden(source.id, !source.hidden),
+              trailing: IconButton(
+                tooltip: 'Kaynağı sil',
+                onPressed: () => repo.removeSource(source.id),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonal(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(_closeMenus);
+                        _importFolder();
+                      },
+                child: const Text('+ Klasör ekle'),
+              ),
+              FilledButton.tonal(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(_closeMenus);
+                        _importExternalVolume();
+                      },
+                child: Text(
+                  _isDesktop ? '+ Disk / SD' : '+ SD / USB disk',
+                ),
+              ),
+              FilledButton.tonal(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(_closeMenus);
+                        _importFiles();
+                      },
+                child: const Text('+ Dosya seç'),
+              ),
+              if (!_isDesktop)
+                FilledButton.tonal(
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          setState(_closeMenus);
+                          _importEntirePhone();
+                        },
+                  child: const Text('+ Tüm telefon'),
+                ),
+              if (!_isDesktop)
+                FilledButton.tonal(
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          setState(_closeMenus);
+                          _importGallery();
+                        },
+                  child: const Text('+ Galeri'),
+                ),
+              FilledButton.tonal(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(_closeMenus);
+                        _importGoogleDrive();
+                      },
+                child: const Text('+ Google Drive'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1025,86 +1605,46 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     required List<LibraryMedia> missingItems,
   }) {
     final pool = located ? locatedItems : missingItems;
-    return Material(
-      color: const Color(0xF00A1C28),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                for (final kind in MediaKind.values)
-                  FilterChip(
-                    selected: _kinds.contains(kind),
-                    label: Text(
-                      '${_kindTitle(kind)} ${pool.where((m) => m.kind == kind).length}',
-                    ),
-                    onSelected: (on) => _toggleKind(kind, on),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            located
+                ? S.of(context.watch<AppSettings>()).gpsLocated
+                : S.of(context.watch<AppSettings>()).noLocation,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final kind in MediaKind.values)
+                FilterChip(
+                  selected: _kinds.contains(kind),
+                  label: Text(
+                    '${_kindTitle(kind)} ${pool.where((m) => m.kind == kind).length}',
                   ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Filtre yalnızca görünümü etkiler — tarama foto + video + GoPro + drone ekler.',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.45),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statusBar({
-    required MediaRepository repo,
-    required List<LibraryMedia> visible,
-    required int clusterCount,
-    required int missingCount,
-  }) {
-    if (!_busy && repo.items.isEmpty && _status == null) {
-      return const SizedBox.shrink();
-    }
-    final text = _busy
-        ? '${_status ?? 'Dosyalar aranıyor…'} — durdurmak için İptal'
-        : (_status ??
-            _libraryStatus(
-              repo: repo,
-              visible: visible,
-              clusterCount: clusterCount,
-              missingCount: missingCount,
-            ));
-    return Material(
-      color: const Color(0x33000000),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
-        child: Row(
-          children: [
-            if (_busy) ...[
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 10),
+                  onSelected: (on) => _toggleKind(kind, on),
+                ),
             ],
-            Expanded(
-              child: Text(
-                text,
-                style: const TextStyle(fontSize: 13),
-              ),
+          ),
+          if (!located && missingItems.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _busy ? null : _retryMissingGps,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(S.of(context.read<AppSettings>()).retryMissing),
             ),
-            if (!_busy && _status != null)
-              IconButton(
-                icon: const Icon(Icons.close, size: 16),
-                onPressed: () => setState(() => _status = null),
-              ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -1129,8 +1669,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate:
-                        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
                     userAgentPackageName: 'com.medyaatlas.app',
                   ),
                   MarkerLayer(
@@ -1142,7 +1681,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           Positioned(
             left: 12,
             right: 12,
-            top: 8,
+            top: 56,
             child: Material(
               elevation: 6,
               borderRadius: BorderRadius.circular(8),
@@ -1187,63 +1726,37 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 }
 
-class _CountPill extends StatelessWidget {
-  const _CountPill({
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
+class _TopIcon extends StatelessWidget {
+  const _TopIcon({
+    required this.tooltip,
+    required this.icon,
+    this.badge,
+    this.selected = false,
+    this.onPressed,
   });
 
-  final String label;
-  final String count;
+  final String tooltip;
+  final IconData icon;
+  final String? badge;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? const Color(0x212EC4B6) : const Color(0x0DFFFFFF),
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: selected
-              ? const Color(0x732EC4B6)
-              : const Color(0x1FF2F6F8),
+    final color = selected
+        ? const Color(0xFF2EC4B6)
+        : Colors.white.withValues(alpha: 0.85);
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Badge(
+        isLabelVisible: badge != null && badge != '0' && badge != '0/0',
+        label: Text(
+          badge ?? '',
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
         ),
-      ),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-                decoration: BoxDecoration(
-                  color: const Color(0x14FFFFFF),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  count,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        backgroundColor: const Color(0xFFFF7A59),
+        child: Icon(icon, color: color),
       ),
     );
   }
@@ -1426,7 +1939,7 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
   Future<void> _load() async {
     final cached = widget.repo.cachedBytes(widget.item.id) ??
         await widget.repo.bytesOf(widget.item.id);
-    if (cached != null && cached.isNotEmpty) {
+    if (cached != null && cached.isNotEmpty && looksLikeJpeg(cached)) {
       if (mounted) {
         setState(() {
           _bytes = cached;
@@ -1437,6 +1950,7 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
     }
     final extracted = await extractVideoPreviewBytes(
       localPath: widget.item.localPath,
+      relativePath: widget.item.relativePath,
     );
     if (extracted != null && extracted.isNotEmpty) {
       await widget.repo.putPreviewBytes(widget.item.id, extracted);
@@ -1458,7 +1972,15 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
       return Stack(
         fit: StackFit.expand,
         children: [
-          OrientedMemoryImage(bytes, fit: BoxFit.cover),
+          Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, error, stack) => VideoThumb(
+              path: widget.item.localPath,
+              kind: widget.item.kind,
+            ),
+          ),
           const Align(
             alignment: Alignment.bottomRight,
             child: Padding(
@@ -1473,21 +1995,22 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
         ],
       );
     }
-    return ColoredBox(
-      color: Colors.black26,
-      child: Center(
-        child: _loading
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(
-                widget.item.kind == MediaKind.drone
-                    ? Icons.flight
-                    : Icons.videocam,
-              ),
-      ),
+    if (_loading) {
+      return const ColoredBox(
+        color: Colors.black26,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    // Önbellek yoksa video oynatıcı ile ilk kareyi göster.
+    return VideoThumb(
+      path: widget.item.localPath,
+      kind: widget.item.kind,
     );
   }
 }

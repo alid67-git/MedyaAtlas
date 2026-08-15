@@ -3,11 +3,17 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medyaatlas/models/library_media.dart';
 import 'package:medyaatlas/models/map_track.dart';
+import 'package:medyaatlas/services/app_updater.dart';
 import 'package:medyaatlas/services/cluster.dart';
+import 'package:medyaatlas/services/folder_types.dart';
 import 'package:medyaatlas/services/geo.dart';
+import 'package:medyaatlas/services/gpmf_gps.dart';
 import 'package:medyaatlas/services/header_gps.dart';
 import 'package:medyaatlas/services/media_kind.dart';
+import 'package:medyaatlas/services/scan_paths.dart';
+import 'package:medyaatlas/services/video_gps.dart';
 import 'package:medyaatlas/services/video_preview.dart';
+import 'package:medyaatlas/services/volume_mount.dart';
 
 LibraryMedia _photo({
   required String id,
@@ -88,11 +94,21 @@ void main() {
       label: 'GoPro',
       addedAt: DateTime.utc(2026, 8, 1),
       hidden: true,
+      rootPath: r'D:\Photos',
     );
     final copy = MediaSource.fromJson(source.toJson());
     expect(copy.id, 's1');
     expect(copy.label, 'GoPro');
     expect(copy.hidden, isTrue);
+    expect(copy.rootPath, r'D:\Photos');
+    expect(copy.isRemovableVolume, isTrue);
+  });
+
+  test('normalizeRootPath sürücü / klasör', () {
+    expect(displayNameForRoot(r'D:\GoPro'), 'GoPro');
+    expect(displayNameForRoot(r'D:/DCIM'), 'DCIM');
+    expect(displayNameForRoot(r'E:\'), 'E');
+    expect(displayNameForRoot('/media/usb/Photos'), 'Photos');
   });
 
   test('groupByLocation 40 m yarıçap', () {
@@ -127,13 +143,48 @@ void main() {
   test('detectKind GoPro ve DJI', () {
     expect(detectKind('GX010123.MP4'), MediaKind.gopro);
     expect(detectKind('GH010123.mp4'), MediaKind.gopro);
+    expect(detectKind('GS010099.MP4'), MediaKind.gopro);
     expect(detectKind('DJI_0123.MP4'), MediaKind.drone);
+    expect(detectKind('Osmo_001.MP4'), MediaKind.drone);
     expect(detectKind('tatil.jpg'), MediaKind.photo);
     expect(detectKind('clip.MOV'), MediaKind.video);
     expect(detectKind('film.mkv'), MediaKind.video);
     expect(detectKind('film.flv'), MediaKind.video);
     expect(detectKind('notlar.txt'), isNull);
     expect(detectKind('proxy.lrv'), isNull);
+  });
+
+  test('GPMF GPS5 ilk konum', () {
+    // DEVC > STRM > SCAL + GPS5 (lat 41.0082, lon 28.9784, scale 1e7)
+    final bytes = Uint8List.fromList([
+      120, 120, 120, 120, 68, 69, 86, 67, 0, 64, 0, 1, 83, 84, 82, 77, 0, 56, 0,
+      1, 83, 67, 65, 76, 108, 4, 0, 5, 0, 152, 150, 128, 0, 152, 150, 128, 0, 0,
+      3, 232, 0, 0, 0, 100, 0, 0, 0, 100, 71, 80, 83, 53, 108, 20, 0, 1, 24, 113,
+      90, 208, 17, 69, 192, 192, 0, 1, 134, 160, 0, 0, 0, 0, 0, 0, 0, 0, 121, 121,
+      121, 121,
+    ]);
+    final point = extractGpmfGps(bytes);
+    expect(point, isNotNull);
+    expect(point!.latitude, closeTo(41.0082, 0.0001));
+    expect(point.longitude, closeTo(28.9784, 0.0001));
+  });
+
+  test('DJI SRT konum ayrıştırma', () {
+    const modern = '''
+1
+00:00:00,000 --> 00:00:00,033
+[latitude: 41.008200] [longitude: 28.978400]
+''';
+    final a = parseDjiSrtGps(modern);
+    expect(a, isNotNull);
+    expect(a!.latitude, closeTo(41.0082, 0.0001));
+    expect(a.longitude, closeTo(28.9784, 0.0001));
+
+    const legacy = 'GPS(59.302335,18.203059,132.860)';
+    final b = parseDjiSrtGps(legacy);
+    expect(b, isNotNull);
+    expect(b!.latitude, closeTo(59.302335, 0.0001));
+    expect(b.longitude, closeTo(18.203059, 0.0001));
   });
 
   test('kindCountsLabel özet', () {
@@ -210,5 +261,76 @@ void main() {
     expect(found!.first, 0xFF);
     expect(found[1], 0xD8);
     expect(found.last, 0xD9);
+  });
+
+  test('compareVersions semver sırası', () {
+    expect(compareVersions('0.7.3', '0.7.2'), 1);
+    expect(compareVersions('0.7.2', '0.7.3'), -1);
+    expect(compareVersions('0.7.3', '0.7.3'), 0);
+    expect(compareVersions('1.0.0', '0.9.9'), 1);
+    expect(compareVersions('v0.8.0', '0.7.3'), 1);
+  });
+
+  test('zorunlu güncelleme 2 sürüm geride', () {
+    expect(
+      versionsBehind(current: '1.0.5', latest: '1.0.5'),
+      0,
+    );
+    expect(
+      versionsBehind(current: '1.0.4', latest: '1.0.5'),
+      1,
+    );
+    expect(
+      isForceUpdateRequired(current: '1.0.4', latest: '1.0.5'),
+      isFalse,
+    );
+    expect(
+      versionsBehind(current: '1.0.3', latest: '1.0.5'),
+      2,
+    );
+    expect(
+      isForceUpdateRequired(current: '1.0.3', latest: '1.0.5'),
+      isTrue,
+    );
+    expect(
+      isForceUpdateRequired(current: '0.8.1', latest: '1.0.5'),
+      isTrue,
+    );
+  });
+
+  test('SD Android/data klasörleri atlanır', () {
+    expect(
+      shouldSkipScanDirectory('/storage/56A9-7F6A/Android/data'),
+      isTrue,
+    );
+    expect(
+      shouldSkipScanDirectory('/storage/56A9-7F6A/Android/obb'),
+      isTrue,
+    );
+    expect(
+      shouldSkipScanDirectory('/storage/56A9-7F6A/Android'),
+      isTrue,
+    );
+    expect(
+      shouldSkipScanDirectory('/storage/56A9-7F6A/DCIM/Camera'),
+      isFalse,
+    );
+    expect(
+      shouldSkipScanDirectory(r'D:\DCIM'),
+      isFalse,
+    );
+    expect(shouldSkipScanDirectory(r'E:\$RECYCLE.BIN'), isTrue);
+  });
+
+  test('büyük diskte medya klasörleri önce', () {
+    expect(mediaScanPriority('/mnt/disk/DCIM'), lessThan(mediaScanPriority('/mnt/disk/Docs')));
+    expect(mediaScanPriority('/mnt/disk/GoPro'), 0);
+    expect(mediaScanPriority(r'D:\GoPro'), 0);
+    expect(mediaScanPriority('/mnt/disk/DJI_001'), 0);
+    expect(mediaScanPriority('/mnt/disk/random'), greaterThan(0));
+  });
+
+  test('bulk GPS video head GoPro için daha büyük', () {
+    expect(bulkGpsVideoHeadBytes, greaterThan(bulkVideoHeadBytes));
   });
 }

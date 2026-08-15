@@ -1,0 +1,208 @@
+import '../services/app_settings.dart';
+
+/// Basit TR / EN / DE metinleri (kod içi; gen-l10n yok).
+class S {
+  S(this.lang);
+  final AppLang lang;
+
+  static S of(AppSettings settings) => S(settings.lang);
+
+  String get appName => 'MedyaAtlas';
+
+  String get developedBy => switch (lang) {
+        AppLang.tr => 'Geliştiren',
+        AppLang.en => 'Developed by',
+        AppLang.de => 'Entwickelt von',
+      };
+
+  String get sources => switch (lang) {
+        AppLang.tr => 'Medya kaynakları',
+        AppLang.en => 'Media sources',
+        AppLang.de => 'Medienquellen',
+      };
+
+  String get gpsLocated => switch (lang) {
+        AppLang.tr => 'GPS konumlu',
+        AppLang.en => 'With GPS',
+        AppLang.de => 'Mit GPS',
+      };
+
+  String get noLocation => switch (lang) {
+        AppLang.tr => 'Konum bulunamayan',
+        AppLang.en => 'No location',
+        AppLang.de => 'Ohne Standort',
+      };
+
+  String get fitAll => switch (lang) {
+        AppLang.tr => 'Tüm pinler',
+        AppLang.en => 'Fit all pins',
+        AppLang.de => 'Alle Pins',
+      };
+
+  String get mapLayers => switch (lang) {
+        AppLang.tr => 'Harita türü',
+        AppLang.en => 'Map type',
+        AppLang.de => 'Kartentyp',
+      };
+
+  String get settings => switch (lang) {
+        AppLang.tr => 'Ayarlar',
+        AppLang.en => 'Settings',
+        AppLang.de => 'Einstellungen',
+      };
+
+  String get help => switch (lang) {
+        AppLang.tr => 'Yardım',
+        AppLang.en => 'Help',
+        AppLang.de => 'Hilfe',
+      };
+
+  String get language => switch (lang) {
+        AppLang.tr => 'Dil',
+        AppLang.en => 'Language',
+        AppLang.de => 'Sprache',
+      };
+
+  String get version => switch (lang) {
+        AppLang.tr => 'Sürüm',
+        AppLang.en => 'Version',
+        AppLang.de => 'Version',
+      };
+
+  String get versionHistory => switch (lang) {
+        AppLang.tr => 'Sürüm geçmişi',
+        AppLang.en => 'Version history',
+        AppLang.de => 'Versionsverlauf',
+      };
+
+  String get cancel => switch (lang) {
+        AppLang.tr => 'İptal',
+        AppLang.en => 'Cancel',
+        AppLang.de => 'Abbrechen',
+      };
+
+  String get close => switch (lang) {
+        AppLang.tr => 'Kapat',
+        AppLang.en => 'Close',
+        AppLang.de => 'Schließen',
+      };
+
+  String get retryMissing => switch (lang) {
+        AppLang.tr => 'Konum yokları yeniden dene',
+        AppLang.en => 'Retry missing locations',
+        AppLang.de => 'Fehlende Standorte erneut prüfen',
+      };
+
+  String get dropHint => switch (lang) {
+        AppLang.tr => 'Klasörü bırak — MedyaAtlas tarar, kopyalamaz',
+        AppLang.en => 'Drop folder — MedyaAtlas indexes, does not copy',
+        AppLang.de => 'Ordner ablegen — MedyaAtlas indexiert, kopiert nicht',
+      };
+
+  String get layerSatellite => switch (lang) {
+        AppLang.tr => 'Uydu',
+        AppLang.en => 'Satellite',
+        AppLang.de => 'Satellit',
+      };
+
+  String get layerStreets => switch (lang) {
+        AppLang.tr => 'Sokak',
+        AppLang.en => 'Streets',
+        AppLang.de => 'Straßen',
+      };
+
+  String get layerTopo => switch (lang) {
+        AppLang.tr => 'Topo',
+        AppLang.en => 'Topo',
+        AppLang.de => 'Topo',
+      };
+
+  String get layerDark => switch (lang) {
+        AppLang.tr => 'Koyu',
+        AppLang.en => 'Dark',
+        AppLang.de => 'Dunkel',
+      };
+
+  String mapLayerLabel(MapLayer layer) => switch (layer) {
+        MapLayer.satellite => layerSatellite,
+        MapLayer.streets => layerStreets,
+        MapLayer.topo => layerTopo,
+        MapLayer.dark => layerDark,
+      };
+
+  String langLabel(AppLang value) => switch (value) {
+        AppLang.tr => 'Türkçe',
+        AppLang.en => 'English',
+        AppLang.de => 'Deutsch',
+      };
+
+  String get helpTitle => switch (lang) {
+        AppLang.tr => 'MedyaAtlas Yardım',
+        AppLang.en => 'MedyaAtlas Help',
+        AppLang.de => 'MedyaAtlas Hilfe',
+      };
+
+  /// Uzun yardım metni (markdown benzeri düz metin).
+  String get helpBody => switch (lang) {
+        AppLang.tr => '''
+MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasında gösterir. Dosyaları kopyalamaz; yalnızca yerel dizini tarar.
+
+## Ne yapabilirsiniz?
+• Kaynaklar: klasör, SD/USB disk, dosya, galeri, tüm telefon veya Google Drive ekleyin
+• SD/USB: disk çıkınca pinler gizlenir; yeniden takılınca otomatik görünür (indeks silinmez)
+• GPS konumlu: haritada pin olarak görünür
+• Konum yok: GPS’siz medya listesi; “yeniden dene” EXIF’i tekrar okur
+• Harita türü: uydu / sokak / topo / koyu
+• Güncelleme: uygulama açılışta GitHub Releases’e bakar (Android)
+
+## İzinler (Android)
+Fotoğraf, video ve “medya konumu” (EXIF GPS) gerekir. Bilinmeyen uygulamalardan yükleme, güncelleme için gereklidir.
+
+## İndirme
+https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+
+## Notlar
+Google Fotoğraflar bulutu taranmaz; yerel dosya veya Drive gerekir. Windows’ta run_windows.bat / C:\\src\\MedyaAtlas kullanılır.
+''',
+        AppLang.en => '''
+MedyaAtlas shows GPS locations from your photos and videos on a world map. It does not copy files; it only indexes local media.
+
+## What you can do
+• Sources: add folder, SD/USB disk, files, gallery, entire phone, or Google Drive
+• SD/USB: pins hide when the disk is removed; they return automatically when remounted (index kept)
+• With GPS: appear as map pins
+• No location: list of media without GPS; retry re-reads EXIF
+• Map type: satellite / streets / topo / dark
+• Updates: on launch the app checks GitHub Releases (Android)
+
+## Permissions (Android)
+Photos, videos, and media location (EXIF GPS) are required. Install unknown apps is needed for updates.
+
+## Download
+https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+
+## Notes
+Google Photos cloud is not scanned; use local files or Drive. On Windows use run_windows.bat / C:\\src\\MedyaAtlas.
+''',
+        AppLang.de => '''
+MedyaAtlas zeigt GPS-Positionen aus Fotos und Videos auf einer Weltkarte. Dateien werden nicht kopiert; nur lokal indexiert.
+
+## Funktionen
+• Quellen: Ordner, SD/USB-Datenträger, Dateien, Galerie, ganzes Telefon oder Google Drive
+• SD/USB: Pins verschwinden beim Auswerfen; nach erneutem Anschließen automatisch wieder da (Index bleibt)
+• Mit GPS: als Pins auf der Karte
+• Ohne Standort: Liste; „erneut prüfen“ liest EXIF erneut
+• Kartentyp: Satellit / Straßen / Topo / Dunkel
+• Updates: beim Start Prüfung über GitHub Releases (Android)
+
+## Berechtigungen (Android)
+Fotos, Videos und Medienstandort (EXIF-GPS) sind nötig. Unbekannte Apps installieren wird für Updates benötigt.
+
+## Download
+https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+
+## Hinweise
+Google Fotos Cloud wird nicht gescannt; lokale Dateien oder Drive nutzen. Unter Windows: run_windows.bat / C:\\src\\MedyaAtlas.
+''',
+      };
+}

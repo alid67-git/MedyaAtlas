@@ -8,12 +8,43 @@ import 'folder_types.dart';
 
 export 'folder_types.dart';
 
-Future<FolderPickResult?> pickMediaFolder() async {
+/// iPhone Safari’de klasör seçimi yok — çoklu foto/video seçici.
+/// Masaüstü Chrome’da mümkünse klasör (webkitdirectory) dener.
+Future<FolderPickResult?> pickMediaFolder({
+  void Function(int found, String currentPath)? onProgress,
+  bool Function()? isCancelled,
+}) async {
+  final folder = await _pickWithInput(directory: true);
+  if (folder != null && folder.items.isNotEmpty) return folder;
+  return _pickWithInput(directory: false);
+}
+
+Future<FolderPickResult?> pickExternalVolume({
+  void Function(int found, String currentPath)? onProgress,
+  bool Function()? isCancelled,
+}) async {
+  // Web’de harici disk kökü yok; aynı seçici.
+  return pickMediaFolder(onProgress: onProgress, isCancelled: isCancelled);
+}
+
+Future<FolderPickResult> scanMediaDirectory(
+  String dirPath, {
+  String? folderName,
+  void Function(int found, String currentPath)? onProgress,
+  bool Function()? isCancelled,
+}) async {
+  throw UnsupportedError('Klasör yolu tarama web’de yok; dosya seçici kullanın.');
+}
+
+Future<FolderPickResult?> _pickWithInput({required bool directory}) async {
   final input = web.HTMLInputElement()
     ..type = 'file'
     ..multiple = true;
-  input.setAttribute('webkitdirectory', '');
-  input.setAttribute('directory', '');
+  input.accept = 'image/*,video/*,.jpg,.jpeg,.png,.heic,.heif,.mp4,.mov,.m4v';
+  if (directory) {
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+  }
 
   final done = Completer<FolderPickResult?>();
 
@@ -29,7 +60,7 @@ Future<FolderPickResult?> pickMediaFolder() async {
         finish(null);
         return;
       }
-      finish(_fromFileList(list));
+      finish(_fromFileList(list, directory: directory));
     }.toJS,
   );
   input.addEventListener(
@@ -43,9 +74,12 @@ Future<FolderPickResult?> pickMediaFolder() async {
   return done.future;
 }
 
-FolderPickResult _fromFileList(web.FileList list) {
+FolderPickResult _fromFileList(
+  web.FileList list, {
+  required bool directory,
+}) {
   final items = <FolderMediaRef>[];
-  var folderName = 'klasör';
+  var folderName = directory ? 'klasör' : 'Seçilen medya';
 
   for (var i = 0; i < list.length; i++) {
     final file = list.item(i);
@@ -72,12 +106,12 @@ FolderPickResult _fromFileList(web.FileList list) {
     );
   }
 
+  if (items.isEmpty && !directory) {
+    return FolderPickResult(folderName: folderName, items: items);
+  }
+
   return FolderPickResult(
-    folderName: folderName,
+    folderName: items.isEmpty ? folderName : folderName,
     items: items,
   );
-}
-
-Future<FolderPickResult> scanMediaDirectory(String dirPath) async {
-  throw UnsupportedError('Klasör tarama web’de yok.');
 }

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release etiketi (örn. v0.6.6). Boşsa pubspec version kullanılır.'
+        description: 'Release etiketi (örn. v0.7.1). Boşsa pubspec version kullanılır.'
         required: false
         type: string
 
@@ -17,6 +17,8 @@ permissions:
 jobs:
   android-apk:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,7 +42,16 @@ jobs:
         run: flutter pub get
 
       - name: Build release APK
-        run: flutter build apk --release
+        env:
+          GOOGLE_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
+        run: |
+          if [ -n "$GOOGLE_SERVER_CLIENT_ID" ]; then
+            flutter build apk --release \
+              --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
+          else
+            echo "UYARI: GOOGLE_SERVER_CLIENT_ID secret yok; Drive Sign-In için SHA-1 + OAuth gerekir."
+            flutter build apk --release
+          fi
 
       - name: Resolve tag and copy APK
         id: meta
@@ -58,7 +69,7 @@ jobs:
             v*) ;;
             *) TAG="v$TAG" ;;
           esac
-          NAME="MedyaAtlas-${TAG#v}-android.apk"
+          NAME="MedyaAtlas.apk"
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk "dist/$NAME"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -69,8 +80,8 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.meta.outputs.apk_name }}
-          path: dist/${{ steps.meta.outputs.apk_name }}
+          name: MedyaAtlas-apk
+          path: dist/MedyaAtlas.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -78,16 +89,66 @@ jobs:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: MedyaAtlas ${{ steps.meta.outputs.tag }}
           generate_release_notes: true
-          files: dist/${{ steps.meta.outputs.apk_name }}
+          files: dist/MedyaAtlas.apk
           body: |
-            ## Android APK
-            Telefona indir → kur (bilinmeyen kaynaklara izin gerekebilir).
+            ## İndirme (sabit dosya adları)
 
-            Dosya: `${{ steps.meta.outputs.apk_name }}`
+            - Android: https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+            - Windows: https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas-windows.zip
+
+            Uygulama açılışta GitHub Releases’e bakıp “güncelleme var” der ve indirir
+            (Android APK kurulum / Windows zip).
+
+            **Not:** 0.7.8’den itibaren APK imzası sabittir. Daha eski sürüm kuruluysa
+            bir kez kaldırıp yeniden kurun; sonraki güncellemeler silmeden olur.
 
             ### Not
-            - Sideload APK (Play Store imzası değil; debug imza ile release derleme)
-            - Windows için ayrı zip release ileride eklenecek
+            - Sideload APK (Play Store imzası değil)
             - Kaynak: https://github.com/alid67-git/MedyaAtlas
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  windows-zip:
+    runs-on: windows-latest
+    needs: android-apk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Zip release folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $src = "build\windows\x64\runner\Release"
+          if (-not (Test-Path $src)) { throw "Windows Release klasörü yok: $src" }
+          Compress-Archive -Path "$src\*" -DestinationPath "dist\MedyaAtlas-windows.zip" -Force
+          Get-Item "dist\MedyaAtlas-windows.zip" | Format-List Name, Length
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MedyaAtlas-windows
+          path: dist/MedyaAtlas-windows.zip
+
+      - name: Attach zip to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.android-apk.outputs.tag }}
+          files: dist/MedyaAtlas-windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
