@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:exif/exif.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 /// EXIF Orientation (1–8). Yoksa 1.
 Future<int> exifOrientationOf(Uint8List bytes) async {
@@ -108,7 +108,15 @@ class OrientedMemoryImage extends StatelessWidget {
     return FutureBuilder<int>(
       future: exifOrientationOf(bytes),
       builder: (context, snap) {
-        final img = Image.memory(bytes, fit: fit, gaplessPlayback: true);
+        final img = Image.memory(
+          bytes,
+          fit: fit,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) => const ColoredBox(
+            color: Color(0xFF1A2A36),
+            child: Icon(Icons.broken_image_outlined, color: Color(0x88FFFFFF)),
+          ),
+        );
         return applyExifOrientation(img, snap.data ?? 1);
       },
     );

@@ -152,7 +152,9 @@ class _Page extends StatelessWidget {
     }
     final repo = context.read<MediaRepository>();
     final cached = repo.cachedBytes(media.id);
-    if (cached != null) {
+    if (cached != null &&
+        looksLikeJpeg(cached) &&
+        !looksLikeHeic(cached)) {
       return _ZoomPhoto(bytes: cached);
     }
     return FutureBuilder<Uint8List?>(
@@ -162,11 +164,14 @@ class _Page extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
         final bytes = snap.data;
-        if (bytes == null) {
+        if (bytes == null ||
+            bytes.isEmpty ||
+            looksLikeHeic(bytes) ||
+            !looksLikeJpeg(bytes)) {
           return Center(
             child: Text(
               kIsWeb
-                  ? 'Fotoğraf yok. Galeriden yeniden seçin.'
+                  ? 'Fotoğraf yok. Galeriden yeniden seçin (HEIC için blob gerekir).'
                   : 'Fotoğraf bulunamadı.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white54),

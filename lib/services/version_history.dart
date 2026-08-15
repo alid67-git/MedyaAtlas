@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.18',
+    tr: 'Web: çoklu seçim donması azaltıldı; HEIC önizleme; GoPro HEVC için Safari’de aç.',
+    en: 'Web: faster multi-select; HEIC thumbs; open GoPro HEVC in Safari.',
+    de: 'Web: schnellere Mehrfachauswahl; HEIC-Vorschau; GoPro-HEVC in Safari.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.17',
     tr: 'GPS’siz medya listesi üst çubuğun arkasında kalmıyor; başlık altında açık liste.',
     en: 'No-GPS media list no longer hides behind the top bar; clear list below header.',

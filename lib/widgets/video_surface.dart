@@ -9,6 +9,7 @@ import '../models/library_media.dart';
 import '../services/host_platform.dart';
 import '../services/media_mime.dart';
 import '../services/photo_orient.dart';
+import '../services/web_open.dart';
 import 'process_host.dart';
 import 'video_file.dart';
 
@@ -276,17 +277,19 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       await controller.play();
     } catch (_) {
       await controller.dispose();
-      // Codec (HEVC vb.) uygulama içinde yoksa telefon/sistem oynatıcısına düş.
+      // Codec (HEVC vb.) uygulama içinde yoksa telefon/sistem/Safari’ye düş.
       await _openExternally();
       if (mounted) {
         setState(() {
           _loading = false;
           _status = _openedExternal
-              ? (hostIsAndroid
-                  ? 'Telefon oynatıcısında açıldı.'
-                  : 'Sistem oynatıcısında açıldı.')
+              ? (kIsWeb
+                  ? 'Safari’de açıldı (HEVC / GoPro).'
+                  : hostIsAndroid
+                      ? 'Telefon oynatıcısında açıldı.'
+                      : 'Sistem oynatıcısında açıldı.')
               : (kIsWeb
-                  ? 'Video açılamadı (tarayıcı codec / HEVC).'
+                  ? 'Uygulama içi oynatılamadı. «Safari’de aç» deneyin.'
                   : 'Video açılamadı.');
         });
       }
@@ -318,8 +321,15 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
 
   Future<void> _openExternally() async {
     final path = _resolvedPath ?? widget.path;
-    if (path == null || path.isEmpty || isWebPlayableUrl(path)) return;
+    if (path == null || path.isEmpty) return;
     try {
+      if (kIsWeb && isWebPlayableUrl(path)) {
+        openUrlInNewTab(path);
+        _openedExternal = true;
+        if (mounted) setState(() {});
+        return;
+      }
+      if (isWebPlayableUrl(path)) return;
       if (hostIsWindows) {
         await openPathWithWindowsShell(path);
       } else {
@@ -398,6 +408,12 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                     tooltip: _externalReopenLabel(),
                     onPressed: _openExternally,
                     icon: const Icon(Icons.open_in_new),
+                  )
+                else
+                  IconButton(
+                    tooltip: 'Safari’de aç',
+                    onPressed: _openExternally,
+                    icon: const Icon(Icons.open_in_new),
                   ),
               ],
             ),
@@ -436,12 +452,12 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                 style: const TextStyle(color: Colors.white54),
               ),
             ],
-            if (!kIsWeb && (_openedExternal || _windowsExternalFirst)) ...[
+            if (_openedExternal || _windowsExternalFirst || kIsWeb) ...[
               const SizedBox(height: 16),
               TextButton.icon(
                 onPressed: _openExternally,
-                icon: const Icon(Icons.refresh),
-                label: Text(_externalReopenLabel()),
+                icon: const Icon(Icons.open_in_new),
+                label: Text(kIsWeb ? 'Safari’de aç' : _externalReopenLabel()),
               ),
             ],
           ],

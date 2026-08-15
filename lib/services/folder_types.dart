@@ -8,9 +8,10 @@ const photoHeadBytes = 2 * 1024 * 1024;
 const videoHeadBytes = 4 * 1024 * 1024;
 const previewStoreBytes = 3 * 1024 * 1024;
 
-/// Web (iPhone Safari): yerel yol yok — tam foto / video payload Hive’a.
-const webStorePhotoBytes = 25 * 1024 * 1024;
-const webStoreVideoBytes = 80 * 1024 * 1024;
+/// Web: tam dosyayı Hive’a yazma — blob URL + küçük head (kilitlenme önleme).
+const webStorePhotoBytes = 2 * 1024 * 1024;
+/// Web’de video payload Hive’a yazılmaz (GoPro 100MB+ telefonu kilitler).
+const webStoreVideoBytes = 0;
 
 /// SD / büyük disk taraması — EXIF / ©xyz için yeterli.
 const bulkPhotoHeadBytes = 512 * 1024;
@@ -18,6 +19,9 @@ const bulkVideoHeadBytes = 1024 * 1024;
 
 /// GoPro GPMF / DJI gömülü GPS — toplu taramada da okunacak kadar head.
 const bulkGpsVideoHeadBytes = 8 * 1024 * 1024;
+
+/// Web çoklu seçim: GPMF için daha küçük head (hız).
+const webGpsVideoHeadBytes = 4 * 1024 * 1024;
 
 class FolderMediaRef {
   const FolderMediaRef({

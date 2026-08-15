@@ -419,10 +419,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (mounted) {
         setState(
           () => _status =
-              '$sourceLabel: ${picked!.items.length} medya işleniyor…',
+              '$sourceLabel: ${picked!.items.length} medya işleniyor… '
+              '(bekleyin, kilitlenmedi)',
         );
       }
-      await _ingest(picked.items, source: source);
+      // Web: hafif tarama — tam dosya Hive’a yazılmaz (24 dosyada donma önleme).
+      await _ingest(picked.items, source: source, bulkMode: true);
     } catch (e) {
       if (!mounted) return;
       setState(() => _status = '$sourceLabel: $e');
@@ -785,10 +787,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final kindCounts = {for (final k in MediaKind.values) k: 0};
     final photoLimit = bulkMode ? bulkPhotoHeadBytes : photoHeadBytes;
     final videoLimitGeneric = bulkMode ? bulkVideoHeadBytes : videoHeadBytes;
-    final videoLimitGps = bulkMode ? bulkGpsVideoHeadBytes : videoHeadBytes;
-    final progressEvery = bulkMode ? 40 : 8;
+    final videoLimitGps = kIsWeb
+        ? webGpsVideoHeadBytes
+        : (bulkMode ? bulkGpsVideoHeadBytes : videoHeadBytes);
+    final progressEvery = kIsWeb ? 1 : (bulkMode ? 40 : 8);
     final persistEvery = bulkMode ? 64 : 8;
-    final yieldEvery = bulkMode ? 20 : 8;
+    final yieldEvery = kIsWeb ? 1 : (bulkMode ? 20 : 8);
 
     // Tür filtresi yalnızca harita/liste görünümünü etkiler — tarama her
     // zaman foto + video + GoPro + drone ekler.
@@ -822,7 +826,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
         if (existing != null) {
           var located = existing.hasLocation;
-          // Web: eski kayıtta bayt/blob yoksa aynı dosyadan doldur.
+          // Web: aynı oturumda yeni blob URL’yi kaydet (önizleme için).
+          if (ephemeralWeb &&
+              isWebPlayableUrl(file.localPath) &&
+              existing.localPath != file.localPath) {
+            await repo.updateLocalPath(
+              id: existing.id,
+              localPath: file.localPath,
+              persist: false,
+            );
+          }
+          // Web: eski kayıtta bayt/blob yoksa aynı dosyadan doldur (ağır; toplu değil).
           if (ephemeralWeb && !bulkMode) {
             final hasPreview = repo.cachedBytes(existing.id) != null ||
                 await repo.bytesOf(existing.id) != null;
@@ -948,7 +962,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           continue;
         }
         final isPhoto = kind == MediaKind.photo;
-        // Web / blob: disk yolu yok — tam bayt veya blob URL gerekir.
+        // Web / blob: disk yolu yok — blob URL + küçük head (tam dosya yazma).
         final ephemeral = kIsWeb ||
             file.localPath == null ||
             file.localPath!.isEmpty ||
@@ -1001,7 +1015,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 localPath: file.localPath,
                 head: head,
                 relativePath: file.relativePath,
-                // GoPro/DJI: toplu taramada da GPMF / derin head.
                 deepScan: !bulkMode || needsDeepGps,
                 maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
               );
@@ -1031,45 +1044,37 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         } else {
           missing++;
         }
-        // Toplu tarama: video önizlemeyi sonraya bırak (ızgara VideoThumb).
-        // Web foto: boyuttan bağımsız (üst sınır webStorePhotoBytes) sakla.
-        final preview = bulkMode
-            ? null
-            : (isPhoto
-                ? (head != null &&
-                        head.isNotEmpty &&
-                        (ephemeral || file.size <= previewStoreBytes)
-                    ? head
-                    : null)
-                : await extractVideoPreviewBytes(
-                    localPath: file.localPath,
-                    relativePath: file.relativePath,
-                    head: head,
-                  ));
+
+        // Önizleme: web’de HEIC’i Hive’a yazma (Image.memory çözemez) —
+        // blob URL ile göster. JPEG ise küçük head sakla.
+        Uint8List? preview;
+        if (!bulkMode || kIsWeb) {
+          if (isPhoto) {
+            if (head != null &&
+                head.isNotEmpty &&
+                looksLikeJpeg(head) &&
+                !looksLikeHeic(head) &&
+                (ephemeral || file.size <= previewStoreBytes)) {
+              preview = head;
+            }
+          } else if (!bulkMode || kIsWeb) {
+            preview = await extractVideoPreviewBytes(
+              localPath: file.localPath,
+              relativePath: file.relativePath,
+              head: head,
+            );
+          }
+        }
 
         var localPath = file.localPath;
-        Uint8List? videoPayload;
+        // Web video: blob URL yeterli — tam dosyayı RAM/Hive’a kopyalama.
         if (!isPhoto && ephemeral && kIsWeb) {
           if (!isWebPlayableUrl(localPath)) {
             localPath = null;
           }
-          // Orta boy videoları Hive’a yaz — sayfa yenilenince blob URL ölür.
-          if (file.size > 0 && file.size <= webStoreVideoBytes) {
-            try {
-              videoPayload = head != null && head.length >= file.size
-                  ? head
-                  : await file.readHead(file.size);
-              localPath ??= createObjectUrlFromBytes(
-                videoPayload,
-                mimeFromName(file.name),
-              );
-            } catch (_) {
-              videoPayload = null;
-            }
-          }
         }
 
-        final media = await repo.add(
+        await repo.add(
           name: file.name,
           kind: kind,
           sourceId: source.id,
@@ -1081,12 +1086,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           lng: gps?.longitude,
           takenAt: taken,
           persist: i == files.length - 1 || i % persistEvery == persistEvery - 1,
-          // Tarama bitene kadar haritayı yenileme — NaN pin anında çökertmesin.
           notify: false,
         );
-        if (videoPayload != null && videoPayload.isNotEmpty) {
-          await repo.putPayloadBytes(media.id, videoPayload);
-        }
         added++;
         kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
       } catch (_) {
@@ -2304,20 +2305,39 @@ class _Thumb extends StatelessWidget {
     if (item.isVideo) {
       return _VideoThumbCached(item: item, repo: repo);
     }
+    // Web: blob (HEIC dahil Safari img). Hive’daki HEIC baytını Image.memory’ye verme.
     final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
     if (fromDisk != null) return fromDisk;
     final cached = repo.cachedBytes(item.id);
-    if (cached != null) {
+    if (cached != null &&
+        cached.isNotEmpty &&
+        looksLikeJpeg(cached) &&
+        !looksLikeHeic(cached)) {
       return OrientedMemoryImage(cached, fit: BoxFit.cover);
     }
     return FutureBuilder(
       future: repo.bytesOf(item.id),
       builder: (context, snap) {
-        final bytes = snap.data;
-        if (bytes == null) {
+        if (snap.connectionState != ConnectionState.done) {
           return const ColoredBox(
-            color: Colors.black26,
-            child: Icon(Icons.photo_outlined),
+            color: Color(0xFF1A2A36),
+            child: Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        final bytes = snap.data;
+        if (bytes == null ||
+            bytes.isEmpty ||
+            looksLikeHeic(bytes) ||
+            !looksLikeJpeg(bytes)) {
+          return const ColoredBox(
+            color: Color(0xFF1A2A36),
+            child: Icon(Icons.photo_outlined, color: Colors.white54),
           );
         }
         return OrientedMemoryImage(bytes, fit: BoxFit.cover);

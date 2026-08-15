@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
 import '../services/photo_orient.dart';
+import '../services/video_preview.dart';
 import 'photo_source.dart';
 
 /// Seçili konum: dairesel fotoğraf + altta konum ucu (Google Fotoğraflar pin).
@@ -121,14 +122,19 @@ class _PinThumb extends StatelessWidget {
       final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
       if (fromDisk != null) return fromDisk;
       final cached = repo.cachedBytes(item.id);
-      if (cached != null) {
+      if (cached != null &&
+          looksLikeJpeg(cached) &&
+          !looksLikeHeic(cached)) {
         return OrientedMemoryImage(cached, fit: BoxFit.cover);
       }
       return FutureBuilder(
         future: repo.bytesOf(item.id),
         builder: (context, snap) {
           final bytes = snap.data;
-          if (bytes == null) {
+          if (bytes == null ||
+              bytes.isEmpty ||
+              looksLikeHeic(bytes) ||
+              !looksLikeJpeg(bytes)) {
             return const ColoredBox(
               color: Color(0xFF1A2A36),
               child: Icon(Icons.photo, color: Colors.white54, size: 22),
