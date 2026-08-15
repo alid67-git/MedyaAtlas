@@ -63,12 +63,6 @@ class S {
         AppLang.de => 'Sprache',
       };
 
-  String get developerName => switch (lang) {
-        AppLang.tr => 'Geliştiren adı',
-        AppLang.en => 'Developer name',
-        AppLang.de => 'Entwicklername',
-      };
-
   String get version => switch (lang) {
         AppLang.tr => 'Sürüm',
         AppLang.en => 'Version',
@@ -79,12 +73,6 @@ class S {
         AppLang.tr => 'İptal',
         AppLang.en => 'Cancel',
         AppLang.de => 'Abbrechen',
-      };
-
-  String get save => switch (lang) {
-        AppLang.tr => 'Kaydet',
-        AppLang.en => 'Save',
-        AppLang.de => 'Speichern',
       };
 
   String get close => switch (lang) {
