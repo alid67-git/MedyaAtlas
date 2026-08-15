@@ -75,7 +75,7 @@ String? phoneAssetIdFromRelativePath(String? relativePath) {
   return null;
 }
 
-/// Telefondaki tüm yerel foto/videoları MediaStore üzerinden tara.
+/// Telefondaki tüm yerel foto/videoları MediaStore / Photos üzerinden tara.
 ///
 /// Android 10+: GPS için [AssetEntity.latlngAsync] gerekir (`latitude`
 /// getter boş kalır). ACCESS_MEDIA_LOCATION + mediaLocation: true şart.
@@ -83,10 +83,99 @@ Future<FolderPickResult> scanEntirePhoneMedia({
   int maxAssets = 8000,
   void Function(String status)? onProgress,
 }) async {
-  if (kIsWeb || !Platform.isAndroid) {
-    throw UnsupportedError('Tüm telefon tarama yalnızca Android’de.');
+  await _ensurePhoneMediaPermission();
+  onProgress?.call('Telefon medyası listeleniyor…');
+  final album = await _allPhotosAlbum();
+  if (album == null) {
+    return const FolderPickResult(folderName: 'Telefon (tümü)', items: []);
+  }
+  return _scanAlbumAssets(
+    album,
+    folderName: 'Telefon (tümü)',
+    maxAssets: maxAssets,
+    onProgress: onProgress,
+  );
+}
+
+/// Favoriler albümünün tamamı (iOS Smart Album / Android isFavorite).
+Future<FolderPickResult> scanFavoritePhoneMedia({
+  int maxAssets = 8000,
+  void Function(String status)? onProgress,
+}) async {
+  await _ensurePhoneMediaPermission();
+  onProgress?.call('Favoriler aranıyor…');
+
+  final filter = _phoneFilter();
+  final paths = await PhotoManager.getAssetPathList(
+    type: RequestType.common,
+    hasAll: false,
+    onlyAll: false,
+    filterOption: filter,
+  );
+
+  AssetPathEntity? favorites;
+  for (final path in paths) {
+    if (path.albumTypeEx?.darwin?.subtype ==
+        PMDarwinAssetCollectionSubtype.smartAlbumFavorites) {
+      favorites = path;
+      break;
+    }
+    final name = path.name.toLowerCase().trim();
+    if (name == 'favorites' ||
+        name == 'favourites' ||
+        name == 'favoriler' ||
+        name == 'favorilerim' ||
+        name == 'favori' ||
+        name.contains('favorite') ||
+        name.contains('favourit') ||
+        name.contains('favori')) {
+      favorites = path;
+      break;
+    }
   }
 
+  if (favorites != null) {
+    return _scanAlbumAssets(
+      favorites,
+      folderName: 'Favoriler',
+      maxAssets: maxAssets,
+      onProgress: onProgress,
+    );
+  }
+
+  // Albüm bulunamazsa: tüm kütüphanede isFavorite bayrağı.
+  onProgress?.call('Favori işareti taranıyor…');
+  final all = await _allPhotosAlbum();
+  if (all == null) {
+    return const FolderPickResult(folderName: 'Favoriler', items: []);
+  }
+  return _scanAlbumAssets(
+    all,
+    folderName: 'Favoriler',
+    maxAssets: maxAssets,
+    onProgress: onProgress,
+    onlyFavorites: true,
+  );
+}
+
+FilterOptionGroup _phoneFilter() => FilterOptionGroup(
+      imageOption: const FilterOption(
+        needTitle: true,
+        sizeConstraint: SizeConstraint(ignoreSize: true),
+      ),
+      videoOption: const FilterOption(
+        needTitle: true,
+        sizeConstraint: SizeConstraint(ignoreSize: true),
+      ),
+      orders: [
+        const OrderOption(type: OrderOptionType.createDate, asc: false),
+      ],
+    );
+
+Future<void> _ensurePhoneMediaPermission() async {
+  if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
+    throw UnsupportedError('Telefon tarama yalnızca Android / iOS uygulamasında.');
+  }
   final perm = await PhotoManager.requestPermissionExtend(
     requestOption: const PermissionRequestOption(
       androidPermission: AndroidPermission(
@@ -100,34 +189,29 @@ Future<FolderPickResult> scanEntirePhoneMedia({
       'Medya izni yok. Ayarlar → MedyaAtlas → Fotoğraf/Video + medya konumu.',
     );
   }
+}
 
-  onProgress?.call('Telefon medyası listeleniyor…');
+Future<AssetPathEntity?> _allPhotosAlbum() async {
   final paths = await PhotoManager.getAssetPathList(
     type: RequestType.common,
     hasAll: true,
     onlyAll: true,
-    filterOption: FilterOptionGroup(
-      imageOption: const FilterOption(
-        needTitle: true,
-        sizeConstraint: SizeConstraint(ignoreSize: true),
-      ),
-      videoOption: const FilterOption(
-        needTitle: true,
-        sizeConstraint: SizeConstraint(ignoreSize: true),
-      ),
-      orders: [
-        const OrderOption(type: OrderOptionType.createDate, asc: false),
-      ],
-    ),
+    filterOption: _phoneFilter(),
   );
-  if (paths.isEmpty) {
-    return const FolderPickResult(folderName: 'Telefon (tümü)', items: []);
-  }
+  if (paths.isEmpty) return null;
+  return paths.first;
+}
 
-  final album = paths.first;
+Future<FolderPickResult> _scanAlbumAssets(
+  AssetPathEntity album, {
+  required String folderName,
+  int maxAssets = 8000,
+  void Function(String status)? onProgress,
+  bool onlyFavorites = false,
+}) async {
   final total = await album.assetCountAsync;
   final end = total > maxAssets ? maxAssets : total;
-  onProgress?.call('Telefon taranıyor: 0/$end…');
+  onProgress?.call('$folderName: 0/$end…');
 
   final items = <FolderMediaRef>[];
   var withGps = 0;
@@ -139,10 +223,11 @@ Future<FolderPickResult> scanEntirePhoneMedia({
       if (asset.type != AssetType.image && asset.type != AssetType.video) {
         continue;
       }
+      if (onlyFavorites && !asset.isFavorite) continue;
+
       final name = _assetFileName(asset);
       final id = asset.id;
 
-      // Android 10+: senkron latitude her zaman null — async EXIF/MediaStore.
       double? knownLat;
       double? knownLng;
       try {
@@ -178,12 +263,12 @@ Future<FolderPickResult> scanEntirePhoneMedia({
       );
     }
     onProgress?.call(
-      'Telefon taranıyor: ${items.length}/$end · $withGps GPS…',
+      '$folderName: ${items.length}/$end · $withGps GPS…',
     );
   }
 
   return FolderPickResult(
-    folderName: 'Telefon (tümü)',
+    folderName: folderName,
     items: items,
   );
 }
@@ -250,7 +335,7 @@ Future<Uint8List?> phoneAssetThumbnailBytes(
   String assetId, {
   int size = 360,
 }) async {
-  if (kIsWeb || !Platform.isAndroid) return null;
+  if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return null;
   try {
     final asset = await AssetEntity.fromId(assetId);
     if (asset == null) return null;

@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.14',
+    tr: 'Favoriler (tümü) Android/iOS uygulamasında; web’de çoklu seçim rehberi.',
+    en: 'Add all Favorites on Android/iOS app; guided multi-select on web.',
+    de: 'Alle Favoriten in der Android/iOS-App; Mehrfachauswahl-Hilfe im Web.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.13',
     tr: 'Haritada ısı lekesi; tıklanınca dairesel foto pin + tarihe göre medya paneli.',
     en: 'Heat blobs on the map; tap shows circular photo pin + date-grouped media panel.',

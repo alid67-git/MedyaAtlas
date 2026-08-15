@@ -300,8 +300,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _importEntirePhone() async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-      setState(() => _status = 'Tüm telefon tarama yalnızca Android’de.');
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS)) {
+      setState(
+        () => _status =
+            'Tüm telefon tarama yalnızca Android / iOS uygulamasında.',
+      );
       return;
     }
     if (!await _ensureAndroidMediaAccess()) return;
@@ -312,21 +317,90 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     try {
       final picked = await scanEntirePhoneMedia(
         onProgress: (s) {
-          if (mounted) setState(() => _status = s);
+          if (mounted && !_cancel) setState(() => _status = s);
         },
       );
       if (!mounted) return;
-      setState(_endBusy);
       if (picked.items.isEmpty) {
-        setState(() => _status = 'Telefonda foto/video bulunamadı.');
+        setState(() {
+          _endBusy();
+          _status = 'Telefonda foto/video bulunamadı.';
+        });
         return;
       }
-      await _ingestPick(picked);
+      await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _endBusy();
         _status = 'Telefon tarama: $e';
+      });
+    }
+  }
+
+  Future<void> _importFavorites() async {
+    if (kIsWeb) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Favoriler — çoklu seçim'),
+          content: const Text(
+            'iPhone Safari’de Favoriler’in tamamını otomatik almak '
+            'mümkün değil (Apple tarayıcıya izin vermiyor).\n\n'
+            'Pratik yol:\n'
+            '1) Seçicide Albümler → Favoriler’e girin\n'
+            '2) Fotoğrafları çoklu seçin\n'
+            '3) Ekle / Done\n\n'
+            'Tek tuşla “tüm favoriler” için Android uygulamasını kullanın.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Seçiciyi aç'),
+            ),
+          ],
+        ),
+      );
+      if (go == true && mounted) await _importGallery();
+      return;
+    }
+
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      setState(
+        () => _status = 'Favoriler yalnızca Android / iOS uygulamasında.',
+      );
+      return;
+    }
+    if (!await _ensureAndroidMediaAccess()) return;
+    setState(() {
+      _beginBusy();
+      _status = 'Favoriler ekleniyor…';
+    });
+    try {
+      final picked = await scanFavoritePhoneMedia(
+        onProgress: (s) {
+          if (mounted && !_cancel) setState(() => _status = s);
+        },
+      );
+      if (!mounted) return;
+      if (picked.items.isEmpty) {
+        setState(() {
+          _endBusy();
+          _status = 'Favori medya bulunamadı.';
+        });
+        return;
+      }
+      await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _endBusy();
+        _status = 'Favoriler: $e';
       });
     }
   }
@@ -1592,7 +1666,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       },
                 child: const Text('+ Dosya seç'),
               ),
-              if (!_isDesktop)
+              if (!_isDesktop && !kIsWeb)
                 FilledButton.tonal(
                   onPressed: _busy
                       ? null
@@ -1602,7 +1676,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         },
                   child: const Text('+ Tüm telefon'),
                 ),
-              if (!_isDesktop)
+              FilledButton.tonal(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(_closeMenus);
+                        _importFavorites();
+                      },
+                child: Text(
+                  kIsWeb ? '+ Favoriler (çoklu seç)' : '+ Favoriler (tümü)',
+                ),
+              ),
+              if (!_isDesktop || kIsWeb)
                 FilledButton.tonal(
                   onPressed: _busy
                       ? null

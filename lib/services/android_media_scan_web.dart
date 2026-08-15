@@ -31,6 +31,16 @@ Future<FolderPickResult> scanEntirePhoneMedia({
   throw UnsupportedError('Telefon tarama web’de yok; dosya seçici kullanın.');
 }
 
+Future<FolderPickResult> scanFavoritePhoneMedia({
+  int maxAssets = 8000,
+  void Function(String status)? onProgress,
+}) async {
+  throw UnsupportedError(
+    'Favorilerin tamamını otomatik almak web’de yok. '
+    'Safari’de Galeri’den Favoriler albümünü açıp tek tek / çoklu seçin.',
+  );
+}
+
 Future<({double? lat, double? lng, Uint8List? head})> readPhoneAssetGps({
   required String assetId,
   required bool isPhoto,
