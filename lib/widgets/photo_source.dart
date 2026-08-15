@@ -1,2 +1,1 @@
-export 'photo_source_stub.dart'
-    if (dart.library.io) 'photo_source_io.dart';
+export 'photo_source_io.dart' if (dart.library.html) 'photo_source_web.dart';

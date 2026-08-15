@@ -163,10 +163,13 @@ class _Page extends StatelessWidget {
         }
         final bytes = snap.data;
         if (bytes == null) {
-          return const Center(
+          return Center(
             child: Text(
-              'Fotoğraf bulunamadı.',
-              style: TextStyle(color: Colors.white54),
+              kIsWeb
+                  ? 'Fotoğraf yok. Galeriden yeniden seçin.'
+                  : 'Fotoğraf bulunamadı.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54),
             ),
           );
         }
@@ -228,11 +231,13 @@ class _VideoPageState extends State<_VideoPage> {
       }
       return const Center(child: CircularProgressIndicator());
     }
+    final repo = context.read<MediaRepository>();
     return VideoPlaybackPane(
       path: widget.media.localPath,
       name: widget.media.name,
       kind: widget.media.kind,
       posterBytes: _poster,
+      resolveUrl: () => repo.resolvePlayableUrl(widget.media),
       // GoPro/DJI HEVC: yalnızca Windows’ta önce dış oynatıcı.
       preferExternal: hostIsWindows &&
           (widget.media.kind == MediaKind.gopro ||

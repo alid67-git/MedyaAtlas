@@ -8,6 +8,10 @@ const photoHeadBytes = 2 * 1024 * 1024;
 const videoHeadBytes = 4 * 1024 * 1024;
 const previewStoreBytes = 3 * 1024 * 1024;
 
+/// Web (iPhone Safari): yerel yol yok — tam foto / video payload Hive’a.
+const webStorePhotoBytes = 25 * 1024 * 1024;
+const webStoreVideoBytes = 80 * 1024 * 1024;
+
 /// SD / büyük disk taraması — EXIF / ©xyz için yeterli.
 const bulkPhotoHeadBytes = 512 * 1024;
 const bulkVideoHeadBytes = 1024 * 1024;

@@ -90,11 +90,16 @@ FolderPickResult _fromFileList(
     }
     if (!isMediaName(file.name)) continue;
     final captured = file;
+    // Video: oturum boyunca oynatma için blob URL (Hive’a yazılmaz).
+    // Foto: baytlar ingest’te saklanır; blob şart değil.
+    final blobUrl =
+        isVideoName(file.name) ? web.URL.createObjectURL(captured) : null;
     items.add(
       FolderMediaRef(
         name: file.name,
         size: file.size,
         relativePath: relative.isNotEmpty ? relative : file.name,
+        localPath: blobUrl,
         lastModified: DateTime.fromMillisecondsSinceEpoch(file.lastModified),
         readHead: (maxBytes) async {
           final end = math.min(captured.size, maxBytes);

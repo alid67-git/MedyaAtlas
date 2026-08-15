@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 
 import '../models/library_media.dart';
 import '../services/host_platform.dart';
+import '../services/media_mime.dart';
 import '../services/photo_orient.dart';
 import 'process_host.dart';
 import 'video_file.dart';
@@ -26,10 +27,13 @@ class VideoThumb extends StatefulWidget {
     super.key,
     required this.path,
     required this.kind,
+    this.resolveUrl,
   });
 
   final String? path;
   final MediaKind kind;
+  /// Web: blob bittiyse Hive payload’dan URL üret.
+  final Future<String?> Function()? resolveUrl;
 
   @override
   State<VideoThumb> createState() => _VideoThumbState();
@@ -48,7 +52,8 @@ class _VideoThumbState extends State<VideoThumb> {
   @override
   void didUpdateWidget(covariant VideoThumb oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.path != widget.path) {
+    if (oldWidget.path != widget.path ||
+        oldWidget.resolveUrl != widget.resolveUrl) {
       _disposeController();
       _loading = true;
       _open();
@@ -56,8 +61,14 @@ class _VideoThumbState extends State<VideoThumb> {
   }
 
   Future<void> _open() async {
-    final path = widget.path;
-    if (kIsWeb || path == null || path.isEmpty) {
+    var path = widget.path;
+    if ((path == null || path.isEmpty || (kIsWeb && !isWebPlayableUrl(path))) &&
+        widget.resolveUrl != null) {
+      path = await widget.resolveUrl!();
+    }
+    if (path == null ||
+        path.isEmpty ||
+        (kIsWeb && !isWebPlayableUrl(path))) {
       if (mounted) setState(() => _loading = false);
       return;
     }
@@ -150,6 +161,7 @@ class VideoPlaybackPane extends StatefulWidget {
     required this.kind,
     this.posterBytes,
     this.preferExternal = false,
+    this.resolveUrl,
   });
 
   final String? path;
@@ -158,6 +170,7 @@ class VideoPlaybackPane extends StatefulWidget {
   final Uint8List? posterBytes;
   /// Windows’ta HEVC (GoPro/DJI) için önce sistem oynatıcı.
   final bool preferExternal;
+  final Future<String?> Function()? resolveUrl;
 
   @override
   State<VideoPlaybackPane> createState() => _VideoPlaybackPaneState();
@@ -168,6 +181,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   String? _status;
   var _loading = true;
   var _openedExternal = false;
+  String? _resolvedPath;
 
   bool get _windowsExternalFirst =>
       widget.preferExternal && hostIsWindows;
@@ -181,11 +195,13 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   @override
   void didUpdateWidget(covariant VideoPlaybackPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.path != widget.path) {
+    if (oldWidget.path != widget.path ||
+        oldWidget.resolveUrl != widget.resolveUrl) {
       _disposeController();
       _status = null;
       _loading = true;
       _openedExternal = false;
+      _resolvedPath = null;
       _start();
     }
   }
@@ -206,13 +222,27 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
     await _openInApp();
   }
 
+  Future<String?> _effectivePath() async {
+    var path = widget.path;
+    if ((path == null || path.isEmpty || (kIsWeb && !isWebPlayableUrl(path))) &&
+        widget.resolveUrl != null) {
+      path = await widget.resolveUrl!();
+    }
+    _resolvedPath = path;
+    return path;
+  }
+
   Future<void> _openInApp() async {
-    final path = widget.path;
-    if (kIsWeb || path == null || path.isEmpty) {
+    final path = await _effectivePath();
+    if (path == null ||
+        path.isEmpty ||
+        (kIsWeb && !isWebPlayableUrl(path))) {
       if (mounted) {
         setState(() {
           _loading = false;
-          _status = 'Yerel dosya yolu yok.';
+          _status = kIsWeb
+              ? 'Oynatılamıyor. Medyayı yeniden seçin (web oturumu).'
+              : 'Yerel dosya yolu yok.';
         });
       }
       return;
@@ -255,7 +285,9 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
               ? (hostIsAndroid
                   ? 'Telefon oynatıcısında açıldı.'
                   : 'Sistem oynatıcısında açıldı.')
-              : 'Video açılamadı.';
+              : (kIsWeb
+                  ? 'Video açılamadı (tarayıcı codec / HEVC).'
+                  : 'Video açılamadı.');
         });
       }
     }
@@ -285,8 +317,8 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   }
 
   Future<void> _openExternally() async {
-    final path = widget.path;
-    if (path == null || path.isEmpty) return;
+    final path = _resolvedPath ?? widget.path;
+    if (path == null || path.isEmpty || isWebPlayableUrl(path)) return;
     try {
       if (hostIsWindows) {
         await openPathWithWindowsShell(path);
@@ -361,11 +393,12 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ),
-                IconButton(
-                  tooltip: _externalReopenLabel(),
-                  onPressed: _openExternally,
-                  icon: const Icon(Icons.open_in_new),
-                ),
+                if (!kIsWeb)
+                  IconButton(
+                    tooltip: _externalReopenLabel(),
+                    onPressed: _openExternally,
+                    icon: const Icon(Icons.open_in_new),
+                  ),
               ],
             ),
           ),
@@ -403,7 +436,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                 style: const TextStyle(color: Colors.white54),
               ),
             ],
-            if (_openedExternal || _windowsExternalFirst) ...[
+            if (!kIsWeb && (_openedExternal || _windowsExternalFirst)) ...[
               const SizedBox(height: 16),
               TextButton.icon(
                 onPressed: _openExternally,

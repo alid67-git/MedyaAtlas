@@ -28,12 +28,13 @@ import '../services/geo.dart';
 import '../services/google_drive_media.dart';
 import '../services/host_platform.dart';
 import '../services/local_fs.dart';
-import '../services/media_kind.dart';
+import '../services/media_mime.dart';
 import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
 import '../services/video_gps.dart';
 import '../services/video_preview.dart';
+import '../services/web_object_url.dart';
 import '../services/photo_orient.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/drop_host.dart';
@@ -417,12 +418,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final refs = <FolderMediaRef>[];
       for (final file in files) {
         final size = await file.length();
+        // Web’de path genelde blob: URL — sıfırlama; önizleme/oynatma için gerekli.
+        final path = file.path.isEmpty ? null : file.path;
         refs.add(
           FolderMediaRef(
             name: file.name,
             size: size,
             relativePath: file.name,
-            localPath: kIsWeb || file.path.isEmpty ? null : file.path,
+            localPath: path,
             readHead: (maxBytes) async {
               final end = size < maxBytes ? size : maxBytes;
               final builder = BytesBuilder(copy: false);
@@ -766,6 +769,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           kind == MediaKind.gopro || kind == MediaKind.drone;
       final videoLimit = needsDeepGps ? videoLimitGps : videoLimitGeneric;
       final rel = file.relativePath ?? file.name;
+      final ephemeralWeb = kIsWeb ||
+          file.localPath == null ||
+          file.localPath!.isEmpty ||
+          isWebPlayableUrl(file.localPath);
       try {
         final existing = repo.findByIndex(
           sourceId: source.id,
@@ -773,8 +780,106 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           size: file.size,
         );
         if (existing != null) {
-          // Toplu/SD taramada önizleme doldurma SD’yi kilitlemesin.
-          if (!bulkMode && existing.isVideo) {
+          var located = existing.hasLocation;
+          // Web: eski kayıtta bayt/blob yoksa aynı dosyadan doldur.
+          if (ephemeralWeb && !bulkMode) {
+            final hasPreview = repo.cachedBytes(existing.id) != null ||
+                await repo.bytesOf(existing.id) != null;
+            if (existing.isVideo) {
+              if (!hasPreview) {
+                Uint8List? head;
+                try {
+                  head = await file.readHead(videoLimit);
+                } catch (_) {}
+                final preview = await extractVideoPreviewBytes(
+                  localPath: file.localPath,
+                  relativePath: file.relativePath,
+                  head: head,
+                );
+                if (preview != null) {
+                  await repo.putPreviewBytes(existing.id, preview);
+                }
+              }
+              final hasPayload = await repo.payloadOf(existing.id) != null;
+              if (!hasPayload &&
+                  file.size > 0 &&
+                  file.size <= webStoreVideoBytes) {
+                try {
+                  final payload = await file.readHead(file.size);
+                  await repo.putPayloadBytes(existing.id, payload);
+                  final url = createObjectUrlFromBytes(
+                    payload,
+                    mimeFromName(file.name),
+                  );
+                  if (url != null) {
+                    await repo.updateLocalPath(
+                      id: existing.id,
+                      localPath: url,
+                      persist: false,
+                    );
+                  }
+                } catch (_) {}
+              } else if (isWebPlayableUrl(file.localPath) &&
+                  existing.localPath != file.localPath) {
+                await repo.updateLocalPath(
+                  id: existing.id,
+                  localPath: file.localPath,
+                  persist: false,
+                );
+              }
+              if (!located) {
+                Uint8List? head;
+                try {
+                  head = await file.readHead(videoLimit);
+                } catch (_) {}
+                final gps = await extractVideoGps(
+                  localPath: file.localPath,
+                  head: head,
+                  relativePath: file.relativePath,
+                  deepScan: needsDeepGps,
+                  maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
+                );
+                if (gps != null) {
+                  await repo.updateLocation(
+                    id: existing.id,
+                    lat: gps.latitude,
+                    lng: gps.longitude,
+                    persist: false,
+                    notify: false,
+                  );
+                  located = true;
+                }
+              }
+            } else if (file.size > 0) {
+              try {
+                final bytes = (!hasPreview || !located)
+                    ? await file.readHead(
+                        math.min(file.size, webStorePhotoBytes),
+                      )
+                    : null;
+                if (bytes != null && bytes.isNotEmpty) {
+                  if (!hasPreview) {
+                    await repo.putPreviewBytes(existing.id, bytes);
+                  }
+                  if (!located) {
+                    final gps = await extractExifGps(bytes);
+                    final taken = await extractExifTakenAt(bytes);
+                    if (gps != null) {
+                      await repo.updateLocation(
+                        id: existing.id,
+                        lat: gps.latitude,
+                        lng: gps.longitude,
+                        takenAt: taken,
+                        persist: false,
+                        notify: false,
+                      );
+                      located = true;
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+          } else if (!bulkMode && existing.isVideo) {
             final hasPreview = repo.cachedBytes(existing.id) != null ||
                 await repo.bytesOf(existing.id) != null;
             if (!hasPreview) {
@@ -794,7 +899,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
           added++;
           kindCounts[existing.kind] = (kindCounts[existing.kind] ?? 0) + 1;
-          if (existing.hasLocation) {
+          if (located) {
             withGps++;
           } else {
             missing++;
@@ -802,10 +907,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           continue;
         }
         final isPhoto = kind == MediaKind.photo;
+        // Web / blob: disk yolu yok — tam bayt veya blob URL gerekir.
+        final ephemeral = kIsWeb ||
+            file.localPath == null ||
+            file.localPath!.isEmpty ||
+            isWebPlayableUrl(file.localPath);
         final headLimit = isPhoto
-            ? (file.size <= 0
-                ? photoLimit
-                : (file.size <= previewStoreBytes ? file.size : photoLimit))
+            ? (ephemeral && file.size > 0
+                ? math.min(file.size, webStorePhotoBytes)
+                : (file.size <= 0
+                    ? photoLimit
+                    : (file.size <= previewStoreBytes
+                        ? file.size
+                        : photoLimit)))
             : videoLimit;
 
         LatLng? gps;
@@ -816,17 +930,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
         Uint8List? head;
         final needHead = gps == null ||
+            (isPhoto && ephemeral && file.size > 0) ||
             (!bulkMode &&
                 isPhoto &&
                 file.size > 0 &&
                 file.size <= previewStoreBytes);
         if (needHead) {
           try {
-            head = await file.readHead(
-              gps != null && isPhoto && file.size > 0 && !bulkMode
-                  ? file.size
-                  : headLimit,
-            );
+            final limit = gps != null &&
+                    isPhoto &&
+                    file.size > 0 &&
+                    !bulkMode &&
+                    !ephemeral
+                ? file.size
+                : headLimit;
+            head = await file.readHead(limit);
           } catch (_) {
             head = null;
           }
@@ -873,22 +991,50 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           missing++;
         }
         // Toplu tarama: video önizlemeyi sonraya bırak (ızgara VideoThumb).
+        // Web foto: boyuttan bağımsız (üst sınır webStorePhotoBytes) sakla.
         final preview = bulkMode
             ? null
             : (isPhoto
-                ? (head != null && file.size <= previewStoreBytes ? head : null)
+                ? (head != null &&
+                        head.isNotEmpty &&
+                        (ephemeral || file.size <= previewStoreBytes)
+                    ? head
+                    : null)
                 : await extractVideoPreviewBytes(
                     localPath: file.localPath,
                     relativePath: file.relativePath,
                     head: head,
                   ));
-        await repo.add(
+
+        var localPath = file.localPath;
+        Uint8List? videoPayload;
+        if (!isPhoto && ephemeral && kIsWeb) {
+          if (!isWebPlayableUrl(localPath)) {
+            localPath = null;
+          }
+          // Orta boy videoları Hive’a yaz — sayfa yenilenince blob URL ölür.
+          if (file.size > 0 && file.size <= webStoreVideoBytes) {
+            try {
+              videoPayload = head != null && head.length >= file.size
+                  ? head
+                  : await file.readHead(file.size);
+              localPath ??= createObjectUrlFromBytes(
+                videoPayload,
+                mimeFromName(file.name),
+              );
+            } catch (_) {
+              videoPayload = null;
+            }
+          }
+        }
+
+        final media = await repo.add(
           name: file.name,
           kind: kind,
           sourceId: source.id,
           bytes: preview,
           relativePath: rel,
-          localPath: file.localPath,
+          localPath: localPath,
           sizeBytes: file.size,
           lat: gps?.latitude,
           lng: gps?.longitude,
@@ -897,6 +1043,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           // Tarama bitene kadar haritayı yenileme — NaN pin anında çökertmesin.
           notify: false,
         );
+        if (videoPayload != null && videoPayload.isNotEmpty) {
+          await repo.putPayloadBytes(media.id, videoPayload);
+        }
         added++;
         kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
       } catch (_) {
@@ -909,7 +1058,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final failText = failed > 0 ? ' · $failed okunamadı' : '';
     final tip = bulkMode && missing > 0
         ? ' · GPS eksikler için “yeniden dene”'
-        : '';
+        : (kIsWeb && missing > 0
+            ? ' · iPhone foto GPS’i gizleyebilir; GoPro/DJI için yeniden seçin'
+            : '');
     setState(() {
       _showMissing = false;
       _panelCluster = null;
@@ -2181,6 +2332,8 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
             errorBuilder: (_, error, stack) => VideoThumb(
               path: widget.item.localPath,
               kind: widget.item.kind,
+              resolveUrl: () =>
+                  widget.repo.resolvePlayableUrl(widget.item),
             ),
           ),
           const Align(
@@ -2213,6 +2366,7 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
     return VideoThumb(
       path: widget.item.localPath,
       kind: widget.item.kind,
+      resolveUrl: () => widget.repo.resolvePlayableUrl(widget.item),
     );
   }
 }

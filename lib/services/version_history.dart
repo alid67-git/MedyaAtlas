@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.15',
+    tr: 'iPhone web: önizleme, foto/video oynatma ve GPS okuma (blob + Hive bayt).',
+    en: 'iPhone web: preview, photo/video playback and GPS (blob + Hive bytes).',
+    de: 'iPhone-Web: Vorschau, Foto/Video-Wiedergabe und GPS (Blob + Hive).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.14',
     tr: 'Favoriler (tümü) Android/iOS uygulamasında; web’de çoklu seçim rehberi.',
     en: 'Add all Favorites on Android/iOS app; guided multi-select on web.',

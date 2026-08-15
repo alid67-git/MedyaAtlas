@@ -7,16 +7,20 @@ import 'package:uuid/uuid.dart';
 
 import '../models/library_media.dart';
 import '../services/geo.dart';
+import '../services/media_mime.dart';
 import '../services/volume_mount.dart';
+import '../services/web_object_url.dart';
 
 const _indexBoxName = 'medyaatlas_media';
 const _bytesBoxName = 'medyaatlas_media_bytes';
+const _payloadBoxName = 'medyaatlas_media_payload';
 const _sourcesBoxName = 'medyaatlas_sources';
 const _indexKey = 'index';
 const gallerySourceId = 'gallery';
 
 /// Bu cihazdaki kütüphane. RideAtlas gibi: küçük JSON indeks + ayrı kutuda
-/// fotoğraf baytları. Video Hive’a yazılmaz; varsa [LibraryMedia.localPath].
+/// fotoğraf baytları. Video genelde [LibraryMedia.localPath]; web’de ek olarak
+/// [_payloadBoxName] içinde tam dosya (oturum sonrası blob URL yenileme).
 class MediaRepository extends ChangeNotifier {
   MediaRepository._();
   static final MediaRepository instance = MediaRepository._();
@@ -26,8 +30,11 @@ class MediaRepository extends ChangeNotifier {
   final Map<String, Uint8List> _bytesCache = {};
   /// Kaynak id → kök şu an erişilebilir mi (harici disk).
   final Map<String, bool> _mountBySource = {};
+  /// Web’de payload’dan üretilen geçici blob URL’ler (revoke için).
+  final Map<String, String> _payloadObjectUrls = {};
   Box<String>? _indexBox;
   Box<Uint8List>? _bytesBox;
+  Box<Uint8List>? _payloadBox;
   Box<String>? _sourcesBox;
   bool _ready = false;
 
@@ -37,6 +44,7 @@ class MediaRepository extends ChangeNotifier {
     if (_ready) return;
     _indexBox = await Hive.openBox<String>(_indexBoxName);
     _bytesBox = await Hive.openBox<Uint8List>(_bytesBoxName);
+    _payloadBox = await Hive.openBox<Uint8List>(_payloadBoxName);
     _sourcesBox = await Hive.openBox<String>(_sourcesBoxName);
     try {
       final raw = _indexBox!.get(_indexKey);
@@ -214,6 +222,37 @@ class MediaRepository extends ChangeNotifier {
     return bytes;
   }
 
+  Future<void> putPayloadBytes(String id, Uint8List bytes) async {
+    if (bytes.isEmpty) return;
+    await _payloadBox!.put(id, bytes);
+  }
+
+  Future<Uint8List?> payloadOf(String id) async => _payloadBox?.get(id);
+
+  Future<void> _deletePayload(String id) async {
+    final url = _payloadObjectUrls.remove(id);
+    revokeObjectUrl(url);
+    await _payloadBox?.delete(id);
+  }
+
+  /// Oynatma URL’si: yerel yol / canlı blob / web’de saklanan video payload.
+  Future<String?> resolvePlayableUrl(LibraryMedia item) async {
+    final path = item.localPath;
+    if (path != null && path.isNotEmpty) {
+      if (!kIsWeb) return path;
+      if (isWebPlayableUrl(path)) return path;
+    }
+    if (!kIsWeb || !item.isVideo) return null;
+    final existing = _payloadObjectUrls[item.id];
+    if (existing != null && existing.isNotEmpty) return existing;
+    final payload = await payloadOf(item.id);
+    if (payload == null || payload.isEmpty) return null;
+    final url = createObjectUrlFromBytes(payload, mimeFromName(item.name));
+    if (url == null || url.isEmpty) return null;
+    _payloadObjectUrls[item.id] = url;
+    return url;
+  }
+
   Future<void> _persistIndex() async {
     _stripInvalidGpsInMemory();
     try {
@@ -318,6 +357,7 @@ class MediaRepository extends ChangeNotifier {
     for (final mediaId in ids) {
       _bytesCache.remove(mediaId);
       await _bytesBox?.delete(mediaId);
+      await _deletePayload(mediaId);
     }
     await _persistIndex();
     await _persistSources();
@@ -428,6 +468,19 @@ class MediaRepository extends ChangeNotifier {
     }
   }
 
+  Future<void> updateLocalPath({
+    required String id,
+    required String? localPath,
+    bool persist = true,
+    bool notify = false,
+  }) async {
+    final i = _items.indexWhere((m) => m.id == id);
+    if (i < 0) return;
+    _items[i] = _items[i].copyWith(localPath: localPath);
+    if (persist) await _persistIndex();
+    if (notify) notifyListeners();
+  }
+
   Future<void> flush({bool notify = true}) async {
     await _persistIndex();
     if (notify) notifyListeners();
@@ -438,6 +491,7 @@ class MediaRepository extends ChangeNotifier {
     _bytesCache.remove(id);
     await _persistIndex();
     await _bytesBox?.delete(id);
+    await _deletePayload(id);
     notifyListeners();
   }
 }
