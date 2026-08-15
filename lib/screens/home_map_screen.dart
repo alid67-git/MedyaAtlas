@@ -70,6 +70,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   LocationCluster? _panelCluster;
   final Set<MediaKind> _kinds = {...MediaKind.values};
   Timer? _mountTimer;
+  /// Zorunlu güncelleme — harita kullanılmaz.
+  AppUpdateInfo? _forceUpdate;
+  var _updateDialogOpen = false;
 
   /// Tarama sırasında harita pinlerini dondur — ara notifyListeners NaN pin
   /// ile MarkerLayer'ı düşürmesin.
@@ -116,6 +119,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       context.read<MediaRepository>().refreshMountStates();
+      if (_forceUpdate != null && !_updateDialogOpen) {
+        _promptUpdate(_forceUpdate!, force: true);
+      } else {
+        _checkForUpdates();
+      }
     }
   }
 
@@ -142,26 +150,64 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (manual) setState(() => _status = 'Sürüm kontrolü başarısız (ağ).');
       return;
     }
-    if (!info.isNewer) return;
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Güncelleme var: v${info.latestVersion}'),
-        content: Text(info.dialogBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Sonra'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('İndir'),
-          ),
-        ],
-      ),
-    );
-    if (go != true || !mounted) return;
+    if (!info.isNewer) {
+      if (_forceUpdate != null) setState(() => _forceUpdate = null);
+      return;
+    }
+    final force = info.isForceRequired;
+    if (force) {
+      setState(() => _forceUpdate = info);
+    } else if (_forceUpdate != null) {
+      setState(() => _forceUpdate = null);
+    }
+    await _promptUpdate(info, force: force);
+  }
 
+  Future<void> _promptUpdate(
+    AppUpdateInfo info, {
+    required bool force,
+  }) async {
+    if (!mounted || _updateDialogOpen) return;
+    _updateDialogOpen = true;
+    try {
+      final go = await showDialog<bool>(
+        context: context,
+        barrierDismissible: !force,
+        builder: (ctx) => PopScope(
+          canPop: !force,
+          child: AlertDialog(
+            title: Text(
+              force
+                  ? 'Zorunlu güncelleme: v${info.latestVersion}'
+                  : 'Güncelleme var: v${info.latestVersion}',
+            ),
+            content: Text(force ? info.forceDialogBody : info.dialogBody),
+            actions: [
+              if (!force)
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Sonra'),
+                ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(force ? 'Güncelle' : 'İndir'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (go == true && mounted) {
+        await _downloadUpdate(info);
+      } else if (force && mounted) {
+        // Kullanıcı kapatamadı; yine de engeli tut.
+        setState(() => _forceUpdate = info);
+      }
+    } finally {
+      _updateDialogOpen = false;
+    }
+  }
+
+  Future<void> _downloadUpdate(AppUpdateInfo info) async {
     if (info.platform == UpdatePlatform.android) {
       final installPerm = await Permission.requestInstallPackages.request();
       if (!installPerm.isGranted) {
@@ -213,7 +259,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (err != null) {
         _status = err;
       } else if (info.platform == UpdatePlatform.android) {
-        _status = 'Kurulum ekranı açıldı — Güncelle’ye basın (silmeden üzerine kurar).';
+        _status =
+            'Kurulum ekranı açıldı — Güncelle’ye basın (silmeden üzerine kurar).';
       } else {
         _status =
             'v${info.latestVersion} indirildi. Bu uygulamayı kapatıp '
@@ -1097,6 +1144,53 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 child: Text(
                   s.dropHint,
                   style: const TextStyle(fontSize: 20, color: Colors.white),
+                ),
+              ),
+            ),
+          if (_forceUpdate != null)
+            Positioned.fill(
+              child: Material(
+                color: const Color(0xF0050E16),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.system_update_alt,
+                          size: 56,
+                          color: Color(0xFF2EC4B6),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Zorunlu güncelleme',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _forceUpdate!.forceDialogBody,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton.icon(
+                          onPressed: _updateDialogOpen
+                              ? null
+                              : () => _promptUpdate(
+                                    _forceUpdate!,
+                                    force: true,
+                                  ),
+                          icon: const Icon(Icons.download),
+                          label: Text('v${_forceUpdate!.latestVersion} güncelle'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

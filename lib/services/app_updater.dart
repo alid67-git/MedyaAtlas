@@ -40,6 +40,10 @@ class AppUpdateInfo {
 
   bool get isNewer => compareVersions(latestVersion, appVersion) > 0;
 
+  /// En az 2 sürüm geride (veya major/minor atlanmış) → zorunlu güncelleme.
+  bool get isForceRequired =>
+      isForceUpdateRequired(current: appVersion, latest: latestVersion);
+
   String get dialogBody {
     switch (platform) {
       case UpdatePlatform.android:
@@ -49,6 +53,20 @@ class AppUpdateInfo {
         return 'Şu an v$appVersion.\n'
             '$assetName indirilecek; klasör açılınca yeni '
             'medyaatlas.exe ile çalıştırın.';
+    }
+  }
+
+  String get forceDialogBody {
+    switch (platform) {
+      case UpdatePlatform.android:
+        return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
+            'En az 2 sürüm geridesiniz; v$latestVersion yüklemeden '
+            'MedyaAtlas kullanılamaz.';
+      case UpdatePlatform.windows:
+        return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
+            'En az 2 sürüm geridesiniz; v$latestVersion yüklemeden '
+            'MedyaAtlas kullanılamaz. Zip indirilip yeni medyaatlas.exe '
+            'ile açılmalı.';
     }
   }
 }
@@ -272,3 +290,34 @@ int compareVersions(String a, String b) {
   }
   return 0;
 }
+
+List<int> parseVersionParts(String v) {
+  final parts = v
+      .split(RegExp(r'[^0-9]+'))
+      .where((s) => s.isNotEmpty)
+      .map(int.parse)
+      .toList();
+  while (parts.length < 3) {
+    parts.add(0);
+  }
+  return parts.take(3).toList();
+}
+
+/// [latest] kaç sürüm önde? Aynı major.minor’da patch farkı;
+/// major/minor atlanmışsa büyük sayı (≥2 → zorunlu).
+int versionsBehind({required String current, required String latest}) {
+  if (compareVersions(latest, current) <= 0) return 0;
+  final c = parseVersionParts(current);
+  final l = parseVersionParts(latest);
+  if (l[0] != c[0] || l[1] != c[1]) {
+    return 999;
+  }
+  return l[2] - c[2];
+}
+
+/// 2+ sürüm geride → uygulama kullanılamaz, güncelleme zorunlu.
+bool isForceUpdateRequired({
+  required String current,
+  required String latest,
+}) =>
+    versionsBehind(current: current, latest: latest) >= 2;

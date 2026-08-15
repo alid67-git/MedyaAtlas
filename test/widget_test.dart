@@ -268,4 +268,31 @@ void main() {
     expect(compareVersions('1.0.0', '0.9.9'), 1);
     expect(compareVersions('v0.8.0', '0.7.3'), 1);
   });
+
+  test('zorunlu güncelleme 2 sürüm geride', () {
+    expect(
+      versionsBehind(current: '1.0.5', latest: '1.0.5'),
+      0,
+    );
+    expect(
+      versionsBehind(current: '1.0.4', latest: '1.0.5'),
+      1,
+    );
+    expect(
+      isForceUpdateRequired(current: '1.0.4', latest: '1.0.5'),
+      isFalse,
+    );
+    expect(
+      versionsBehind(current: '1.0.3', latest: '1.0.5'),
+      2,
+    );
+    expect(
+      isForceUpdateRequired(current: '1.0.3', latest: '1.0.5'),
+      isTrue,
+    );
+    expect(
+      isForceUpdateRequired(current: '0.8.1', latest: '1.0.5'),
+      isTrue,
+    );
+  });
 }

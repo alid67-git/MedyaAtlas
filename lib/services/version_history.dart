@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.6',
+    tr: '2 sürüm geride kalan cihazlarda zorunlu güncelleme; aksi halde uygulama kullanılamaz.',
+    en: 'Force update when two or more versions behind; otherwise the app cannot be used.',
+    de: 'Zwangsupdate bei zwei oder mehr Versionen Rückstand; sonst ist die App nicht nutzbar.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.5',
     tr: 'Release derlemesi düzeltildi (video_thumbnail kaldırıldı); güncelleme 1.0.x’e çıkar. Küçük hata düzeltmeleri.',
     en: 'Fixed release build (removed video_thumbnail); updates reach 1.0.x. Minor bug fixes.',
