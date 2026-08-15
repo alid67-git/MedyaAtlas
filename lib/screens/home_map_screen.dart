@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -37,8 +38,10 @@ import '../services/photo_orient.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/drop_host.dart';
 import '../widgets/media_viewer.dart';
+import '../widgets/photo_map_pin.dart';
 import '../widgets/photo_source.dart';
 import '../widgets/video_surface.dart';
+import '../services/media_groups.dart';
 import 'settings_sheets.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -1040,33 +1043,34 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _openCluster(LocationCluster cluster) async {
-    if (_isDesktop) {
-      setState(() {
-        _panelCluster = cluster;
-        _showMissing = false;
-      });
-      return;
-    }
-    if (cluster.items.length == 1) {
-      await openMediaViewer(context, items: cluster.items);
+    setState(() {
+      _panelCluster = cluster;
+      _showMissing = false;
+      _sourcesOpen = false;
+      _kindMenu = null;
+    });
+    if (_isDesktop || MediaQuery.sizeOf(context).width >= 960) {
       return;
     }
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
+      backgroundColor: const Color(0xFF0A1C28),
       builder: (ctx) {
         final live = ctx.watch<MediaRepository>();
+        final h = MediaQuery.sizeOf(ctx).height * 0.62;
         return SizedBox(
-          height: 320,
+          height: h.clamp(320.0, 640.0),
           child: _ClusterSheet(
             cluster: cluster,
             repo: live,
-            onOpen: (index) {
+            onOpen: (items, index) {
               Navigator.pop(ctx);
               openMediaViewer(
                 context,
-                items: cluster.items,
+                items: items,
                 initialIndex: index,
               );
             },
@@ -1074,6 +1078,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
       },
     );
+    if (mounted) setState(() => _panelCluster = null);
   }
 
   String _kindTitle(MediaKind kind) => switch (kind) {
@@ -1153,19 +1158,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 Positioned.fill(
                   child: Row(
                     children: [
-                      Expanded(child: _buildMain(clusters, missing)),
+                      Expanded(child: _buildMain(clusters, missing, repo)),
                       if (wide && _panelCluster != null) ...[
                         const VerticalDivider(width: 1),
                         SizedBox(
-                          width: 340,
+                          width: 360,
                           child: _ClusterSheet(
                             cluster: _panelCluster!,
                             repo: repo,
                             onClose: () =>
                                 setState(() => _panelCluster = null),
-                            onOpen: (index) => openMediaViewer(
+                            onOpen: (items, index) => openMediaViewer(
                               context,
-                              items: _panelCluster!.items,
+                              items: items,
                               initialIndex: index,
                             ),
                           ),
@@ -1673,7 +1678,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     );
   }
 
-  Widget _buildMain(List<LocationCluster> clusters, List<LibraryMedia> missing) {
+  Widget _buildMain(
+    List<LocationCluster> clusters,
+    List<LibraryMedia> missing,
+    MediaRepository repo,
+  ) {
     return Stack(
       children: [
         _showMissing
@@ -1697,7 +1706,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     userAgentPackageName: 'com.medyaatlas.app',
                   ),
                   MarkerLayer(
-                    markers: _markersFor(clusters),
+                    markers: _markersFor(clusters, repo),
                   ),
                 ],
               ),
@@ -1727,24 +1736,52 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     );
   }
 
-  List<Marker> _markersFor(List<LocationCluster> clusters) {
+  List<Marker> _markersFor(
+    List<LocationCluster> clusters,
+    MediaRepository repo,
+  ) {
     final out = <Marker>[];
+    final selectedId = _panelCluster?.id;
     for (final cluster in clusters) {
       final lat = cluster.latitude;
       final lng = cluster.longitude;
       if (!lat.isFinite || !lng.isFinite) continue;
       if (lat.abs() > 90 || lng.abs() > 180) continue;
-      out.add(
-        Marker(
-          point: LatLng(lat, lng),
-          width: 44,
-          height: 44,
-          child: GestureDetector(
-            onTap: () => _openCluster(cluster),
-            child: ClusterDot(count: cluster.items.length),
+      final selected = cluster.id == selectedId;
+      if (selected) {
+        out.add(
+          Marker(
+            point: LatLng(lat, lng),
+            width: 64,
+            height: 76,
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              onTap: () => _openCluster(cluster),
+              child: PhotoMapPin(
+                item: coverMediaOf(cluster.items),
+                repo: repo,
+                count: cluster.items.length,
+              ),
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        final n = cluster.items.length;
+        final size =
+            math.min(88.0, 36 + math.sqrt(n.clamp(1, 200).toDouble()) * 9);
+        out.add(
+          Marker(
+            point: LatLng(lat, lng),
+            width: size,
+            height: size,
+            child: GestureDetector(
+              onTap: () => _openCluster(cluster),
+              behavior: HitTestBehavior.opaque,
+              child: HeatBlob(count: n),
+            ),
+          ),
+        );
+      }
     }
     return out;
   }
@@ -1843,49 +1880,105 @@ class _ClusterSheet extends StatelessWidget {
 
   final LocationCluster cluster;
   final MediaRepository repo;
-  final ValueChanged<int> onOpen;
+  final void Function(List<LibraryMedia> items, int index) onOpen;
   final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+    final items = cluster.items;
+    final groups = groupMediaByDay(items);
+    final range = mediaDateRangeLabel(items);
+    // Düz indeks: tüm öğeler yeniden eskiye (gruplarla aynı sıra).
+    final flat = [for (final g in groups) ...g.items];
+
+    return ColoredBox(
+      color: const Color(0xFF0A1C28),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${cluster.items.length} medya',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              if (onClose != null)
-                IconButton(
-                  tooltip: 'Kapat',
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 6,
-                crossAxisSpacing: 6,
-              ),
-              itemCount: cluster.items.length,
-              itemBuilder: (context, i) {
-                final item = cluster.items[i];
-                return GestureDetector(
-                  onTap: () => onOpen(i),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: _Thumb(item: item, repo: repo),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        mediaCountLabel(items),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                        ),
+                      ),
+                      if (range != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          range,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
+                ),
+                if (onClose != null)
+                  IconButton(
+                    tooltip: 'Kapat',
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+              itemCount: groups.length,
+              itemBuilder: (context, gi) {
+                final g = groups[gi];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(4, gi == 0 ? 4 : 14, 4, 8),
+                      child: Text(
+                        g.title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        mainAxisSpacing: 6,
+                        crossAxisSpacing: 6,
+                      ),
+                      itemCount: g.items.length,
+                      itemBuilder: (context, i) {
+                        final item = g.items[i];
+                        final flatIndex = flat.indexOf(item);
+                        return GestureDetector(
+                          onTap: () => onOpen(flat, flatIndex < 0 ? 0 : flatIndex),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: _Thumb(item: item, repo: repo),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 );
               },
             ),

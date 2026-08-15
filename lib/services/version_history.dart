@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.13',
+    tr: 'Haritada ısı lekesi; tıklanınca dairesel foto pin + tarihe göre medya paneli.',
+    en: 'Heat blobs on the map; tap shows circular photo pin + date-grouped media panel.',
+    de: 'Heat-Blobs auf der Karte; Tippen zeigt Foto-Pin + nach Datum gruppierte Medien.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.12',
     tr: 'Ana Ekrana/Desktop’a Ekle için kök apple-touch-icon (eski Flutter ikonu kalkar).',
     en: 'Root apple-touch-icon for Add to Home/Desktop (removes old Flutter icon).',

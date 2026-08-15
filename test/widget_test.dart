@@ -9,6 +9,7 @@ import 'package:medyaatlas/services/folder_types.dart';
 import 'package:medyaatlas/services/geo.dart';
 import 'package:medyaatlas/services/gpmf_gps.dart';
 import 'package:medyaatlas/services/header_gps.dart';
+import 'package:medyaatlas/services/media_groups.dart';
 import 'package:medyaatlas/services/media_kind.dart';
 import 'package:medyaatlas/services/scan_paths.dart';
 import 'package:medyaatlas/services/video_gps.dart';
@@ -328,6 +329,46 @@ void main() {
     expect(mediaScanPriority(r'D:\GoPro'), 0);
     expect(mediaScanPriority('/mnt/disk/DJI_001'), 0);
     expect(mediaScanPriority('/mnt/disk/random'), greaterThan(0));
+  });
+
+  test('medya gün grupları ve özet etiket', () {
+    final a = LibraryMedia(
+      id: '1',
+      name: 'a.jpg',
+      addedAt: DateTime.utc(2026, 8, 1),
+      kind: MediaKind.photo,
+      sourceId: 's',
+      takenAt: DateTime(2017, 7, 14, 10),
+      lat: 41,
+      lng: 29,
+    );
+    final b = LibraryMedia(
+      id: '2',
+      name: 'b.jpg',
+      addedAt: DateTime.utc(2026, 8, 1),
+      kind: MediaKind.photo,
+      sourceId: 's',
+      takenAt: DateTime(2017, 7, 14, 18),
+      lat: 41,
+      lng: 29,
+    );
+    final c = LibraryMedia(
+      id: '3',
+      name: 'c.mp4',
+      addedAt: DateTime.utc(2026, 8, 1),
+      kind: MediaKind.video,
+      sourceId: 's',
+      takenAt: DateTime(2017, 7, 9),
+      lat: 41,
+      lng: 29,
+    );
+    final groups = groupMediaByDay([a, b, c]);
+    expect(groups.length, 2);
+    expect(groups.first.items.length, 2);
+    expect(mediaCountLabel([a, b, c]), '3 medya');
+    expect(mediaCountLabel([a, b]), '2 fotoğraf');
+    expect(mediaDateRangeLabel([a, c]), contains('2017'));
+    expect(coverMediaOf([c, a]).id, '1');
   });
 
   test('bulk GPS video head GoPro için daha büyük', () {
