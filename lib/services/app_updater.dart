@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../app_version.dart';
+import 'android_media_scan.dart';
 
 const githubRepo = 'alid67-git/MedyaAtlas';
 
@@ -140,7 +141,7 @@ Future<String?> _downloadAndroidApk(
   void Function(double progress)? onProgress,
 }) async {
   if (!Platform.isAndroid) return 'Yalnızca Android.';
-  final dir = await getTemporaryDirectory();
+  final dir = await apkDownloadDirectory();
   final file = File(p.join(dir.path, apkAssetName));
   final err = await _downloadToFile(
     url.trim().isEmpty ? apkLatestUrl : url,
@@ -149,17 +150,14 @@ Future<String?> _downloadAndroidApk(
     minBytes: 1024,
   );
   if (err != null) return err;
-
-  final result = await OpenFilex.open(
-    file.path,
-    type: 'application/vnd.android.package-archive',
-  );
-  if (result.type != ResultType.done) {
-    return result.message.isEmpty
-        ? 'Kurulum ekranı açılamadı. Ayarlar → Bilinmeyen uygulamalar izni verin.'
-        : result.message;
+  if (!looksLikeApk(file)) {
+    try {
+      await file.delete();
+    } catch (_) {}
+    return 'İndirilen dosya geçerli bir APK değil (ağ/HTML). Tekrar deneyin.';
   }
-  return null;
+
+  return installApkFile(file.path);
 }
 
 Future<String?> _downloadWindowsZip(

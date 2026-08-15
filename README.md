@@ -42,12 +42,14 @@ Flutter SDK: `C:\src\flutter\bin\flutter.bat`
 - Windows: `C:\src\MedyaAtlas\run_windows.bat`
 - Android USB: `C:\src\MedyaAtlas\run_android.bat`
 
-## Ne var (0.7.5)
+## Ne var (0.7.6)
 
+- Android: **+ Tüm telefon** — MediaStore ile cihazdaki tüm foto/video taraması
+- Güncelleme: native APK kurulum (silmeden üzerine kurulum)
 - Yeni uygulama ikonu: kıta silüetli dünya + beyaz kontur + pin
 - Uygulama içi “güncelleme var” kontrolü (GitHub Releases → indir)
 - Sabit APK `MedyaAtlas.apk` + sabit Windows zip `MedyaAtlas-windows.zip`
-- MedyaAtlas ikonu; Google Drive; Android EXIF medya konum izni
+- Google Drive; Android EXIF medya konum izni
 - PC: `C:\src\MedyaAtlas`
 
 GoPro GPMF telemetrisi henüz yok. GPX/KML ride çizgileri henüz yok.

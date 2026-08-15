@@ -18,6 +18,7 @@ import '../app_version.dart';
 import '../google_oauth_config.dart';
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
+import '../services/android_media_scan.dart';
 import '../services/app_updater.dart';
 import '../services/cluster.dart';
 import '../services/exif_gps.dart';
@@ -193,7 +194,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       if (err != null) {
         _status = err;
       } else if (info.platform == UpdatePlatform.android) {
-        _status = 'Kurulum ekranı açıldı — Güncelle’ye basın.';
+        _status = 'Kurulum ekranı açıldı — Güncelle’ye basın (silmeden üzerine kurar).';
       } else {
         _status =
             'v${info.latestVersion} indirildi. Bu uygulamayı kapatıp '
@@ -218,6 +219,38 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       return false;
     }
     return true;
+  }
+
+  Future<void> _importEntirePhone() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      setState(() => _status = 'Tüm telefon tarama yalnızca Android’de.');
+      return;
+    }
+    if (!await _ensureAndroidMediaAccess()) return;
+    setState(() {
+      _beginBusy();
+      _status = 'Telefon taranıyor…';
+    });
+    try {
+      final picked = await scanEntirePhoneMedia(
+        onProgress: (s) {
+          if (mounted) setState(() => _status = s);
+        },
+      );
+      if (!mounted) return;
+      setState(_endBusy);
+      if (picked.items.isEmpty) {
+        setState(() => _status = 'Telefonda foto/video bulunamadı.');
+        return;
+      }
+      await _ingestPick(picked);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _endBusy();
+        _status = 'Telefon tarama: $e';
+      });
+    }
   }
 
   Future<void> _importGallery() async {
@@ -1181,6 +1214,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         },
                   child: const Text('+ Dosya seç'),
                 ),
+                if (!_isDesktop)
+                  FilledButton.tonal(
+                    onPressed: _busy
+                        ? null
+                        : () {
+                            setState(_closeMenus);
+                            _importEntirePhone();
+                          },
+                    child: const Text('+ Tüm telefon'),
+                  ),
                 if (!_isDesktop)
                   FilledButton.tonal(
                     onPressed: _busy
