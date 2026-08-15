@@ -33,7 +33,7 @@ class VideoThumb extends StatefulWidget {
 
   final String? path;
   final MediaKind kind;
-  /// Web: blob bittiyse Hive payload’dan URL üret.
+  /// Web: blob bittiyse yeniden seçin (kopya tutulmaz).
   final Future<String?> Function()? resolveUrl;
 
   @override

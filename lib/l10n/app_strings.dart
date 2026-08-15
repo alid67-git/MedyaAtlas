@@ -145,7 +145,7 @@ class S {
   /// Uzun yardım metni (markdown benzeri düz metin).
   String get helpBody => switch (lang) {
         AppLang.tr => '''
-MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasında gösterir. Dosyaları kopyalamaz; yalnızca yerel dizini tarar.
+MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasında gösterir. Dosyaları bir yerden bir yere kopyalamaz; yalnızca indeks tutar (ad, yol, GPS).
 
 ## Ne yapabilirsiniz?
 • Kaynaklar: klasör, SD/USB disk, dosya, galeri, tüm telefon veya Google Drive ekleyin
@@ -154,6 +154,7 @@ MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasınd
 • Konum yok: GPS’siz medya listesi; “yeniden dene” EXIF’i tekrar okur
 • Harita türü: uydu / sokak / topo / koyu
 • Güncelleme: uygulama açılışta GitHub Releases’e bakar (Android)
+• iPhone web: seçilen dosya kopyalanmaz; oturumda blob ile gösterilir (sayfa yenilenince yeniden seçin)
 
 ## İzinler (Android)
 Fotoğraf, video ve “medya konumu” (EXIF GPS) gerekir. Bilinmeyen uygulamalardan yükleme, güncelleme için gereklidir.
@@ -165,18 +166,19 @@ https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
 Google Fotoğraflar bulutu taranmaz; yerel dosya veya Drive gerekir. Windows’ta run_windows.bat / C:\\src\\MedyaAtlas kullanılır.
 ''',
         AppLang.en => '''
-MedyaAtlas shows GPS locations from your photos and videos on a world map. It does not copy files; it only indexes local media.
+MedyaAtlas shows GPS locations from your photos and videos on a world map. It does not copy files from place to place; it only keeps an index (name, path, GPS).
 
 ## What you can do
-• Sources: add folder, SD/USB disk, files, gallery, entire phone, or Google Drive
-• SD/USB: pins hide when the disk is removed; they return automatically when remounted (index kept)
-• With GPS: appear as map pins
-• No location: list of media without GPS; retry re-reads EXIF
-• Map type: satellite / streets / topo / dark
-• Updates: on launch the app checks GitHub Releases (Android)
+• Sources: add folder, SD/USB, files, gallery, entire phone, or Google Drive
+• SD/USB: pins hide when disk is removed; return when remounted (index kept)
+• With GPS: pins on the map
+• No location: missing list; “retry” re-reads EXIF
+• Map type: satellite / street / topo / dark
+• Updates: checks GitHub Releases on launch (Android)
+• iPhone web: selected files are not copied; shown via session blob (re-select after refresh)
 
 ## Permissions (Android)
-Photos, videos, and media location (EXIF GPS) are required. Install unknown apps is needed for updates.
+Photos, videos, and “media location” (EXIF GPS) are required. Install from unknown apps is needed for updates.
 
 ## Download
 https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk

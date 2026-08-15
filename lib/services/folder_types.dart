@@ -8,9 +8,9 @@ const photoHeadBytes = 2 * 1024 * 1024;
 const videoHeadBytes = 4 * 1024 * 1024;
 const previewStoreBytes = 3 * 1024 * 1024;
 
-/// Web: tam dosyayı Hive’a yazma — blob URL + küçük head (kilitlenme önleme).
+/// Web: tam dosya kopyası yok — blob URL + GPS için küçük head okuma.
 const webStorePhotoBytes = 2 * 1024 * 1024;
-/// Web’de video payload Hive’a yazılmaz (GoPro 100MB+ telefonu kilitler).
+/// Video Hive’a yazılmaz (kopya yok).
 const webStoreVideoBytes = 0;
 
 /// SD / büyük disk taraması — EXIF / ©xyz için yeterli.

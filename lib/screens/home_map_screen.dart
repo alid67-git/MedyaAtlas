@@ -34,7 +34,6 @@ import '../services/place_search.dart';
 import '../services/search_text.dart';
 import '../services/video_gps.dart';
 import '../services/video_preview.dart';
-import '../services/web_object_url.dart';
 import '../services/photo_orient.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/drop_host.dart';
@@ -423,7 +422,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               '(bekleyin, kilitlenmedi)',
         );
       }
-      // Web: hafif tarama — tam dosya Hive’a yazılmaz (24 dosyada donma önleme).
+      // Web: indeks + blob referansı — dosya kopyası yok.
       await _ingest(picked.items, source: source, bulkMode: true);
     } catch (e) {
       if (!mounted) return;
@@ -855,26 +854,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   await repo.putPreviewBytes(existing.id, preview);
                 }
               }
-              final hasPayload = await repo.payloadOf(existing.id) != null;
-              if (!hasPayload &&
-                  file.size > 0 &&
-                  file.size <= webStoreVideoBytes) {
-                try {
-                  final payload = await file.readHead(file.size);
-                  await repo.putPayloadBytes(existing.id, payload);
-                  final url = createObjectUrlFromBytes(
-                    payload,
-                    mimeFromName(file.name),
-                  );
-                  if (url != null) {
-                    await repo.updateLocalPath(
-                      id: existing.id,
-                      localPath: url,
-                      persist: false,
-                    );
-                  }
-                } catch (_) {}
-              } else if (isWebPlayableUrl(file.localPath) &&
+              if (isWebPlayableUrl(file.localPath) &&
                   existing.localPath != file.localPath) {
                 await repo.updateLocalPath(
                   id: existing.id,
@@ -1103,14 +1083,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         : (kIsWeb && missing > 0
             ? ' · iPhone foto GPS’i gizleyebilir; GoPro/DJI için yeniden seçin'
             : '');
+    final copyNote = ' · kopyalanmadı (yalnızca indeks)';
     setState(() {
       _showMissing = false;
       _panelCluster = null;
       // Yeni eklenen türler haritada görünsün diye filtreyi aç.
       _kinds.addAll(MediaKind.values);
       _status = _cancel
-          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip'
-          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip';
+          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip$copyNote'
+          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip$copyNote';
     });
     _fitVisible();
   }

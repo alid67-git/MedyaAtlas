@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.19',
+    tr: 'Dosya kopyası yok: yalnızca indeks; eski Hive medya kopyaları silindi.',
+    en: 'No file copies: index only; cleared old Hive media copies.',
+    de: 'Keine Dateikopien: nur Index; alte Hive-Medienkopien gelöscht.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.18',
     tr: 'Web: çoklu seçim donması azaltıldı; HEIC önizleme; GoPro HEVC için Safari’de aç.',
     en: 'Web: faster multi-select; HEIC thumbs; open GoPro HEVC in Safari.',
