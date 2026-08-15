@@ -1,18 +1,15 @@
 /// Google Cloud OAuth istemci kimlikleri.
 ///
-/// Kurulum:
-/// 1. https://console.cloud.google.com/ → proje oluştur
-/// 2. "Google Drive API" etkinleştir
-/// 3. OAuth izin ekranı (External) + test kullanıcısı ekle
-/// 4. Kimlik bilgileri:
-///    - Android: paket `com.medyaatlas.medyaatlas_mobile` + debug/release SHA-1
-///    - Web uygulaması istemcisi → [googleOAuthServerClientId]
+/// Android’de google_sign_in 7+ **zorunlu** olarak Web istemci kimliğini
+/// `serverClientId` ister. Boşsa Drive girişi başlamadan hata verilir.
 ///
-/// Derleme örneği:
-///   flutter build apk --dart-define=GOOGLE_SERVER_CLIENT_ID=xxxxx.apps.googleusercontent.com
+/// Kurulum: [GOOGLE_DRIVE.md]
 ///
-/// Boş bırakılırsa Sign-In yine denenir (Android’de bazen yeterli);
-/// ApiException 10 alırsan SHA-1 + server client ID eksik demektir.
+/// Derleme:
+///   flutter build apk --release \
+///     --dart-define=GOOGLE_SERVER_CLIENT_ID=xxxxx.apps.googleusercontent.com
+///
+/// CI: repo secret `GOOGLE_SERVER_CLIENT_ID`
 const googleOAuthServerClientId = String.fromEnvironment(
   'GOOGLE_SERVER_CLIENT_ID',
   defaultValue: '',
@@ -22,3 +19,11 @@ const googleOAuthClientId = String.fromEnvironment(
   'GOOGLE_CLIENT_ID',
   defaultValue: '',
 );
+
+bool get hasGoogleServerClientId => googleOAuthServerClientId.trim().isNotEmpty;
+
+const googleDriveConfigHelp =
+    'Google Drive için Web OAuth istemci kimliği (serverClientId) gerekli. '
+    'Google Cloud → Kimlik bilgileri → “Web uygulaması” oluşturun; '
+    'kimliği GitHub secret GOOGLE_SERVER_CLIENT_ID olarak ekleyip APK’yı '
+    'yeniden yayınlayın. Ayrıntı: GOOGLE_DRIVE.md';

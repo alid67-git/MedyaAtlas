@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -15,6 +16,9 @@ var _signInReady = false;
 
 Future<void> _ensureSignInInitialized() async {
   if (_signInReady) return;
+  if (Platform.isAndroid && !hasGoogleServerClientId) {
+    throw StateError(googleDriveConfigHelp);
+  }
   await GoogleSignIn.instance.initialize(
     clientId: googleOAuthClientId.isEmpty ? null : googleOAuthClientId,
     serverClientId:

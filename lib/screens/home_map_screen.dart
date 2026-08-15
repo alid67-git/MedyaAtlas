@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../app_version.dart';
+import '../google_oauth_config.dart';
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
 import '../services/app_updater.dart';
@@ -289,17 +290,27 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       await _ingest(picked.items, source: source);
     } catch (e) {
       if (!mounted) return;
-      final msg = '$e';
-      setState(() {
-        _status = msg.contains('10') || msg.contains('ApiException')
-            ? 'Google oturum açılamadı. Google Cloud’da OAuth + SHA-1 ve '
-                'Drive API gerekir (README / google_oauth_config.dart).'
-            : 'Google Drive: $e';
-      });
+      setState(() => _status = _googleDriveErrorMessage(e));
     } finally {
       session?.close();
       if (mounted) setState(_endBusy);
     }
+  }
+
+  String _googleDriveErrorMessage(Object e) {
+    final msg = '$e';
+    final lower = msg.toLowerCase();
+    if (lower.contains('serverclientid') ||
+        lower.contains('clientconfiguration') ||
+        msg.contains(googleDriveConfigHelp) ||
+        (!hasGoogleServerClientId && Platform.isAndroid)) {
+      return googleDriveConfigHelp;
+    }
+    if (msg.contains('10') || lower.contains('apiexception')) {
+      return 'Google oturum açılamadı. Android OAuth istemcisine '
+          'SHA-1 ekleyin ve Drive API’yi açın (GOOGLE_DRIVE.md).';
+    }
+    return 'Google Drive: $e';
   }
 
   Future<void> _importFolder() async {
