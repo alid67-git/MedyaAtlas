@@ -29,8 +29,6 @@ hiddenimports = [
     "webview",
     "server",
     "server.app",
-    "server.scan",
-    "server.gps",
     "server.play",
     "server.paths",
     "server.media_store",

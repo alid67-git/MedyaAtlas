@@ -1,6 +1,6 @@
 /** Galeri thumb isteklerini sınırla — onlarca ffmpeg aynı anda API’yi kilitler. */
 
-const MAX = 2
+const MAX = 4
 let active = 0
 const waiting: Array<() => void> = []
 

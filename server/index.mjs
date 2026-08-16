@@ -653,27 +653,25 @@ async function walk(dir, files) {
 async function scan(root, sourceId, job) {
   root = resolve(root)
   const files = []; await walk(root, files)
-  // LRV: düşük çözünürlüklü proxy — hiç indeksleme
-  const scanFiles = files.filter((path) => extname(path).slice(1).toLowerCase() !== 'lrv')
   // Asıl amaç GoPro konumları: onları ve drone videolarını önce işle.
   const priority = (path) => {
     const kind = kindFor(basename(path))
     return kind === 'gopro' ? 0 : kind === 'drone' ? 1 : kind === 'photo' ? 2 : 3
   }
-  scanFiles.sort((a, b) => priority(a) - priority(b))
+  files.sort((a, b) => priority(a) - priority(b))
   if (job.cancelled) {
     job.phase = 'cancelled'
     job.done = true
     return
   }
-  job.total = scanFiles.length
+  job.total = files.length
   job.phase = 'scanning'
   let next = 0
-  const workers = Math.min(12, Math.max(4, scanFiles.length))
+  const workers = Math.min(12, Math.max(4, files.length))
   await Promise.all(Array.from({ length: workers }, async () => {
-    while (next < scanFiles.length) {
+    while (next < files.length) {
       if (job.cancelled) return
-      const path = scanFiles[next++], kind = kindFor(basename(path))
+      const path = files[next++], kind = kindFor(basename(path))
       let point = null
       let takenAt = null
       if (kind === 'photo') {

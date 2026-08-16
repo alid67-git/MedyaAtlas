@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MediaItem } from '../types'
 import { KIND_LABEL } from '../lib/media'
+import { DESKTOP_API_ORIGIN, toDirectUrl } from '../lib/directUrl'
 
 interface LightboxProps {
   item: MediaItem | null
@@ -60,20 +61,6 @@ function formatDuration(seconds: number): string {
   return hours > 0
     ? `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
     : `${minutes}:${String(secs).padStart(2, '0')}`
-}
-
-/** Vite proxy video Range isteklerini boğar; medyayı API’ye doğrudan bağla. */
-function directMediaUrl(url: string): string {
-  if (
-    typeof window === 'undefined' ||
-    (!url.startsWith('/api/media/') && !url.startsWith('/api/transcoded/'))
-  ) {
-    return url
-  }
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
-    return url
-  }
-  return `http://127.0.0.1:5174${url}`
 }
 
 export function Lightbox({
@@ -219,9 +206,9 @@ export function Lightbox({
         setFailReason('Dosyaya ulaşılamadı.')
         return
       }
-      const direct = directMediaUrl(u)
+      const direct = toDirectUrl(u)
       // Fotoğraflar: blob ile yükle (WebView + relative /api yolu siyah kalabiliyor)
-      if (!isVideo && (direct.includes('/api/media/') || direct.startsWith('http://127.0.0.1:5174'))) {
+      if (!isVideo && (direct.includes('/api/media/') || direct.startsWith(DESKTOP_API_ORIGIN))) {
         try {
           const res = await fetch(direct)
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -272,7 +259,7 @@ export function Lightbox({
       setConverting(false)
       setConvertPercent(null)
       if (compatibleUrl) {
-        setUrl(directMediaUrl(compatibleUrl))
+        setUrl(toDirectUrl(compatibleUrl))
         return
       }
       setFailed(true)

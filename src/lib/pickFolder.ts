@@ -123,12 +123,13 @@ export async function discoverMediaFolders(
   const queue: Array<{ dir: DirHandle; pathPrefix: string }> = [
     { dir: root as DirHandle, pathPrefix: '' },
   ]
+  let head = 0
 
-  while (queue.length > 0) {
+  while (head < queue.length) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     if (found.length >= maxFolders) break
 
-    const { dir, pathPrefix } = queue.shift()!
+    const { dir, pathPrefix } = queue[head++]
     let directCount = 0
     const subdirs: Array<{ name: string; handle: DirHandle }> = []
 

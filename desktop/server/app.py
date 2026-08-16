@@ -49,6 +49,8 @@ def _resolve_body_path(body: dict) -> Path | None:
 APP_DIR = Path(__file__).resolve().parent.parent
 ROOT_DIR = APP_DIR.parent
 NODE_URL = os.environ.get("MEDIAATLAS_NODE_URL", "http://127.0.0.1:5175").rstrip("/")
+# main.py DEFAULT_PORT ile aynı — pywebview/paketli dağıtım burada servis edilir.
+API_PORT = 5174
 
 
 def _dist_dir() -> Path:
@@ -62,7 +64,14 @@ DIST_DIR = _dist_dir()
 app = FastAPI(title="MedyaAtlas Desktop API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # Sadece kendi arayüzümüz (paketli dağıtım 5174, Vite dev 5173) — localhost-CSRF'i
+    # önlemek için başka hiçbir origin dosya sistemine erişen bu endpoint'lere ulaşamaz.
+    allow_origins=[
+        f"http://localhost:{API_PORT}",
+        f"http://127.0.0.1:{API_PORT}",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -36,6 +36,8 @@ import {
   type LibraryItem,
 } from './lib/cache'
 import { generateThumb } from './lib/thumbs'
+import { withThumbSlot } from './lib/thumbQueue'
+import { toDirectUrl } from './lib/directUrl'
 import type { MediaItem, MediaKind } from './types'
 
 export interface ThumbInfo {
@@ -77,23 +79,6 @@ function stableThumbKey(item: MediaItem): string {
   const parts = item.id.split('|')
   if (parts.length >= 4) return parts.slice(0, -1).join('|')
   return `${item.sourceId}|${item.relativePath || item.name}`
-}
-
-/** Aynı anda en fazla N /api/thumb — tarayıcı + ffmpeg tıkanmasın. */
-const THUMB_FETCH_MAX = 4
-let thumbFetchActive = 0
-const thumbFetchWait: Array<() => void> = []
-
-async function acquireThumbFetch(): Promise<void> {
-  if (thumbFetchActive >= THUMB_FETCH_MAX) {
-    await new Promise<void>((resolve) => thumbFetchWait.push(resolve))
-  }
-  thumbFetchActive += 1
-}
-
-function releaseThumbFetch(): void {
-  thumbFetchActive = Math.max(0, thumbFetchActive - 1)
-  thumbFetchWait.shift()?.()
 }
 
 interface SourceUi {
@@ -1053,9 +1038,6 @@ export default function App() {
       const cached = urlCacheRef.current.get(item.id)
       if (cached) return cached
 
-      const toDirect = (url: string) =>
-        url.startsWith('/api/') ? `http://127.0.0.1:5174${url}` : url
-
       const source = sourcesRef.current.find((candidate) => candidate.id === item.sourceId)
       const rootPath = source ? localPathForSource(source, sourcesRef.current) : undefined
       if (rootPath) {
@@ -1071,7 +1053,7 @@ export default function App() {
           })
           const data = (await response.json()) as { url?: string }
           if (response.ok && data.url) {
-            const mediaUrl = toDirect(data.url)
+            const mediaUrl = toDirectUrl(data.url)
             urlCacheRef.current.set(item.id, mediaUrl)
             return mediaUrl
           }
@@ -1087,7 +1069,7 @@ export default function App() {
       const file = await resolveFile(item)
       if (!file) {
         if (item.url) {
-          const fallback = toDirect(item.url)
+          const fallback = toDirectUrl(item.url)
           urlCacheRef.current.set(item.id, fallback)
           return fallback
         }
@@ -1120,9 +1102,7 @@ export default function App() {
         })
         const data = (await response.json()) as { url?: string }
         if (!response.ok || !data.url) return null
-        return data.url.startsWith('/api/')
-          ? `http://127.0.0.1:5174${data.url}`
-          : data.url
+        return toDirectUrl(data.url)
       } catch {
         return null
       }
@@ -1320,9 +1300,6 @@ export default function App() {
       const pending = thumbPendingRef.current.get(cacheKey)
       if (pending) return pending
 
-      const toDirect = (url: string) =>
-        url.startsWith('/api/') ? `http://127.0.0.1:5174${url}` : url
-
       const task = (async (): Promise<ThumbInfo | null> => {
         const stored = await getThumb(cacheKey)
         if (stored) {
@@ -1349,34 +1326,32 @@ export default function App() {
         }
 
         if (rootPath) {
-          await acquireThumbFetch()
           try {
-            const response = await fetch('/api/thumb', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: item.id,
-                rootPath,
-                relativePath: item.relativePath || item.name,
-              }),
-            })
-            const data = (await response.json()) as { url?: string; durationSec?: number; cached?: boolean }
-            if (response.ok && data.url) {
-              const info: ThumbInfo = {
-                url: toDirect(data.url),
-                durationSec: data.durationSec,
+            const info = await withThumbSlot(async () => {
+              const response = await fetch('/api/thumb', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: item.id,
+                  rootPath,
+                  relativePath: item.relativePath || item.name,
+                }),
+              })
+              const data = (await response.json()) as { url?: string; durationSec?: number; cached?: boolean }
+              if (response.ok && data.url) {
+                return { url: toDirectUrl(data.url), durationSec: data.durationSec } as ThumbInfo
               }
+              return null
+            })
+            if (info) {
               thumbCacheRef.current.set(cacheKey, info)
               return info
             }
           } catch { /* tarayıcı yoluna düş */ }
-          finally {
-            releaseThumbFetch()
-          }
         }
 
         if (item.url && item.kind === 'photo') {
-          const info = { url: toDirect(item.url) }
+          const info = { url: toDirectUrl(item.url) }
           thumbCacheRef.current.set(cacheKey, info)
           return info
         }
