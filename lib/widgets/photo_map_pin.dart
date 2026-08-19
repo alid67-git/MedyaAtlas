@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/library_media.dart';
@@ -119,30 +120,25 @@ class _PinThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!item.isVideo) {
+      // Web: eski oturumdan kalma blob: yolu şekli hâlâ geçerli görünür ama
+      // sayfa kapanınca ölür — mevcut oturumdan doğrula/tazele.
+      if (kIsWeb) {
+        return FutureBuilder<String?>(
+          future: repo.resolvePlayableUrl(item),
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return const ColoredBox(color: Color(0xFF1A2A36));
+            }
+            final fromSession =
+                photoFromPath(snap.data, fit: BoxFit.cover);
+            if (fromSession != null) return fromSession;
+            return _pinBytesFallback(item: item, repo: repo);
+          },
+        );
+      }
       final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
       if (fromDisk != null) return fromDisk;
-      final cached = repo.cachedBytes(item.id);
-      if (cached != null &&
-          looksLikeJpeg(cached) &&
-          !looksLikeHeic(cached)) {
-        return OrientedMemoryImage(cached, fit: BoxFit.cover);
-      }
-      return FutureBuilder(
-        future: repo.bytesOf(item.id),
-        builder: (context, snap) {
-          final bytes = snap.data;
-          if (bytes == null ||
-              bytes.isEmpty ||
-              looksLikeHeic(bytes) ||
-              !looksLikeJpeg(bytes)) {
-            return const ColoredBox(
-              color: Color(0xFF1A2A36),
-              child: Icon(Icons.photo, color: Colors.white54, size: 22),
-            );
-          }
-          return OrientedMemoryImage(bytes, fit: BoxFit.cover);
-        },
-      );
+      return _pinBytesFallback(item: item, repo: repo);
     }
     final cached = repo.cachedBytes(item.id);
     if (cached != null) {
@@ -155,6 +151,34 @@ class _PinThumb extends StatelessWidget {
         color: Colors.white54,
         size: 22,
       ),
+    );
+  }
+
+  Widget _pinBytesFallback({
+    required LibraryMedia item,
+    required MediaRepository repo,
+  }) {
+    final cached = repo.cachedBytes(item.id);
+    if (cached != null &&
+        looksLikeJpeg(cached) &&
+        !looksLikeHeic(cached)) {
+      return OrientedMemoryImage(cached, fit: BoxFit.cover);
+    }
+    return FutureBuilder(
+      future: repo.bytesOf(item.id),
+      builder: (context, snap) {
+        final bytes = snap.data;
+        if (bytes == null ||
+            bytes.isEmpty ||
+            looksLikeHeic(bytes) ||
+            !looksLikeJpeg(bytes)) {
+          return const ColoredBox(
+            color: Color(0xFF1A2A36),
+            child: Icon(Icons.photo, color: Colors.white54, size: 22),
+          );
+        }
+        return OrientedMemoryImage(bytes, fit: BoxFit.cover);
+      },
     );
   }
 }

@@ -2365,9 +2365,32 @@ class _Thumb extends StatelessWidget {
     if (item.isVideo) {
       return _VideoThumbCached(item: item, repo: repo);
     }
+    // Web: eski oturumdan kalma blob: yolu şekli hâlâ geçerli görünür ama
+    // sayfa kapanınca ölür — mevcut oturumdan doğrula/tazele.
+    if (kIsWeb) {
+      return FutureBuilder<String?>(
+        future: repo.resolvePlayableUrl(item),
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const ColoredBox(color: Color(0xFF1A2A36));
+          }
+          final fromSession =
+              photoFromPath(snap.data, fit: BoxFit.cover);
+          if (fromSession != null) return fromSession;
+          return _thumbBytesFallback(item: item, repo: repo);
+        },
+      );
+    }
     // Web: blob (HEIC dahil Safari img). Hive’daki HEIC baytını Image.memory’ye verme.
     final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
     if (fromDisk != null) return fromDisk;
+    return _thumbBytesFallback(item: item, repo: repo);
+  }
+
+  Widget _thumbBytesFallback({
+    required LibraryMedia item,
+    required MediaRepository repo,
+  }) {
     final cached = repo.cachedBytes(item.id);
     if (cached != null &&
         cached.isNotEmpty &&

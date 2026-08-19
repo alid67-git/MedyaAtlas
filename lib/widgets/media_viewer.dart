@@ -142,6 +142,32 @@ class _Page extends StatelessWidget {
       return _VideoPage(media: media, active: active);
     }
 
+    final repo = context.read<MediaRepository>();
+
+    // Web: kalıcı olan tek yol tarayıcının o oturumda tuttuğu File — sayfa
+    // kapanınca kaybolur. Eskiden kalma blob: yolunu doğrudan güvenmek
+    // (şekli hâlâ geçerli görünüyor) sessizce kırık resme düşüyordu;
+    // resolvePlayableUrl oturumda File var mı diye gerçekten kontrol eder.
+    if (kIsWeb) {
+      return FutureBuilder<String?>(
+        future: repo.resolvePlayableUrl(media),
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final fromSession = photoFromPath(snap.data);
+          if (fromSession != null) {
+            return InteractiveViewer(
+              minScale: 1,
+              maxScale: 5,
+              child: Center(child: fromSession),
+            );
+          }
+          return _missingPhotoFallback(context, repo, media);
+        },
+      );
+    }
+
     final fromDisk = photoFromPath(media.localPath);
     if (fromDisk != null) {
       return InteractiveViewer(
@@ -150,7 +176,14 @@ class _Page extends StatelessWidget {
         child: Center(child: fromDisk),
       );
     }
-    final repo = context.read<MediaRepository>();
+    return _missingPhotoFallback(context, repo, media);
+  }
+
+  Widget _missingPhotoFallback(
+    BuildContext context,
+    MediaRepository repo,
+    LibraryMedia media,
+  ) {
     final cached = repo.cachedBytes(media.id);
     if (cached != null &&
         looksLikeJpeg(cached) &&
@@ -171,7 +204,7 @@ class _Page extends StatelessWidget {
           return Center(
             child: Text(
               kIsWeb
-                  ? 'Fotoğraf yok. Galeriden yeniden seçin (HEIC için blob gerekir).'
+                  ? 'Bu fotoğraf artık oturumda değil. Galeriden yeniden seçin.'
                   : 'Fotoğraf bulunamadı.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white54),

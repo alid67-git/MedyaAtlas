@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.26',
+    tr: 'Sekmeyi kapatıp yeniden açınca fotoğraf/video artık kırık göstermek yerine "yeniden seçin" diyor.',
+    en: 'Closing and reopening the tab now shows a clear "reselect" message instead of a broken photo/video.',
+    de: 'Tab schließen/öffnen zeigt jetzt "erneut auswählen" statt eines kaputten Fotos/Videos.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.25',
     tr: 'Büyük kütüphanede Galeri\'den ekleme artık yavaşlamıyor.',
     en: 'Adding from Gallery no longer slows down as your library grows.',
