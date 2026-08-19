@@ -35,6 +35,7 @@ import '../services/search_text.dart';
 import '../services/video_gps.dart';
 import '../services/video_preview.dart';
 import '../services/photo_orient.dart';
+import '../services/web_media_session.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/drop_host.dart';
 import '../widgets/media_viewer.dart';
@@ -1229,9 +1230,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               if (size > 0 && limit > 0) {
                 head = await readLocalFileHead(path, limit);
               }
-            } else {
-              head = await repo.bytesOf(item.id);
             }
+            // Web'de (iPhone Safari dahil) dosya yolu yok — seçim anında
+            // bellekte tutulan File referansından oku (webSessionRegister).
+            if ((head == null || head.isEmpty) && item.sizeBytes != null) {
+              final limit = item.kind == MediaKind.photo
+                  ? (item.sizeBytes! <= previewStoreBytes
+                      ? item.sizeBytes!
+                      : photoHeadBytes)
+                  : videoHeadBytes;
+              head = await webSessionReadHead(
+                item.name,
+                item.sizeBytes!,
+                limit,
+              );
+            }
+            head ??= await repo.bytesOf(item.id);
             if (head == null || head.isEmpty) {
               if (item.kind == MediaKind.photo) continue;
               checked++;

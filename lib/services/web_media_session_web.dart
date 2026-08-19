@@ -1,3 +1,7 @@
+import 'dart:js_interop';
+import 'dart:math' as math;
+import 'dart:typed_data';
+
 import 'package:web/web.dart' as web;
 
 final Map<String, web.File> _files = {};
@@ -21,6 +25,21 @@ String? webSessionBlobUrl(String name, int size) {
   final url = web.URL.createObjectURL(file);
   _urls[k] = url;
   return url;
+}
+
+/// Oturumdaki File'dan baştan `maxBytes` oku — GPS/EXIF için (iOS/Safari dahil
+/// hiçbir dosya yolu yok, tek erişim bu bellek referansı).
+Future<Uint8List?> webSessionReadHead(
+  String name,
+  int size,
+  int maxBytes,
+) async {
+  final file = _files[_key(name, size)];
+  if (file == null) return null;
+  final end = math.min(file.size, maxBytes);
+  final blob = file.slice(0, end);
+  final buffer = await blob.arrayBuffer().toDart;
+  return buffer.toDart.asUint8List();
 }
 
 void webSessionClear() {
