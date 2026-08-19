@@ -28,6 +28,10 @@ class MediaRepository extends ChangeNotifier {
   final List<MediaSource> _sources = [];
   /// Oturum önizleme (Hive’a yazılmaz — kopya yok).
   final Map<String, Uint8List> _bytesCache = {};
+  /// id → değişmemiş öğenin son üretilmiş (scrub edilmiş) JSON'u.
+  /// Binlerce medyalı kütüphanede her ekleme tüm listeyi yeniden
+  /// serileştirmesin diye — sadece değişen öğeler yeniden hesaplanır.
+  final Map<String, String> _itemJsonCache = {};
   /// Kaynak id → kök şu an erişilebilir mi (harici disk).
   final Map<String, bool> _mountBySource = {};
   Box<String>? _indexBox;
@@ -101,6 +105,7 @@ class MediaRepository extends ChangeNotifier {
       if (item.lat == null && item.lng == null) continue;
       if (isValidGps(item.lat, item.lng)) continue;
       _items[i] = item.copyWith(clearLocation: true, locationMissing: true);
+      _itemJsonCache.remove(item.id);
       changed++;
     }
     return changed;
@@ -252,11 +257,23 @@ class MediaRepository extends ChangeNotifier {
   Future<void> _persistIndex() async {
     _stripInvalidGpsInMemory();
     try {
-      final payload = <Map<String, dynamic>>[
-        for (final m in _items) m.toJson(),
-      ];
-      _scrubNonFinite(payload);
-      await _indexBox!.put(_indexKey, jsonEncode(payload));
+      final buffer = StringBuffer('[');
+      for (var i = 0; i < _items.length; i++) {
+        if (i > 0) buffer.write(',');
+        final m = _items[i];
+        final cached = _itemJsonCache[m.id];
+        if (cached != null) {
+          buffer.write(cached);
+          continue;
+        }
+        final json = m.toJson();
+        _scrubNonFinite(json);
+        final encoded = jsonEncode(json);
+        _itemJsonCache[m.id] = encoded;
+        buffer.write(encoded);
+      }
+      buffer.write(']');
+      await _indexBox!.put(_indexKey, buffer.toString());
     } catch (e, st) {
       // Tarama / harita ayakta kalsın — NaN yüzünden tüm klasör düşmesin.
       debugPrint('MedyaAtlas: medya indeksi yazılamadı: $e\n$st');
@@ -352,6 +369,7 @@ class MediaRepository extends ChangeNotifier {
     _mountBySource.remove(id);
     for (final mediaId in ids) {
       _bytesCache.remove(mediaId);
+      _itemJsonCache.remove(mediaId);
       await _bytesBox?.delete(mediaId);
       await _deletePayload(mediaId);
     }
@@ -455,6 +473,7 @@ class MediaRepository extends ChangeNotifier {
             takenAt: takenAt,
             locationMissing: true,
           );
+    _itemJsonCache.remove(id);
     if (persist) {
       await _persistIndex();
     }
@@ -472,6 +491,7 @@ class MediaRepository extends ChangeNotifier {
     final i = _items.indexWhere((m) => m.id == id);
     if (i < 0) return;
     _items[i] = _items[i].copyWith(localPath: localPath);
+    _itemJsonCache.remove(id);
     if (persist) await _persistIndex();
     if (notify) notifyListeners();
   }
@@ -484,6 +504,7 @@ class MediaRepository extends ChangeNotifier {
   Future<void> remove(String id) async {
     _items.removeWhere((m) => m.id == id);
     _bytesCache.remove(id);
+    _itemJsonCache.remove(id);
     await _persistIndex();
     await _bytesBox?.delete(id);
     await _deletePayload(id);
