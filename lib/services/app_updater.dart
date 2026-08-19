@@ -10,6 +10,7 @@ import '../app_version.dart';
 import 'android_media_scan.dart';
 import 'host_platform.dart';
 import 'update_fs.dart';
+import 'web_reload.dart';
 
 const githubRepo = 'alid67-git/MedyaAtlas';
 
@@ -21,8 +22,9 @@ const apkLatestUrl =
     'https://github.com/$githubRepo/releases/latest/download/$apkAssetName';
 const windowsZipLatestUrl =
     'https://github.com/$githubRepo/releases/latest/download/$windowsZipAssetName';
+const webAppLatestUrl = 'https://alid67-git.github.io/MedyaAtlas/';
 
-enum UpdatePlatform { android, windows }
+enum UpdatePlatform { android, windows, web }
 
 class AppUpdateInfo {
   const AppUpdateInfo({
@@ -54,6 +56,9 @@ class AppUpdateInfo {
         return 'Şu an v$appVersion.\n'
             '$assetName indirilecek; klasör açılınca yeni '
             'medyaatlas.exe ile çalıştırın.';
+      case UpdatePlatform.web:
+        return 'Şu an v$appVersion.\n'
+            'v$latestVersion için sayfa yenilenecek.';
     }
   }
 
@@ -68,23 +73,26 @@ class AppUpdateInfo {
             'En az 2 sürüm geridesiniz; v$latestVersion yüklemeden '
             'MedyaAtlas kullanılamaz. Zip indirilip yeni medyaatlas.exe '
             'ile açılmalı.';
+      case UpdatePlatform.web:
+        return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
+            'En az 2 sürüm geridesiniz; v$latestVersion için sayfayı '
+            'yenilemeniz gerekir.';
     }
   }
 }
 
-bool get supportsInAppUpdate {
-  if (kIsWeb) return false;
-  return hostIsAndroid || hostIsWindows;
-}
+/// Android / Windows indirme veya web sayfa yenileme.
+bool get supportsInAppUpdate =>
+    kIsWeb || hostIsAndroid || hostIsWindows;
 
 UpdatePlatform? get currentUpdatePlatform {
-  if (kIsWeb) return null;
+  if (kIsWeb) return UpdatePlatform.web;
   if (hostIsAndroid) return UpdatePlatform.android;
   if (hostIsWindows) return UpdatePlatform.windows;
   return null;
 }
 
-/// GitHub Releases’ten son sürümü oku (Android APK veya Windows zip).
+/// GitHub Releases’ten son sürümü oku.
 Future<AppUpdateInfo?> fetchLatestRelease() async {
   final platform = currentUpdatePlatform;
   if (platform == null) return null;
@@ -104,6 +112,17 @@ Future<AppUpdateInfo?> fetchLatestRelease() async {
     final json = jsonDecode(res.body) as Map<String, dynamic>;
     final tag = (json['tag_name'] as String? ?? '').replaceFirst('v', '');
     if (tag.isEmpty) return null;
+    final notes = (json['body'] as String?)?.trim() ?? '';
+
+    if (platform == UpdatePlatform.web) {
+      return AppUpdateInfo(
+        latestVersion: tag,
+        downloadUrl: webAppLatestUrl,
+        assetName: 'MedyaAtlas web',
+        platform: UpdatePlatform.web,
+        releaseNotes: notes,
+      );
+    }
 
     final preferred = platform == UpdatePlatform.android
         ? apkAssetName
@@ -129,7 +148,6 @@ Future<AppUpdateInfo?> fetchLatestRelease() async {
     url ??= fallbackUrl;
     assetName = preferred;
 
-    final notes = (json['body'] as String?)?.trim() ?? '';
     return AppUpdateInfo(
       latestVersion: tag,
       downloadUrl: url,
@@ -142,7 +160,7 @@ Future<AppUpdateInfo?> fetchLatestRelease() async {
   }
 }
 
-/// Güncelleme paketini indir ve aç (APK kurulum / Windows zip klasörü).
+/// Güncelleme: APK kurulum / Windows zip / web sayfa yenileme.
 Future<String?> downloadAndApplyUpdate(
   AppUpdateInfo info, {
   void Function(double progress)? onProgress,
@@ -152,6 +170,10 @@ Future<String?> downloadAndApplyUpdate(
       return _downloadAndroidApk(info.downloadUrl, onProgress: onProgress);
     case UpdatePlatform.windows:
       return _downloadWindowsZip(info.downloadUrl, onProgress: onProgress);
+    case UpdatePlatform.web:
+      onProgress?.call(1);
+      await reloadWebApp();
+      return null;
   }
 }
 

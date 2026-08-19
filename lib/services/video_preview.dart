@@ -43,6 +43,16 @@ bool looksLikeJpeg(Uint8List bytes) =>
     bytes[1] == 0xD8 &&
     bytes[2] == 0xFF;
 
+/// HEIC/HEIF — Flutter web Image.memory çoğu zaman çözemez; blob Image.network kullan.
+bool looksLikeHeic(Uint8List bytes) {
+  if (bytes.length < 12) return false;
+  // ....ftyp....
+  return bytes[4] == 0x66 &&
+      bytes[5] == 0x74 &&
+      bytes[6] == 0x79 &&
+      bytes[7] == 0x70;
+}
+
 /// GoPro .THM / yan JPEG (DJI vb.) — tarama sırasında ilk kare yerine.
 Future<Uint8List?> siblingPreviewBytes(String? videoPath) async {
   if (videoPath == null || videoPath.isEmpty) return null;

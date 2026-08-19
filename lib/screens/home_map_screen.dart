@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -27,7 +28,7 @@ import '../services/geo.dart';
 import '../services/google_drive_media.dart';
 import '../services/host_platform.dart';
 import '../services/local_fs.dart';
-import '../services/media_kind.dart';
+import '../services/media_mime.dart';
 import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
@@ -37,8 +38,10 @@ import '../services/photo_orient.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/drop_host.dart';
 import '../widgets/media_viewer.dart';
+import '../widgets/photo_map_pin.dart';
 import '../widgets/photo_source.dart';
 import '../widgets/video_surface.dart';
+import '../services/media_groups.dart';
 import 'settings_sheets.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -134,7 +137,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _checkForUpdates({bool manual = false}) async {
-    if (kIsWeb || !supportsInAppUpdate) {
+    if (!supportsInAppUpdate) {
       if (manual && mounted) {
         setState(() => _status = 'Bu platformda uygulama içi güncelleme yok.');
       }
@@ -151,6 +154,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
     if (!info.isNewer) {
       if (_forceUpdate != null) setState(() => _forceUpdate = null);
+      if (manual) {
+        setState(() => _status = 'Güncelsiniz: v$appVersion');
+      }
       return;
     }
     final force = info.isForceRequired;
@@ -189,7 +195,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: Text(force ? 'Güncelle' : 'İndir'),
+                child: Text(
+                  force
+                      ? 'Güncelle'
+                      : (info.platform == UpdatePlatform.web
+                          ? 'Yenile'
+                          : 'İndir'),
+                ),
               ),
             ],
           ),
@@ -207,6 +219,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _downloadUpdate(AppUpdateInfo info) async {
+    if (info.platform == UpdatePlatform.web) {
+      setState(() => _status = 'Sayfa yenileniyor…');
+      final err = await downloadAndApplyUpdate(info);
+      if (!mounted) return;
+      if (err != null) setState(() => _status = err);
+      return;
+    }
+
     if (info.platform == UpdatePlatform.android) {
       final installPerm = await Permission.requestInstallPackages.request();
       if (!installPerm.isGranted) {
@@ -280,8 +300,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _importEntirePhone() async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-      setState(() => _status = 'Tüm telefon tarama yalnızca Android’de.');
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS)) {
+      setState(
+        () => _status =
+            'Tüm telefon tarama yalnızca Android / iOS uygulamasında.',
+      );
       return;
     }
     if (!await _ensureAndroidMediaAccess()) return;
@@ -292,16 +317,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     try {
       final picked = await scanEntirePhoneMedia(
         onProgress: (s) {
-          if (mounted) setState(() => _status = s);
+          if (mounted && !_cancel) setState(() => _status = s);
         },
       );
       if (!mounted) return;
-      setState(_endBusy);
       if (picked.items.isEmpty) {
-        setState(() => _status = 'Telefonda foto/video bulunamadı.');
+        setState(() {
+          _endBusy();
+          _status = 'Telefonda foto/video bulunamadı.';
+        });
         return;
       }
-      await _ingestPick(picked);
+      await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -311,7 +338,177 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
+  Future<void> _importFavorites() async {
+    if (kIsWeb) {
+      // Diyalog / await YOK — Safari kullanıcı jestini kırıp dosyaları yutuyor.
+      // Tip: çoklu seç moduna gir (videoyu oynatmadan işaretle).
+      if (mounted) {
+        setState(
+          () => _status =
+              'Favoriler: sağ üst «Seç» → işaretle (videoya dokun = seç) → Ekle',
+        );
+      }
+      await _importWebPickedMedia(sourceLabel: 'Favoriler');
+      return;
+    }
+
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      setState(
+        () => _status = 'Favoriler yalnızca Android / iOS uygulamasında.',
+      );
+      return;
+    }
+    if (!await _ensureAndroidMediaAccess()) return;
+    setState(() {
+      _beginBusy();
+      _status = 'Favoriler ekleniyor…';
+    });
+    try {
+      final picked = await scanFavoritePhoneMedia(
+        onProgress: (s) {
+          if (mounted && !_cancel) setState(() => _status = s);
+        },
+      );
+      if (!mounted) return;
+      if (picked.items.isEmpty) {
+        setState(() {
+          _endBusy();
+          _status = 'Favori medya bulunamadı.';
+        });
+        return;
+      }
+      await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _endBusy();
+        _status = 'Favoriler: $e';
+      });
+    }
+  }
+
+  /// Web galeri/favori: HTML file input (DOM’da). image_picker Safari’de boş döner.
+  Future<void> _importWebPickedMedia({required String sourceLabel}) async {
+    // input.click() bu çağrı zincirinde ilk await’ten önce olmalı.
+    final future = pickMultipleMediaFiles();
+    if (mounted) {
+      setState(() {
+        _beginBusy();
+        _status ??= '$sourceLabel seçiliyor…';
+      });
+    }
+    FolderPickResult? picked;
+    try {
+      picked = await future;
+      if (!mounted) return;
+      if (picked == null || picked.items.isEmpty) {
+        setState(() {
+          _endBusy();
+          _status =
+              'Medya gelmedi. Sağ üst «Seç» → işaretle → «Ekle» (videoyu açmadan).';
+        });
+        return;
+      }
+      final repo = context.read<MediaRepository>();
+      final source = await repo.ensureSource(
+        id: sourceLabel == 'Favoriler' ? 'favorites_web' : gallerySourceId,
+        label: sourceLabel,
+      );
+      final items = picked.items;
+      if (mounted) {
+        setState(
+          () => _status = '$sourceLabel: ${items.length} medya ekleniyor…',
+        );
+      }
+      // Hızlı yol: dosya içeriği okunmaz — yalnızca indeks + blob.
+      final added = await _ingestWebQuick(items, source: source);
+      if (!mounted) return;
+      setState(() {
+        _endBusy();
+        _kinds.addAll(MediaKind.values);
+        _status = '"${source.label}": $added medya eklendi';
+      });
+      _fitVisible();
+      // Otomatik GPS/head okuma yok — yavaşlatır. Kullanıcı “yeniden dene”.
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _endBusy();
+        _status = '$sourceLabel: $e';
+      });
+    }
+  }
+
+  /// Web: OK sonrası anında indeksle (head/GPS/önizleme yok).
+  Future<int> _ingestWebQuick(
+    List<FolderMediaRef> files, {
+    required MediaSource source,
+  }) async {
+    final repo = context.read<MediaRepository>();
+    var added = 0;
+    for (var i = 0; i < files.length; i++) {
+      if (_cancel) break;
+      final file = files[i];
+      final kind = detectKind(file.name) ??
+          (file.isVideo ? MediaKind.video : MediaKind.photo);
+      final rel = file.relativePath ?? file.name;
+      try {
+        final existing = repo.findByIndex(
+          sourceId: source.id,
+          relativePath: rel,
+          size: file.size,
+        );
+        if (existing != null) {
+          if (isWebPlayableUrl(file.localPath) &&
+              existing.localPath != file.localPath) {
+            await repo.updateLocalPath(
+              id: existing.id,
+              localPath: file.localPath,
+              persist: false,
+            );
+          }
+          added++;
+          continue;
+        }
+        await repo.add(
+          name: file.name,
+          kind: kind,
+          sourceId: source.id,
+          relativePath: rel,
+          localPath: file.localPath,
+          sizeBytes: file.size,
+          takenAt: file.lastModified,
+          persist: false,
+          notify: false,
+        );
+        added++;
+      } catch (_) {}
+      if (i % 8 == 7) {
+        await Future<void>.delayed(Duration.zero);
+        if (mounted) {
+          setState(
+            () => _status =
+                '${source.label}: ${i + 1}/${files.length} ekleniyor…',
+          );
+        }
+      }
+    }
+    await repo.flush(notify: true);
+    return added;
+  }
+
   Future<void> _importGallery() async {
+    if (kIsWeb) {
+      if (mounted) {
+        setState(
+          () => _status =
+              'Sağ üst «Seç» → foto/videoyu işaretle (oynatma yok) → Ekle',
+        );
+      }
+      await _importWebPickedMedia(sourceLabel: 'Galeri');
+      return;
+    }
     if (!await _ensureAndroidMediaAccess()) return;
     setState(() {
       _beginBusy();
@@ -319,16 +516,24 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
     try {
       final files = await _picker.pickMultipleMedia();
-      if (!mounted || files.isEmpty) return;
+      if (!mounted) return;
+      if (files.isEmpty) {
+        setState(() {
+          _endBusy();
+          _status = 'Medya seçilmedi.';
+        });
+        return;
+      }
       final refs = <FolderMediaRef>[];
       for (final file in files) {
         final size = await file.length();
+        final path = file.path.isEmpty ? null : file.path;
         refs.add(
           FolderMediaRef(
             name: file.name,
             size: size,
             relativePath: file.name,
-            localPath: kIsWeb || file.path.isEmpty ? null : file.path,
+            localPath: path,
             readHead: (maxBytes) async {
               final end = size < maxBytes ? size : maxBytes;
               final builder = BytesBuilder(copy: false);
@@ -647,10 +852,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final kindCounts = {for (final k in MediaKind.values) k: 0};
     final photoLimit = bulkMode ? bulkPhotoHeadBytes : photoHeadBytes;
     final videoLimitGeneric = bulkMode ? bulkVideoHeadBytes : videoHeadBytes;
-    final videoLimitGps = bulkMode ? bulkGpsVideoHeadBytes : videoHeadBytes;
-    final progressEvery = bulkMode ? 40 : 8;
+    final videoLimitGps = kIsWeb
+        ? webGpsVideoHeadBytes
+        : (bulkMode ? bulkGpsVideoHeadBytes : videoHeadBytes);
+    final progressEvery = kIsWeb ? 1 : (bulkMode ? 40 : 8);
     final persistEvery = bulkMode ? 64 : 8;
-    final yieldEvery = bulkMode ? 20 : 8;
+    final yieldEvery = kIsWeb ? 1 : (bulkMode ? 20 : 8);
 
     // Tür filtresi yalnızca harita/liste görünümünü etkiler — tarama her
     // zaman foto + video + GoPro + drone ekler.
@@ -672,6 +879,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           kind == MediaKind.gopro || kind == MediaKind.drone;
       final videoLimit = needsDeepGps ? videoLimitGps : videoLimitGeneric;
       final rel = file.relativePath ?? file.name;
+      final ephemeralWeb = kIsWeb ||
+          file.localPath == null ||
+          file.localPath!.isEmpty ||
+          isWebPlayableUrl(file.localPath);
       try {
         final existing = repo.findByIndex(
           sourceId: source.id,
@@ -679,8 +890,97 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           size: file.size,
         );
         if (existing != null) {
-          // Toplu/SD taramada önizleme doldurma SD’yi kilitlemesin.
-          if (!bulkMode && existing.isVideo) {
+          var located = existing.hasLocation;
+          // Web: aynı oturumda yeni blob URL’yi kaydet (önizleme için).
+          if (ephemeralWeb &&
+              isWebPlayableUrl(file.localPath) &&
+              existing.localPath != file.localPath) {
+            await repo.updateLocalPath(
+              id: existing.id,
+              localPath: file.localPath,
+              persist: false,
+            );
+          }
+          // Web: eski kayıtta bayt/blob yoksa aynı dosyadan doldur (ağır; toplu değil).
+          if (ephemeralWeb && !bulkMode) {
+            final hasPreview = repo.cachedBytes(existing.id) != null ||
+                await repo.bytesOf(existing.id) != null;
+            if (existing.isVideo) {
+              if (!hasPreview) {
+                Uint8List? head;
+                try {
+                  head = await file.readHead(videoLimit);
+                } catch (_) {}
+                final preview = await extractVideoPreviewBytes(
+                  localPath: file.localPath,
+                  relativePath: file.relativePath,
+                  head: head,
+                );
+                if (preview != null) {
+                  await repo.putPreviewBytes(existing.id, preview);
+                }
+              }
+              if (isWebPlayableUrl(file.localPath) &&
+                  existing.localPath != file.localPath) {
+                await repo.updateLocalPath(
+                  id: existing.id,
+                  localPath: file.localPath,
+                  persist: false,
+                );
+              }
+              if (!located) {
+                Uint8List? head;
+                try {
+                  head = await file.readHead(videoLimit);
+                } catch (_) {}
+                final gps = await extractVideoGps(
+                  localPath: file.localPath,
+                  head: head,
+                  relativePath: file.relativePath,
+                  deepScan: needsDeepGps,
+                  maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
+                );
+                if (gps != null) {
+                  await repo.updateLocation(
+                    id: existing.id,
+                    lat: gps.latitude,
+                    lng: gps.longitude,
+                    persist: false,
+                    notify: false,
+                  );
+                  located = true;
+                }
+              }
+            } else if (file.size > 0) {
+              try {
+                final bytes = (!hasPreview || !located)
+                    ? await file.readHead(
+                        math.min(file.size, webStorePhotoBytes),
+                      )
+                    : null;
+                if (bytes != null && bytes.isNotEmpty) {
+                  if (!hasPreview) {
+                    await repo.putPreviewBytes(existing.id, bytes);
+                  }
+                  if (!located) {
+                    final gps = await extractExifGps(bytes);
+                    final taken = await extractExifTakenAt(bytes);
+                    if (gps != null) {
+                      await repo.updateLocation(
+                        id: existing.id,
+                        lat: gps.latitude,
+                        lng: gps.longitude,
+                        takenAt: taken,
+                        persist: false,
+                        notify: false,
+                      );
+                      located = true;
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+          } else if (!bulkMode && existing.isVideo) {
             final hasPreview = repo.cachedBytes(existing.id) != null ||
                 await repo.bytesOf(existing.id) != null;
             if (!hasPreview) {
@@ -700,7 +1000,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
           added++;
           kindCounts[existing.kind] = (kindCounts[existing.kind] ?? 0) + 1;
-          if (existing.hasLocation) {
+          if (located) {
             withGps++;
           } else {
             missing++;
@@ -708,10 +1008,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           continue;
         }
         final isPhoto = kind == MediaKind.photo;
+        // Web / blob: disk yolu yok — blob URL + küçük head (tam dosya yazma).
+        final ephemeral = kIsWeb ||
+            file.localPath == null ||
+            file.localPath!.isEmpty ||
+            isWebPlayableUrl(file.localPath);
         final headLimit = isPhoto
-            ? (file.size <= 0
-                ? photoLimit
-                : (file.size <= previewStoreBytes ? file.size : photoLimit))
+            ? (ephemeral && file.size > 0
+                ? math.min(file.size, webStorePhotoBytes)
+                : (file.size <= 0
+                    ? photoLimit
+                    : (file.size <= previewStoreBytes
+                        ? file.size
+                        : photoLimit)))
             : videoLimit;
 
         LatLng? gps;
@@ -722,17 +1031,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
         Uint8List? head;
         final needHead = gps == null ||
+            (isPhoto && ephemeral && file.size > 0) ||
             (!bulkMode &&
                 isPhoto &&
                 file.size > 0 &&
                 file.size <= previewStoreBytes);
         if (needHead) {
           try {
-            head = await file.readHead(
-              gps != null && isPhoto && file.size > 0 && !bulkMode
-                  ? file.size
-                  : headLimit,
-            );
+            final limit = gps != null &&
+                    isPhoto &&
+                    file.size > 0 &&
+                    !bulkMode &&
+                    !ephemeral
+                ? file.size
+                : headLimit;
+            head = await file.readHead(limit);
           } catch (_) {
             head = null;
           }
@@ -748,7 +1061,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 localPath: file.localPath,
                 head: head,
                 relativePath: file.relativePath,
-                // GoPro/DJI: toplu taramada da GPMF / derin head.
                 deepScan: !bulkMode || needsDeepGps,
                 maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
               );
@@ -778,29 +1090,48 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         } else {
           missing++;
         }
-        // Toplu tarama: video önizlemeyi sonraya bırak (ızgara VideoThumb).
-        final preview = bulkMode
-            ? null
-            : (isPhoto
-                ? (head != null && file.size <= previewStoreBytes ? head : null)
-                : await extractVideoPreviewBytes(
-                    localPath: file.localPath,
-                    relativePath: file.relativePath,
-                    head: head,
-                  ));
+
+        // Önizleme: web’de HEIC’i Hive’a yazma (Image.memory çözemez) —
+        // blob URL ile göster. JPEG ise küçük head sakla.
+        Uint8List? preview;
+        if (!bulkMode || kIsWeb) {
+          if (isPhoto) {
+            if (head != null &&
+                head.isNotEmpty &&
+                looksLikeJpeg(head) &&
+                !looksLikeHeic(head) &&
+                (ephemeral || file.size <= previewStoreBytes)) {
+              preview = head;
+            }
+          } else if (!bulkMode || kIsWeb) {
+            preview = await extractVideoPreviewBytes(
+              localPath: file.localPath,
+              relativePath: file.relativePath,
+              head: head,
+            );
+          }
+        }
+
+        var localPath = file.localPath;
+        // Web video: blob URL yeterli — tam dosyayı RAM/Hive’a kopyalama.
+        if (!isPhoto && ephemeral && kIsWeb) {
+          if (!isWebPlayableUrl(localPath)) {
+            localPath = null;
+          }
+        }
+
         await repo.add(
           name: file.name,
           kind: kind,
           sourceId: source.id,
           bytes: preview,
           relativePath: rel,
-          localPath: file.localPath,
+          localPath: localPath,
           sizeBytes: file.size,
           lat: gps?.latitude,
           lng: gps?.longitude,
           takenAt: taken,
           persist: i == files.length - 1 || i % persistEvery == persistEvery - 1,
-          // Tarama bitene kadar haritayı yenileme — NaN pin anında çökertmesin.
           notify: false,
         );
         added++;
@@ -815,7 +1146,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final failText = failed > 0 ? ' · $failed okunamadı' : '';
     final tip = bulkMode && missing > 0
         ? ' · GPS eksikler için “yeniden dene”'
-        : '';
+        : (kIsWeb && missing > 0
+            ? ' · iPhone foto GPS’i gizleyebilir; GoPro için yeniden dene'
+            : '');
     setState(() {
       _showMissing = false;
       _panelCluster = null;
@@ -1023,33 +1356,34 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _openCluster(LocationCluster cluster) async {
-    if (_isDesktop) {
-      setState(() {
-        _panelCluster = cluster;
-        _showMissing = false;
-      });
-      return;
-    }
-    if (cluster.items.length == 1) {
-      await openMediaViewer(context, items: cluster.items);
+    setState(() {
+      _panelCluster = cluster;
+      _showMissing = false;
+      _sourcesOpen = false;
+      _kindMenu = null;
+    });
+    if (_isDesktop || MediaQuery.sizeOf(context).width >= 960) {
       return;
     }
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
+      backgroundColor: const Color(0xFF0A1C28),
       builder: (ctx) {
         final live = ctx.watch<MediaRepository>();
+        final h = MediaQuery.sizeOf(ctx).height * 0.62;
         return SizedBox(
-          height: 320,
+          height: h.clamp(320.0, 640.0),
           child: _ClusterSheet(
             cluster: cluster,
             repo: live,
-            onOpen: (index) {
+            onOpen: (items, index) {
               Navigator.pop(ctx);
               openMediaViewer(
                 context,
-                items: cluster.items,
+                items: items,
                 initialIndex: index,
               );
             },
@@ -1057,6 +1391,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
       },
     );
+    if (mounted) setState(() => _panelCluster = null);
   }
 
   String _kindTitle(MediaKind kind) => switch (kind) {
@@ -1134,35 +1469,41 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildMain(clusters, missing)),
-                      if (wide && _panelCluster != null) ...[
-                        const VerticalDivider(width: 1),
-                        SizedBox(
-                          width: 340,
-                          child: _ClusterSheet(
-                            cluster: _panelCluster!,
-                            repo: repo,
-                            onClose: () =>
-                                setState(() => _panelCluster = null),
-                            onOpen: (index) => openMediaViewer(
-                              context,
-                              items: _panelCluster!.items,
-                              initialIndex: index,
+                  child: _showMissing
+                      ? const ColoredBox(color: Color(0xFF071018))
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: _buildMain(clusters, missing, repo),
                             ),
-                          ),
+                            if (wide && _panelCluster != null) ...[
+                              const VerticalDivider(width: 1),
+                              SizedBox(
+                                width: 360,
+                                child: _ClusterSheet(
+                                  cluster: _panelCluster!,
+                                  repo: repo,
+                                  onClose: () =>
+                                      setState(() => _panelCluster = null),
+                                  onOpen: (items, index) => openMediaViewer(
+                                    context,
+                                    items: items,
+                                    initialIndex: index,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
-                    ],
-                  ),
                 ),
                 Positioned(
                   top: 0,
                   left: 0,
                   right: 0,
+                  bottom: _showMissing ? 0 : null,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize:
+                        _showMissing ? MainAxisSize.max : MainAxisSize.min,
                     children: [
                       _mapTopBar(
                         s: s,
@@ -1177,7 +1518,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
                           child: Material(
                             elevation: 8,
-                            color: const Color(0xF00A1C28),
+                            color: const Color(0xFF0A1C28),
                             borderRadius: BorderRadius.circular(12),
                             clipBehavior: Clip.antiAlias,
                             child: _sourcesPanel(repo),
@@ -1188,7 +1529,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
                           child: Material(
                             elevation: 8,
-                            color: const Color(0xF00A1C28),
+                            color: const Color(0xFF0A1C28),
                             borderRadius: BorderRadius.circular(12),
                             clipBehavior: Clip.antiAlias,
                             child: _kindsPanel(
@@ -1196,6 +1537,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                               locatedItems:
                                   visible.where((m) => m.hasLocation),
                               missingItems: missing,
+                            ),
+                          ),
+                        ),
+                      if (_showMissing)
+                        Expanded(
+                          child: Material(
+                            color: const Color(0xFF071018),
+                            child: _MissingList(
+                              items: missing,
+                              onOpen: (item) => openMediaViewer(
+                                context,
+                                items: missing,
+                                initialIndex: missing.indexOf(item),
+                              ),
                             ),
                           ),
                         ),
@@ -1298,7 +1653,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     required String sourceCount,
   }) {
     return Material(
-      color: const Color(0xE0050E16),
+      color: const Color(0xFF050E16),
+      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 6, 8),
         child: Column(
@@ -1332,7 +1688,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 _TopIcon(
                   tooltip: s.settings,
                   icon: Icons.settings_outlined,
-                  onPressed: _busy ? null : () => openSettingsSheet(context),
+                  onPressed: _busy
+                      ? null
+                      : () => openSettingsSheet(
+                            context,
+                            onCheckUpdate: supportsInAppUpdate
+                                ? () => _checkForUpdates(manual: true)
+                                : null,
+                          ),
                 ),
               ],
             ),
@@ -1376,10 +1739,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     icon: Icons.location_off_outlined,
                     badge: '$missingCount',
                     onPressed: () => setState(() {
-                      _showMissing = true;
                       _panelCluster = null;
                       _sourcesOpen = false;
-                      _kindMenu = _kindMenu == 'missing' ? null : 'missing';
+                      if (_showMissing) {
+                        _showMissing = false;
+                        _kindMenu = null;
+                      } else {
+                        _showMissing = true;
+                        _kindMenu = 'missing';
+                      }
                     }),
                   ),
                   _TopIcon(
@@ -1563,7 +1931,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       },
                 child: const Text('+ Dosya seç'),
               ),
-              if (!_isDesktop)
+              if (!_isDesktop && !kIsWeb)
                 FilledButton.tonal(
                   onPressed: _busy
                       ? null
@@ -1573,7 +1941,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         },
                   child: const Text('+ Tüm telefon'),
                 ),
-              if (!_isDesktop)
+              FilledButton.tonal(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(_closeMenus);
+                        _importFavorites();
+                      },
+                child: Text(
+                  kIsWeb ? '+ Favoriler (Seç→Ekle)' : '+ Favoriler (tümü)',
+                ),
+              ),
+              if (!_isDesktop || kIsWeb)
                 FilledButton.tonal(
                   onPressed: _busy
                       ? null
@@ -1649,39 +2028,34 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     );
   }
 
-  Widget _buildMain(List<LocationCluster> clusters, List<LibraryMedia> missing) {
+  Widget _buildMain(
+    List<LocationCluster> clusters,
+    List<LibraryMedia> missing,
+    MediaRepository repo,
+  ) {
     return Stack(
       children: [
-        _showMissing
-            ? _MissingList(
-                items: missing,
-                onOpen: (item) => openMediaViewer(
-                  context,
-                  items: missing,
-                  initialIndex: missing.indexOf(item),
-                ),
-              )
-            : FlutterMap(
-                mapController: _map,
-                options: const MapOptions(
-                  initialCenter: _worldCenter,
-                  initialZoom: 2.4,
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
-                    userAgentPackageName: 'com.medyaatlas.app',
-                  ),
-                  MarkerLayer(
-                    markers: _markersFor(clusters),
-                  ),
-                ],
-              ),
+        FlutterMap(
+          mapController: _map,
+          options: const MapOptions(
+            initialCenter: _worldCenter,
+            initialZoom: 2.4,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
+              userAgentPackageName: 'com.medyaatlas.app',
+            ),
+            MarkerLayer(
+              markers: _markersFor(clusters, repo),
+            ),
+          ],
+        ),
         if (_places.isNotEmpty)
           Positioned(
             left: 12,
             right: 12,
-            top: 56,
+            top: 8,
             child: Material(
               elevation: 6,
               borderRadius: BorderRadius.circular(8),
@@ -1703,24 +2077,52 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     );
   }
 
-  List<Marker> _markersFor(List<LocationCluster> clusters) {
+  List<Marker> _markersFor(
+    List<LocationCluster> clusters,
+    MediaRepository repo,
+  ) {
     final out = <Marker>[];
+    final selectedId = _panelCluster?.id;
     for (final cluster in clusters) {
       final lat = cluster.latitude;
       final lng = cluster.longitude;
       if (!lat.isFinite || !lng.isFinite) continue;
       if (lat.abs() > 90 || lng.abs() > 180) continue;
-      out.add(
-        Marker(
-          point: LatLng(lat, lng),
-          width: 44,
-          height: 44,
-          child: GestureDetector(
-            onTap: () => _openCluster(cluster),
-            child: ClusterDot(count: cluster.items.length),
+      final selected = cluster.id == selectedId;
+      if (selected) {
+        out.add(
+          Marker(
+            point: LatLng(lat, lng),
+            width: 64,
+            height: 76,
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              onTap: () => _openCluster(cluster),
+              child: PhotoMapPin(
+                item: coverMediaOf(cluster.items),
+                repo: repo,
+                count: cluster.items.length,
+              ),
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        final n = cluster.items.length;
+        final size =
+            math.min(88.0, 36 + math.sqrt(n.clamp(1, 200).toDouble()) * 9);
+        out.add(
+          Marker(
+            point: LatLng(lat, lng),
+            width: size,
+            height: size,
+            child: GestureDetector(
+              onTap: () => _openCluster(cluster),
+              behavior: HitTestBehavior.opaque,
+              child: HeatBlob(count: n),
+            ),
+          ),
+        );
+      }
     }
     return out;
   }
@@ -1773,38 +2175,48 @@ class _MissingList extends StatelessWidget {
     if (items.isEmpty) {
       return const Center(child: Text('Konumu olmayan medya yok.'));
     }
-    return ListView.separated(
-      itemCount: items.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
-      itemBuilder: (context, i) {
-        final item = items[i];
-        final repo = context.read<MediaRepository>();
-        return ListTile(
-          leading: SizedBox(
-            width: 56,
-            height: 56,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: item.isVideo
-                  ? _VideoThumbCached(item: item, repo: repo)
-                  : (photoFromPath(item.localPath, fit: BoxFit.cover) ??
-                      const ColoredBox(
-                        color: Colors.black26,
-                        child: Icon(Icons.photo_outlined),
-                      )),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Text(
+            'GPS yok · ${items.length} medya',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          title: Text(item.name, overflow: TextOverflow.ellipsis),
-          subtitle: Text(
-            [
-              kindLabel(item.kind, en: false),
-              if (item.relativePath != null) item.relativePath!,
-            ].join(' · '),
-            overflow: TextOverflow.ellipsis,
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: items.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final item = items[i];
+              final repo = context.read<MediaRepository>();
+              return ListTile(
+                leading: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: _Thumb(item: item, repo: repo),
+                  ),
+                ),
+                title: Text(item.name, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                  kindLabel(item.kind, en: false),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => onOpen(item),
+              );
+            },
           ),
-          onTap: () => onOpen(item),
-        );
-      },
+        ),
+      ],
     );
   }
 }
@@ -1819,49 +2231,105 @@ class _ClusterSheet extends StatelessWidget {
 
   final LocationCluster cluster;
   final MediaRepository repo;
-  final ValueChanged<int> onOpen;
+  final void Function(List<LibraryMedia> items, int index) onOpen;
   final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+    final items = cluster.items;
+    final groups = groupMediaByDay(items);
+    final range = mediaDateRangeLabel(items);
+    // Düz indeks: tüm öğeler yeniden eskiye (gruplarla aynı sıra).
+    final flat = [for (final g in groups) ...g.items];
+
+    return ColoredBox(
+      color: const Color(0xFF0A1C28),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${cluster.items.length} medya',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              if (onClose != null)
-                IconButton(
-                  tooltip: 'Kapat',
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 6,
-                crossAxisSpacing: 6,
-              ),
-              itemCount: cluster.items.length,
-              itemBuilder: (context, i) {
-                final item = cluster.items[i];
-                return GestureDetector(
-                  onTap: () => onOpen(i),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: _Thumb(item: item, repo: repo),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        mediaCountLabel(items),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                        ),
+                      ),
+                      if (range != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          range,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
+                ),
+                if (onClose != null)
+                  IconButton(
+                    tooltip: 'Kapat',
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+              itemCount: groups.length,
+              itemBuilder: (context, gi) {
+                final g = groups[gi];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(4, gi == 0 ? 4 : 14, 4, 8),
+                      child: Text(
+                        g.title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        mainAxisSpacing: 6,
+                        crossAxisSpacing: 6,
+                      ),
+                      itemCount: g.items.length,
+                      itemBuilder: (context, i) {
+                        final item = g.items[i];
+                        final flatIndex = flat.indexOf(item);
+                        return GestureDetector(
+                          onTap: () => onOpen(flat, flatIndex < 0 ? 0 : flatIndex),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: _Thumb(item: item, repo: repo),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 );
               },
             ),
@@ -1883,20 +2351,39 @@ class _Thumb extends StatelessWidget {
     if (item.isVideo) {
       return _VideoThumbCached(item: item, repo: repo);
     }
+    // Web: blob (HEIC dahil Safari img). Hive’daki HEIC baytını Image.memory’ye verme.
     final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
     if (fromDisk != null) return fromDisk;
     final cached = repo.cachedBytes(item.id);
-    if (cached != null) {
+    if (cached != null &&
+        cached.isNotEmpty &&
+        looksLikeJpeg(cached) &&
+        !looksLikeHeic(cached)) {
       return OrientedMemoryImage(cached, fit: BoxFit.cover);
     }
     return FutureBuilder(
       future: repo.bytesOf(item.id),
       builder: (context, snap) {
-        final bytes = snap.data;
-        if (bytes == null) {
+        if (snap.connectionState != ConnectionState.done) {
           return const ColoredBox(
-            color: Colors.black26,
-            child: Icon(Icons.photo_outlined),
+            color: Color(0xFF1A2A36),
+            child: Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        final bytes = snap.data;
+        if (bytes == null ||
+            bytes.isEmpty ||
+            looksLikeHeic(bytes) ||
+            !looksLikeJpeg(bytes)) {
+          return const ColoredBox(
+            color: Color(0xFF1A2A36),
+            child: Icon(Icons.photo_outlined, color: Colors.white54),
           );
         }
         return OrientedMemoryImage(bytes, fit: BoxFit.cover);
@@ -1937,6 +2424,11 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
   }
 
   Future<void> _load() async {
+    // Web: video önizleme için dosya/player okuma yok (3 video = ciddi gecikme).
+    if (kIsWeb) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     final cached = widget.repo.cachedBytes(widget.item.id) ??
         await widget.repo.bytesOf(widget.item.id);
     if (cached != null && cached.isNotEmpty && looksLikeJpeg(cached)) {
@@ -1976,10 +2468,7 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
             bytes,
             fit: BoxFit.cover,
             gaplessPlayback: true,
-            errorBuilder: (_, error, stack) => VideoThumb(
-              path: widget.item.localPath,
-              kind: widget.item.kind,
-            ),
+            errorBuilder: (_, error, stack) => _webOrPathThumb(),
           ),
           const Align(
             alignment: Alignment.bottomRight,
@@ -2007,10 +2496,25 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
         ),
       );
     }
-    // Önbellek yoksa video oynatıcı ile ilk kareyi göster.
+    return _webOrPathThumb();
+  }
+
+  Widget _webOrPathThumb() {
+    if (kIsWeb) {
+      return ColoredBox(
+        color: const Color(0xFF1A2A36),
+        child: Center(
+          child: Icon(
+            kindVideoIcon(widget.item.kind),
+            color: Colors.white54,
+          ),
+        ),
+      );
+    }
     return VideoThumb(
       path: widget.item.localPath,
       kind: widget.item.kind,
+      resolveUrl: () => widget.repo.resolvePlayableUrl(widget.item),
     );
   }
 }

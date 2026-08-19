@@ -7,7 +7,9 @@ import 'package:video_player/video_player.dart';
 
 import '../models/library_media.dart';
 import '../services/host_platform.dart';
+import '../services/media_mime.dart';
 import '../services/photo_orient.dart';
+import '../services/web_open.dart';
 import 'process_host.dart';
 import 'video_file.dart';
 
@@ -26,10 +28,13 @@ class VideoThumb extends StatefulWidget {
     super.key,
     required this.path,
     required this.kind,
+    this.resolveUrl,
   });
 
   final String? path;
   final MediaKind kind;
+  /// Web: blob bittiyse yeniden seçin (kopya tutulmaz).
+  final Future<String?> Function()? resolveUrl;
 
   @override
   State<VideoThumb> createState() => _VideoThumbState();
@@ -48,7 +53,8 @@ class _VideoThumbState extends State<VideoThumb> {
   @override
   void didUpdateWidget(covariant VideoThumb oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.path != widget.path) {
+    if (oldWidget.path != widget.path ||
+        oldWidget.resolveUrl != widget.resolveUrl) {
       _disposeController();
       _loading = true;
       _open();
@@ -56,8 +62,14 @@ class _VideoThumbState extends State<VideoThumb> {
   }
 
   Future<void> _open() async {
-    final path = widget.path;
-    if (kIsWeb || path == null || path.isEmpty) {
+    var path = widget.path;
+    if ((path == null || path.isEmpty || (kIsWeb && !isWebPlayableUrl(path))) &&
+        widget.resolveUrl != null) {
+      path = await widget.resolveUrl!();
+    }
+    if (path == null ||
+        path.isEmpty ||
+        (kIsWeb && !isWebPlayableUrl(path))) {
       if (mounted) setState(() => _loading = false);
       return;
     }
@@ -150,6 +162,7 @@ class VideoPlaybackPane extends StatefulWidget {
     required this.kind,
     this.posterBytes,
     this.preferExternal = false,
+    this.resolveUrl,
   });
 
   final String? path;
@@ -158,6 +171,7 @@ class VideoPlaybackPane extends StatefulWidget {
   final Uint8List? posterBytes;
   /// Windows’ta HEVC (GoPro/DJI) için önce sistem oynatıcı.
   final bool preferExternal;
+  final Future<String?> Function()? resolveUrl;
 
   @override
   State<VideoPlaybackPane> createState() => _VideoPlaybackPaneState();
@@ -168,6 +182,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   String? _status;
   var _loading = true;
   var _openedExternal = false;
+  String? _resolvedPath;
 
   bool get _windowsExternalFirst =>
       widget.preferExternal && hostIsWindows;
@@ -181,24 +196,39 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   @override
   void didUpdateWidget(covariant VideoPlaybackPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.path != widget.path) {
+    if (oldWidget.path != widget.path ||
+        oldWidget.resolveUrl != widget.resolveUrl) {
       _disposeController();
       _status = null;
       _loading = true;
       _openedExternal = false;
+      _resolvedPath = null;
       _start();
     }
   }
 
   Future<void> _start() async {
-    if (_windowsExternalFirst) {
-      await _openExternally();
+    // Web: Flutter video_player HEVC/GoPro’da çok yavaş veya açılmaz —
+    // doğrudan Safari (hızlı yerel oynatıcı).
+    if (kIsWeb || _windowsExternalFirst) {
+      final path = await _effectivePath();
+      if (path != null && path.isNotEmpty) {
+        await _openExternally();
+      }
       if (mounted) {
         setState(() {
           _loading = false;
-          _status = _openedExternal
-              ? 'Windows oynatıcısında açıldı.'
-              : 'Windows oynatıcısı açılamadı.';
+          if (kIsWeb) {
+            _status = _openedExternal
+                ? 'Safari’de açıldı.'
+                : (path == null || path.isEmpty
+                    ? 'Oynatılamıyor. Medyayı yeniden seçin.'
+                    : 'Safari açılamadı. «Safari’de aç» deneyin.');
+          } else {
+            _status = _openedExternal
+                ? 'Windows oynatıcısında açıldı.'
+                : 'Windows oynatıcısı açılamadı.';
+          }
         });
       }
       return;
@@ -206,13 +236,27 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
     await _openInApp();
   }
 
+  Future<String?> _effectivePath() async {
+    var path = widget.path;
+    if ((path == null || path.isEmpty || (kIsWeb && !isWebPlayableUrl(path))) &&
+        widget.resolveUrl != null) {
+      path = await widget.resolveUrl!();
+    }
+    _resolvedPath = path;
+    return path;
+  }
+
   Future<void> _openInApp() async {
-    final path = widget.path;
-    if (kIsWeb || path == null || path.isEmpty) {
+    final path = await _effectivePath();
+    if (path == null ||
+        path.isEmpty ||
+        (kIsWeb && !isWebPlayableUrl(path))) {
       if (mounted) {
         setState(() {
           _loading = false;
-          _status = 'Yerel dosya yolu yok.';
+          _status = kIsWeb
+              ? 'Oynatılamıyor. Medyayı yeniden seçin (web oturumu).'
+              : 'Yerel dosya yolu yok.';
         });
       }
       return;
@@ -246,16 +290,20 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       await controller.play();
     } catch (_) {
       await controller.dispose();
-      // Codec (HEVC vb.) uygulama içinde yoksa telefon/sistem oynatıcısına düş.
+      // Codec (HEVC vb.) uygulama içinde yoksa telefon/sistem/Safari’ye düş.
       await _openExternally();
       if (mounted) {
         setState(() {
           _loading = false;
           _status = _openedExternal
-              ? (hostIsAndroid
-                  ? 'Telefon oynatıcısında açıldı.'
-                  : 'Sistem oynatıcısında açıldı.')
-              : 'Video açılamadı.';
+              ? (kIsWeb
+                  ? 'Safari’de açıldı (HEVC / GoPro).'
+                  : hostIsAndroid
+                      ? 'Telefon oynatıcısında açıldı.'
+                      : 'Sistem oynatıcısında açıldı.')
+              : (kIsWeb
+                  ? 'Uygulama içi oynatılamadı. «Safari’de aç» deneyin.'
+                  : 'Video açılamadı.');
         });
       }
     }
@@ -285,9 +333,16 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   }
 
   Future<void> _openExternally() async {
-    final path = widget.path;
+    final path = _resolvedPath ?? widget.path;
     if (path == null || path.isEmpty) return;
     try {
+      if (kIsWeb && isWebPlayableUrl(path)) {
+        openUrlInNewTab(path);
+        _openedExternal = true;
+        if (mounted) setState(() {});
+        return;
+      }
+      if (isWebPlayableUrl(path)) return;
       if (hostIsWindows) {
         await openPathWithWindowsShell(path);
       } else {
@@ -361,11 +416,18 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ),
-                IconButton(
-                  tooltip: _externalReopenLabel(),
-                  onPressed: _openExternally,
-                  icon: const Icon(Icons.open_in_new),
-                ),
+                if (!kIsWeb)
+                  IconButton(
+                    tooltip: _externalReopenLabel(),
+                    onPressed: _openExternally,
+                    icon: const Icon(Icons.open_in_new),
+                  )
+                else
+                  IconButton(
+                    tooltip: 'Safari’de aç',
+                    onPressed: _openExternally,
+                    icon: const Icon(Icons.open_in_new),
+                  ),
               ],
             ),
           ),
@@ -403,12 +465,12 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
                 style: const TextStyle(color: Colors.white54),
               ),
             ],
-            if (_openedExternal || _windowsExternalFirst) ...[
+            if (_openedExternal || _windowsExternalFirst || kIsWeb) ...[
               const SizedBox(height: 16),
               TextButton.icon(
                 onPressed: _openExternally,
-                icon: const Icon(Icons.refresh),
-                label: Text(_externalReopenLabel()),
+                icon: const Icon(Icons.open_in_new),
+                label: Text(kIsWeb ? 'Safari’de aç' : _externalReopenLabel()),
               ),
             ],
           ],

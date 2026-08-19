@@ -23,6 +23,90 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.23',
+    tr: 'Web video: yavaş uygulama içi player yok — doğrudan Safari’de açılır.',
+    en: 'Web video: skip slow in-app player — opens in Safari immediately.',
+    de: 'Web-Video: kein langsamer In-App-Player — sofort in Safari.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.22',
+    tr: 'Web video seçimi: OK sonrası dosya okunmaz; blob/GPS/önizleme ertelenir.',
+    en: 'Web video pick: no file reads after OK; blob/GPS/preview deferred.',
+    de: 'Web-Video: nach OK keine Dateilesung; Blob/GPS/Vorschau später.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.21',
+    tr: 'Tek video OK sonrası bekleme yok; «kopyalanmadı» yazısı kaldırıldı.',
+    en: 'No wait after OK for a single video; removed “not copied” status text.',
+    de: 'Kein Warten nach OK bei einem Video; „nicht kopiert“-Text entfernt.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.20',
+    tr: 'Web: OK sonrası anında ekle; GPS arka planda (bekleme yok).',
+    en: 'Web: add instantly after OK; GPS in background (no long wait).',
+    de: 'Web: sofort nach OK hinzufügen; GPS im Hintergrund.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.19',
+    tr: 'Dosya kopyası yok: yalnızca indeks; eski Hive medya kopyaları silindi.',
+    en: 'No file copies: index only; cleared old Hive media copies.',
+    de: 'Keine Dateikopien: nur Index; alte Hive-Medienkopien gelöscht.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.18',
+    tr: 'Web: çoklu seçim donması azaltıldı; HEIC önizleme; GoPro HEVC için Safari’de aç.',
+    en: 'Web: faster multi-select; HEIC thumbs; open GoPro HEVC in Safari.',
+    de: 'Web: schnellere Mehrfachauswahl; HEIC-Vorschau; GoPro-HEVC in Safari.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.17',
+    tr: 'GPS’siz medya listesi üst çubuğun arkasında kalmıyor; başlık altında açık liste.',
+    en: 'No-GPS media list no longer hides behind the top bar; clear list below header.',
+    de: 'Medien ohne GPS nicht mehr hinter der Leiste; klare Liste unter dem Header.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.16',
+    tr: 'iPhone: Favori/galeri seçimi Safari’de içeri alınır; Seç→işaretle→Ekle (video oynatmadan).',
+    en: 'iPhone: Favorites/gallery selection imports on Safari; Select→tap→Add (no video play).',
+    de: 'iPhone: Favoriten/Galerie-Auswahl in Safari; Auswählen→tippen→Hinzufügen.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.15',
+    tr: 'iPhone web: önizleme, foto/video oynatma ve GPS okuma (blob + Hive bayt).',
+    en: 'iPhone web: preview, photo/video playback and GPS (blob + Hive bytes).',
+    de: 'iPhone-Web: Vorschau, Foto/Video-Wiedergabe und GPS (Blob + Hive).',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.14',
+    tr: 'Favoriler (tümü) Android/iOS uygulamasında; web’de çoklu seçim rehberi.',
+    en: 'Add all Favorites on Android/iOS app; guided multi-select on web.',
+    de: 'Alle Favoriten in der Android/iOS-App; Mehrfachauswahl-Hilfe im Web.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.13',
+    tr: 'Haritada ısı lekesi; tıklanınca dairesel foto pin + tarihe göre medya paneli.',
+    en: 'Heat blobs on the map; tap shows circular photo pin + date-grouped media panel.',
+    de: 'Heat-Blobs auf der Karte; Tippen zeigt Foto-Pin + nach Datum gruppierte Medien.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.12',
+    tr: 'Ana Ekrana/Desktop’a Ekle için kök apple-touch-icon (eski Flutter ikonu kalkar).',
+    en: 'Root apple-touch-icon for Add to Home/Desktop (removes old Flutter icon).',
+    de: 'Root-apple-touch-icon für „Zum Home/Desktop“ (altes Flutter-Icon weg).',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.11',
+    tr: 'MedyaAtlas marka ikonu (web/iPhone); web’de güncelleme kontrolü + sayfa yenileme.',
+    en: 'MedyaAtlas brand icons for web/iPhone; web update check + page reload.',
+    de: 'MedyaAtlas-Markensymbol für Web/iPhone; Web-Updateprüfung + Seitenreload.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.10',
+    tr: 'iPhone web önbelleği temizlendi; GitHub Pages’te güncel Flutter sürümü.',
+    en: 'Cleared iPhone web cache; GitHub Pages serves the current Flutter build.',
+    de: 'iPhone-Web-Cache geleert; GitHub Pages liefert den aktuellen Flutter-Build.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.9',
     tr: 'İptal alt tarama çubuğunda; büyük diskte DCIM/GoPro/DJI önce ve GPS okuma; iPhone için web (dosya seçici).',
     en: 'Cancel on bottom scan bar; prioritize DCIM/GoPro/DJI + GPS on large disks; web for iPhone file pick.',

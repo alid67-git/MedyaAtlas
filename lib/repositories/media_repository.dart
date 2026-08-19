@@ -7,27 +7,32 @@ import 'package:uuid/uuid.dart';
 
 import '../models/library_media.dart';
 import '../services/geo.dart';
+import '../services/media_mime.dart';
 import '../services/volume_mount.dart';
+import '../services/web_media_session.dart';
 
 const _indexBoxName = 'medyaatlas_media';
 const _bytesBoxName = 'medyaatlas_media_bytes';
+const _payloadBoxName = 'medyaatlas_media_payload';
 const _sourcesBoxName = 'medyaatlas_sources';
 const _indexKey = 'index';
 const gallerySourceId = 'gallery';
 
-/// Bu cihazdaki kütüphane. RideAtlas gibi: küçük JSON indeks + ayrı kutuda
-/// fotoğraf baytları. Video Hive’a yazılmaz; varsa [LibraryMedia.localPath].
+/// Bu cihazdaki kütüphane. Dosyalar **kopyalanmaz** — yalnızca indeks
+/// (ad, yol/blob, GPS, tarih). Önizleme baytları varsa yalnızca oturum belleğinde.
 class MediaRepository extends ChangeNotifier {
   MediaRepository._();
   static final MediaRepository instance = MediaRepository._();
 
   final List<LibraryMedia> _items = [];
   final List<MediaSource> _sources = [];
+  /// Oturum önizleme (Hive’a yazılmaz — kopya yok).
   final Map<String, Uint8List> _bytesCache = {};
   /// Kaynak id → kök şu an erişilebilir mi (harici disk).
   final Map<String, bool> _mountBySource = {};
   Box<String>? _indexBox;
   Box<Uint8List>? _bytesBox;
+  Box<Uint8List>? _payloadBox;
   Box<String>? _sourcesBox;
   bool _ready = false;
 
@@ -37,7 +42,15 @@ class MediaRepository extends ChangeNotifier {
     if (_ready) return;
     _indexBox = await Hive.openBox<String>(_indexBoxName);
     _bytesBox = await Hive.openBox<Uint8List>(_bytesBoxName);
+    _payloadBox = await Hive.openBox<Uint8List>(_payloadBoxName);
     _sourcesBox = await Hive.openBox<String>(_sourcesBoxName);
+    // Eski kopyalar (önizleme / video payload) — sil; dosya kopyası tutulmaz.
+    if (_bytesBox!.isNotEmpty) {
+      await _bytesBox!.clear();
+    }
+    if (_payloadBox!.isNotEmpty) {
+      await _payloadBox!.clear();
+    }
     try {
       final raw = _indexBox!.get(_indexKey);
       final list = raw == null ? const [] : jsonDecode(raw) as List<dynamic>;
@@ -207,11 +220,33 @@ class MediaRepository extends ChangeNotifier {
   Uint8List? cachedBytes(String id) => _bytesCache[id];
 
   Future<Uint8List?> bytesOf(String id) async {
-    final cached = _bytesCache[id];
-    if (cached != null) return cached;
-    final bytes = _bytesBox?.get(id);
-    if (bytes != null) _bytesCache[id] = bytes;
-    return bytes;
+    // Kalıcı kopya yok — yalnızca oturum önbelleği.
+    return _bytesCache[id];
+  }
+
+  @Deprecated('Medya kopyalanmaz; no-op.')
+  Future<void> putPayloadBytes(String id, Uint8List bytes) async {}
+
+  Future<Uint8List?> payloadOf(String id) async => null;
+
+  Future<void> _deletePayload(String id) async {
+    await _payloadBox?.delete(id);
+  }
+
+  /// Oynatma: yerel yol, canlı blob veya web oturum File → lazy blob.
+  Future<String?> resolvePlayableUrl(LibraryMedia item) async {
+    final path = item.localPath;
+    if (path != null && path.isNotEmpty) {
+      if (!kIsWeb) return path;
+      if (isWebPlayableUrl(path)) return path;
+    }
+    if (!kIsWeb) return null;
+    final url = webSessionBlobUrl(item.name, item.sizeBytes ?? 0);
+    if (url != null && url.isNotEmpty) {
+      // Sonraki açılışlar için indeksde tut (dosya kopyası değil, URL).
+      await updateLocalPath(id: item.id, localPath: url, persist: false);
+    }
+    return url;
   }
 
   Future<void> _persistIndex() async {
@@ -318,6 +353,7 @@ class MediaRepository extends ChangeNotifier {
     for (final mediaId in ids) {
       _bytesCache.remove(mediaId);
       await _bytesBox?.delete(mediaId);
+      await _deletePayload(mediaId);
     }
     await _persistIndex();
     await _persistSources();
@@ -377,8 +413,8 @@ class MediaRepository extends ChangeNotifier {
       sizeBytes: sizeBytes,
     );
     _items.insert(0, media);
+    // Dosya kopyası yok — isteğe bağlı oturum önizlemesi yalnızca bellekte.
     if (bytes != null && bytes.isNotEmpty) {
-      await _bytesBox!.put(media.id, bytes);
       _bytesCache[media.id] = bytes;
     }
     if (persist) {
@@ -390,10 +426,9 @@ class MediaRepository extends ChangeNotifier {
     return media;
   }
 
-  /// Tarama / sonradan çıkarılan video önizleme JPEG’i.
+  /// Oturum önizleme JPEG’i (diske/Hive’a yazılmaz).
   Future<void> putPreviewBytes(String id, Uint8List bytes) async {
     if (bytes.isEmpty) return;
-    await _bytesBox!.put(id, bytes);
     _bytesCache[id] = bytes;
   }
 
@@ -428,6 +463,19 @@ class MediaRepository extends ChangeNotifier {
     }
   }
 
+  Future<void> updateLocalPath({
+    required String id,
+    required String? localPath,
+    bool persist = true,
+    bool notify = false,
+  }) async {
+    final i = _items.indexWhere((m) => m.id == id);
+    if (i < 0) return;
+    _items[i] = _items[i].copyWith(localPath: localPath);
+    if (persist) await _persistIndex();
+    if (notify) notifyListeners();
+  }
+
   Future<void> flush({bool notify = true}) async {
     await _persistIndex();
     if (notify) notifyListeners();
@@ -438,6 +486,7 @@ class MediaRepository extends ChangeNotifier {
     _bytesCache.remove(id);
     await _persistIndex();
     await _bytesBox?.delete(id);
+    await _deletePayload(id);
     notifyListeners();
   }
 }

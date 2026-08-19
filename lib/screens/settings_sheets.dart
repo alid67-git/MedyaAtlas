@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,7 +7,10 @@ import '../l10n/app_strings.dart';
 import '../services/app_settings.dart';
 import '../services/version_history.dart';
 
-Future<void> openSettingsSheet(BuildContext context) async {
+Future<void> openSettingsSheet(
+  BuildContext context, {
+  VoidCallback? onCheckUpdate,
+}) async {
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -73,6 +77,21 @@ Future<void> openSettingsSheet(BuildContext context) async {
                     title: Text(t.version),
                     subtitle: Text('v$appVersion'),
                   ),
+                  if (onCheckUpdate != null)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.system_update_alt),
+                      title: const Text('Güncelleme kontrol et'),
+                      subtitle: Text(
+                        kIsWeb
+                            ? 'Web: GitHub sürümü → sayfa yenile'
+                            : 'GitHub Releases',
+                      ),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        onCheckUpdate();
+                      },
+                    ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(t.versionHistory),
