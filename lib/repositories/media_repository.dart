@@ -243,7 +243,10 @@ class MediaRepository extends ChangeNotifier {
     final path = item.localPath;
     if (path != null && path.isNotEmpty) {
       if (!kIsWeb) return path;
-      if (isWebPlayableUrl(path)) return path;
+      // blob: URL'ler sekmeye özeldir — sayfa kapanınca ölür. Eski bir
+      // oturumdan kalma blob: yolu şekli hâlâ geçerli görünse de artık
+      // çözülmez; her zaman geçerli oturumdan (webSessionBlobUrl) tazele.
+      if (isWebPlayableUrl(path) && !path.startsWith('blob:')) return path;
     }
     if (!kIsWeb) return null;
     final url = webSessionBlobUrl(item.name, item.sizeBytes ?? 0);
