@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.25',
+    tr: 'Büyük kütüphanede Galeri\'den ekleme artık yavaşlamıyor.',
+    en: 'Adding from Gallery no longer slows down as your library grows.',
+    de: 'Hinzufügen aus der Galerie wird bei großer Bibliothek nicht mehr langsam.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.24',
     tr: '«Yeniden dene» artık web/iPhone’da da çalışıyor — dosya seçim oturumundan GPS okur.',
     en: '“Retry” now works on web/iPhone too — reads GPS from the in-session file.',
