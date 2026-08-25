@@ -22,7 +22,10 @@ const apkLatestUrl =
     'https://github.com/$githubRepo/releases/latest/download/$apkAssetName';
 const windowsZipLatestUrl =
     'https://github.com/$githubRepo/releases/latest/download/$windowsZipAssetName';
-const webAppLatestUrl = 'https://alid67-git.github.io/MedyaAtlas/go.html';
+const webAppRootUrl = 'https://alid67-git.github.io/MedyaAtlas/';
+
+/// Çalışan sürümün cache-bust yolu (eski SW precache dışı).
+String get webAppLatestUrl => '${webAppRootUrl}r/$appVersion/';
 
 enum UpdatePlatform { android, windows, web }
 
@@ -76,11 +79,10 @@ class AppUpdateInfo {
       case UpdatePlatform.web:
         return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
             'En az 2 sürüm geridesiniz; v$latestVersion gerekir.\n\n'
-            'Güncelle işe yaramazsa:\n'
-            '1) Ana Ekran kısayolunu silin\n'
-            '2) Safari’de açın:\n'
-            'alid67-git.github.io/MedyaAtlas/go.html\n'
-            '3) Paylaş → Ana Ekrana Ekle';
+            'Güncelle işe yaramazsa Safari’de açın:\n'
+            'alid67-git.github.io/MedyaAtlas/r/$latestVersion/\n'
+            'Sonra: Paylaş → Ana Ekrana Ekle\n'
+            '(Eski Ana Ekran ikonunu silin.)';
     }
   }
 }
@@ -126,17 +128,17 @@ Future<AppUpdateInfo?> _fetchFromWebVersionJson() async {
   try {
     final res = await http
         .get(
-          Uri.parse('${webAppLatestUrl}version.json'),
+          Uri.parse('${webAppRootUrl}version.json'),
           headers: {'User-Agent': 'MedyaAtlas/$appVersion'},
         )
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) return null;
     final json = jsonDecode(res.body) as Map<String, dynamic>;
-    final ver = (json['version'] as String? ?? '').trim();
+    final ver = (json['version'] as String? ?? '').replaceFirst('v', '').trim();
     if (ver.isEmpty) return null;
     return AppUpdateInfo(
-      latestVersion: ver.replaceFirst('v', ''),
-      downloadUrl: webAppLatestUrl,
+      latestVersion: ver,
+      downloadUrl: '${webAppRootUrl}r/$ver/',
       assetName: 'MedyaAtlas web',
       platform: UpdatePlatform.web,
       releaseNotes: '',
@@ -168,7 +170,7 @@ Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
     if (platform == UpdatePlatform.web) {
       return AppUpdateInfo(
         latestVersion: tag,
-        downloadUrl: webAppLatestUrl,
+        downloadUrl: '${webAppRootUrl}r/$tag/',
         assetName: 'MedyaAtlas web',
         platform: UpdatePlatform.web,
         releaseNotes: notes,

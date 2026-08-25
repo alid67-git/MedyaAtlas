@@ -2,20 +2,19 @@ import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
-/// Canlı Pages kökü — [app_updater.webAppLatestUrl] ile aynı.
-const _webAppLatestUrl = 'https://alid67-git.github.io/MedyaAtlas/go.html';
+import '../app_version.dart';
 
-/// iPhone Ana Ekran / Safari: eski service worker + HTTP cache yüzünden
-/// `?v=` ile sayfa yenilense bile `main.dart.js` eski kalabiliyor.
+/// Sürüm klasörü — eski Flutter SW'nin /MedyaAtlas/index.html precache'inden kaçınır.
+String get webAppReleasePathUrl =>
+    'https://alid67-git.github.io/MedyaAtlas/r/$appVersion/';
+
 Future<void> reloadWebApp() async {
   try {
     await _purgeWebCaches();
   } catch (_) {}
 
   final stamp = DateTime.now().millisecondsSinceEpoch;
-  // go.html eski Flutter SW precache listesinde yok — ağdan taze yüklenir.
-  final url = '$_webAppLatestUrl?v=$stamp#updated';
-  web.window.location.replace(url);
+  web.window.location.replace('$webAppReleasePathUrl?t=$stamp');
 }
 
 Future<void> _purgeWebCaches() async {

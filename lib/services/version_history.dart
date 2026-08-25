@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.30',
+    tr: 'Güncelleme döngüsü: uygulama artık cache dışı /r/1.0.30/ yolundan açılır (28↔29 takılması).',
+    en: 'Update loop fix: app opens from cache-bust path /r/1.0.30/ (stops 28↔29 bounce).',
+    de: 'Update-Schleife: App startet über Cache-freien Pfad /r/1.0.30/.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.29',
     tr: 'iPhone güncelleme takılması: go.html temiz giriş; Ana Ekran ikonunu silip Safari’den go.html açın.',
     en: 'iPhone update stuck: clean go.html entry; delete Home Screen icon and open go.html in Safari.',
