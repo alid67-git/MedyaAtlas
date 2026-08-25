@@ -24,9 +24,9 @@ class VersionHistoryEntry {
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
     version: '1.0.26',
-    tr: 'Sekmeyi kapatıp yeniden açınca fotoğraf/video artık kırık göstermek yerine "yeniden seçin" diyor.',
-    en: 'Closing and reopening the tab now shows a clear "reselect" message instead of a broken photo/video.',
-    de: 'Tab schließen/öffnen zeigt jetzt "erneut auswählen" statt eines kaputten Fotos/Videos.',
+    tr: 'Ölü blob URL yok: sekmeyi kapatınca kırık ikon yerine «yeniden seçin»; blob indeksine yazılmaz.',
+    en: 'No dead blob URLs: after closing the tab you get “reselect”, not a broken icon; blobs stay out of the index.',
+    de: 'Keine toten Blob-URLs: nach Tab-Schließung „erneut auswählen“ statt kaputtem Icon; Blobs nicht im Index.',
   ),
   VersionHistoryEntry(
     version: '1.0.25',
