@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.28',
+    tr: 'Zorunlu güncelleme iPhone’da gerçekten yeniler: SW/cache temizlenir, eski main.dart.js takılmaz.',
+    en: 'Forced update really refreshes on iPhone: clears SW/cache so old main.dart.js cannot stick.',
+    de: 'Zwangsupdate aktualisiert auf iPhone wirklich: SW/Cache wird geleert, altes main.dart.js bleibt nicht hängen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.27',
     tr: 'Web güncelleme: canlı version.json da kontrol edilir (yalnızca Pages deploy yetmez diye uyarı kaçmasın).',
     en: 'Web updates: also checks live version.json so a Pages-only deploy still prompts.',

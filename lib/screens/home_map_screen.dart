@@ -21,6 +21,7 @@ import '../repositories/media_repository.dart';
 import '../services/android_media_scan.dart';
 import '../services/app_settings.dart';
 import '../services/app_updater.dart';
+import '../services/web_reload.dart';
 import '../services/cluster.dart';
 import '../services/exif_gps.dart';
 import '../services/folder_picker.dart';
@@ -195,7 +196,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   child: const Text('Sonra'),
                 ),
               FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
+                onPressed: () async {
+                  if (info.platform == UpdatePlatform.web) {
+                    // iOS: jest içinde yenile — dialog kapanınca navigasyon
+                    // takılabiliyor / eski SW cache’i kalabiliyor.
+                    Navigator.pop(ctx, false);
+                    await reloadWebApp();
+                    return;
+                  }
+                  Navigator.pop(ctx, true);
+                },
                 child: Text(
                   force
                       ? 'Güncelle'

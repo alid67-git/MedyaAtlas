@@ -76,7 +76,9 @@ class AppUpdateInfo {
       case UpdatePlatform.web:
         return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
             'En az 2 sürüm geridesiniz; v$latestVersion için sayfayı '
-            'yenilemeniz gerekir.';
+            'yenilemeniz gerekir.\n\n'
+            'Hâlâ eski sürümde kalırsa: Ana Ekran kısayolunu silip '
+            'Safari’den siteyi yeniden «Ana Ekrana Ekle» yapın.';
     }
   }
 }
