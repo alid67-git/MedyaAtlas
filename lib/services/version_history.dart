@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.27',
+    tr: 'Web güncelleme: canlı version.json da kontrol edilir (yalnızca Pages deploy yetmez diye uyarı kaçmasın).',
+    en: 'Web updates: also checks live version.json so a Pages-only deploy still prompts.',
+    de: 'Web-Updates: prüft auch live version.json, damit Pages-Deploy allein warnt.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.26',
     tr: 'Ölü blob URL yok: sekmeyi kapatınca kırık ikon yerine «yeniden seçin»; blob indeksine yazılmaz.',
     en: 'No dead blob URLs: after closing the tab you get “reselect”, not a broken icon; blobs stay out of the index.',

@@ -313,6 +313,11 @@ void main() {
       isForceUpdateRequired(current: '0.8.1', latest: '1.0.5'),
       isTrue,
     );
+    // Telefon 1.0.23, canlı/release 1.0.26+ → zorunlu uyarı
+    expect(
+      isForceUpdateRequired(current: '1.0.23', latest: '1.0.26'),
+      isTrue,
+    );
   });
 
   test('SD Android/data klasörleri atlanır', () {

@@ -93,9 +93,56 @@ UpdatePlatform? get currentUpdatePlatform {
 }
 
 /// GitHub Releases’ten son sürümü oku.
+/// Web’de ayrıca canlı [version.json] kontrol edilir — yalnızca Pages
+/// deploy edildiğinde de güncelleme uyarısı çıksın.
 Future<AppUpdateInfo?> fetchLatestRelease() async {
   final platform = currentUpdatePlatform;
   if (platform == null) return null;
+  try {
+    final releaseInfo = await _fetchFromGitHubReleases(platform);
+    if (platform != UpdatePlatform.web) return releaseInfo;
+
+    final pagesInfo = await _fetchFromWebVersionJson();
+    if (releaseInfo == null) return pagesInfo;
+    if (pagesInfo == null) return releaseInfo;
+    // Hangisi daha yeni ise onu kullan (Pages-only deploy kaçmasın).
+    return compareVersions(
+              pagesInfo.latestVersion,
+              releaseInfo.latestVersion,
+            ) >
+            0
+        ? pagesInfo
+        : releaseInfo;
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<AppUpdateInfo?> _fetchFromWebVersionJson() async {
+  try {
+    final res = await http
+        .get(
+          Uri.parse('${webAppLatestUrl}version.json'),
+          headers: {'User-Agent': 'MedyaAtlas/$appVersion'},
+        )
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 200) return null;
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    final ver = (json['version'] as String? ?? '').trim();
+    if (ver.isEmpty) return null;
+    return AppUpdateInfo(
+      latestVersion: ver.replaceFirst('v', ''),
+      downloadUrl: webAppLatestUrl,
+      assetName: 'MedyaAtlas web',
+      platform: UpdatePlatform.web,
+      releaseNotes: '',
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
   try {
     final res = await http
         .get(
