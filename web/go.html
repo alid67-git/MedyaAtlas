@@ -1,30 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base href="$FLUTTER_BASE_HREF">
+  <base href="/MedyaAtlas/">
   <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="MedyaAtlas — GPS medya haritası (iPhone / tarayıcı).">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MedyaAtlas">
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.29">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-180x180.png?v=1.0.29">
   <title>MedyaAtlas</title>
+  <link rel="manifest" href="manifest.json?v=1.0.29">
   <meta name="theme-color" content="#071018">
   <style>
     html, body { margin: 0; height: 100%; background: #071018; color: #c8d0d8;
       font-family: -apple-system, system-ui, sans-serif; }
-    .boot { display: flex; flex-direction: column; align-items: center; justify-content: center;
-      height: 100%; text-align: center; padding: 24px; gap: 16px; }
-    a { color: #2EC4B6; font-size: 18px; }
+    .boot { display: flex; align-items: center; justify-content: center;
+      height: 100%; text-align: center; padding: 24px; }
   </style>
 </head>
 <body>
-  <div class="boot">
-    <div>Güncelleniyor…</div>
-    <a id="go" href="go.html?v=1.0.29">Elle aç (takılırsa buraya dokun)</a>
-  </div>
+  <div class="boot" id="boot">MedyaAtlas yükleniyor…</div>
   <script>
     (async function () {
       try {
@@ -37,8 +38,14 @@
           await Promise.all(keys.map(function (k) { return caches.delete(k); }));
         }
       } catch (e) {}
-      // Eski PWA cache'indeki index yerine temiz giriş (go.html eski SW precache'te yok).
-      location.replace('go.html?v=1.0.29&t=' + Date.now());
+      var s = document.createElement('script');
+      s.src = 'flutter_bootstrap.js?v=1.0.29';
+      s.async = true;
+      s.onload = function () {
+        var b = document.getElementById('boot');
+        if (b) b.remove();
+      };
+      document.body.appendChild(s);
     })();
   </script>
 </body>

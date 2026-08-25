@@ -22,7 +22,7 @@ const apkLatestUrl =
     'https://github.com/$githubRepo/releases/latest/download/$apkAssetName';
 const windowsZipLatestUrl =
     'https://github.com/$githubRepo/releases/latest/download/$windowsZipAssetName';
-const webAppLatestUrl = 'https://alid67-git.github.io/MedyaAtlas/';
+const webAppLatestUrl = 'https://alid67-git.github.io/MedyaAtlas/go.html';
 
 enum UpdatePlatform { android, windows, web }
 
@@ -75,10 +75,12 @@ class AppUpdateInfo {
             'ile açılmalı.';
       case UpdatePlatform.web:
         return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
-            'En az 2 sürüm geridesiniz; v$latestVersion için sayfayı '
-            'yenilemeniz gerekir.\n\n'
-            'Hâlâ eski sürümde kalırsa: Ana Ekran kısayolunu silip '
-            'Safari’den siteyi yeniden «Ana Ekrana Ekle» yapın.';
+            'En az 2 sürüm geridesiniz; v$latestVersion gerekir.\n\n'
+            'Güncelle işe yaramazsa:\n'
+            '1) Ana Ekran kısayolunu silin\n'
+            '2) Safari’de açın:\n'
+            'alid67-git.github.io/MedyaAtlas/go.html\n'
+            '3) Paylaş → Ana Ekrana Ekle';
     }
   }
 }

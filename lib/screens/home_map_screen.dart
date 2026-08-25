@@ -1650,10 +1650,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         FilledButton.icon(
                           onPressed: _updateDialogOpen
                               ? null
-                              : () => _promptUpdate(
-                                    _forceUpdate!,
-                                    force: true,
-                                  ),
+                              : () async {
+                                  // Dialog yok — doğrudan temiz girişe git.
+                                  setState(() => _status = 'Sayfa yenileniyor…');
+                                  await reloadWebApp();
+                                },
                           icon: const Icon(Icons.download),
                           label: Text('v${_forceUpdate!.latestVersion} güncelle'),
                         ),

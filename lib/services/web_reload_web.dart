@@ -3,7 +3,7 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 
 /// Canlı Pages kökü — [app_updater.webAppLatestUrl] ile aynı.
-const _webAppLatestUrl = 'https://alid67-git.github.io/MedyaAtlas/';
+const _webAppLatestUrl = 'https://alid67-git.github.io/MedyaAtlas/go.html';
 
 /// iPhone Ana Ekran / Safari: eski service worker + HTTP cache yüzünden
 /// `?v=` ile sayfa yenilense bile `main.dart.js` eski kalabiliyor.
@@ -13,7 +13,7 @@ Future<void> reloadWebApp() async {
   } catch (_) {}
 
   final stamp = DateTime.now().millisecondsSinceEpoch;
-  // Canonical Pages URL — standalone PWA pathname tuhaflıklarını atla.
+  // go.html eski Flutter SW precache listesinde yok — ağdan taze yüklenir.
   final url = '$_webAppLatestUrl?v=$stamp#updated';
   web.window.location.replace(url);
 }

@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.29',
+    tr: 'iPhone güncelleme takılması: go.html temiz giriş; Ana Ekran ikonunu silip Safari’den go.html açın.',
+    en: 'iPhone update stuck: clean go.html entry; delete Home Screen icon and open go.html in Safari.',
+    de: 'iPhone-Update hängt: sauberer go.html-Einstieg; Home-Screen-Icon löschen und go.html in Safari öffnen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.28',
     tr: 'Zorunlu güncelleme iPhone’da gerçekten yeniler: SW/cache temizlenir, eski main.dart.js takılmaz.',
     en: 'Forced update really refreshes on iPhone: clears SW/cache so old main.dart.js cannot stick.',

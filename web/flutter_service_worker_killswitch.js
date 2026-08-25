@@ -7,6 +7,9 @@ self.addEventListener('install', function (event) {
 self.addEventListener('activate', function (event) {
   event.waitUntil((async function () {
     try {
+      await self.clients.claim();
+    } catch (e) {}
+    try {
       var keys = await caches.keys();
       await Promise.all(keys.map(function (k) { return caches.delete(k); }));
     } catch (e) {}
@@ -18,7 +21,8 @@ self.addEventListener('activate', function (event) {
         type: 'window',
         includeUncontrolled: true,
       });
-      var url = 'https://alid67-git.github.io/MedyaAtlas/?v=' + Date.now();
+      // go.html eski Flutter SW precache listesinde yok — agdan gelir.
+      var url = 'https://alid67-git.github.io/MedyaAtlas/go.html?v=1.0.29&t=' + Date.now();
       await Promise.all(clients.map(function (c) {
         if ('navigate' in c) return c.navigate(url);
         return null;
@@ -28,6 +32,5 @@ self.addEventListener('activate', function (event) {
 });
 
 self.addEventListener('fetch', function (event) {
-  // Asla cache'ten cevap verme — agi kullan.
   event.respondWith(fetch(event.request));
 });
