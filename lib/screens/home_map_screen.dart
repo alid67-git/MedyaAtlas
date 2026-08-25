@@ -1877,18 +1877,179 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     );
   }
 
+  /// Yüklü kaynağı elle yenile (klasörü yeniden tara / galeri-telefon tekrar seç).
+  Future<void> _refreshSource(MediaSource source) async {
+    if (_busy) return;
+    setState(_closeMenus);
+
+    final root = source.rootPath?.trim();
+    if (root != null && root.isNotEmpty) {
+      if (!await _ensureAndroidMediaAccess()) return;
+      setState(() {
+        _beginBusy();
+        _status = '"${source.label}" yeniden taranıyor…';
+      });
+      try {
+        final result = await scanMediaDirectory(
+          root,
+          folderName: source.label,
+          onProgress: (n, _) {
+            if (mounted && !_cancel) {
+              setState(() => _status = '"${source.label}"… $n medya');
+            }
+          },
+          isCancelled: () => _cancel,
+        );
+        if (!mounted) return;
+        if (_cancel && result.items.isEmpty) {
+          setState(() {
+            _endBusy();
+            _status = 'Tarama iptal edildi.';
+          });
+          return;
+        }
+        if (result.items.isEmpty) {
+          setState(() {
+            _endBusy();
+            _status = '"${source.label}" içinde yeni medya yok.';
+          });
+          return;
+        }
+        final repo = context.read<MediaRepository>();
+        await repo.ensureSource(
+          id: source.id,
+          label: source.label,
+          rootPath: root,
+        );
+        await _ingest(
+          result.items,
+          source: source,
+          bulkMode: true,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _endBusy();
+          _status = 'Yeniden tarama: $e';
+        });
+        return;
+      }
+      if (mounted) setState(_endBusy);
+      return;
+    }
+
+    if (source.id == gallerySourceId || source.label == 'Galeri') {
+      await _importGallery();
+      return;
+    }
+    if (source.id == 'favorites_web' || source.label == 'Favoriler') {
+      await _importFavorites();
+      return;
+    }
+    if (source.label == 'Telefon (tümü)') {
+      await _importEntirePhone();
+      return;
+    }
+
+    // Drive / etiketli kaynak — aynı akışı tekrar aç.
+    if (source.label.toLowerCase().contains('drive') ||
+        source.label.toLowerCase().contains('google')) {
+      await _importGoogleDrive();
+      return;
+    }
+
+    setState(
+      () => _status =
+          '"${source.label}" için alttan yeniden ekleyin (klasör / medya).',
+    );
+  }
+
   Widget _sourcesPanel(MediaRepository repo) {
+    final addButtons = <Widget>[
+      if (!kIsWeb)
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importFolder();
+                },
+          child: const Text('Klasör'),
+        ),
+      if (!kIsWeb)
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importExternalVolume();
+                },
+          child: Text(_isDesktop ? 'Disk' : 'SD / USB'),
+        ),
+      if (_isDesktop && !kIsWeb)
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importFiles();
+                },
+          child: const Text('Dosya'),
+        ),
+      if (kIsWeb)
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importGallery();
+                },
+          child: const Text('Medya'),
+        ),
+      if (!kIsWeb && !_isDesktop) ...[
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importGallery();
+                },
+          child: const Text('Galeri'),
+        ),
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importEntirePhone();
+                },
+          child: const Text('Telefon'),
+        ),
+      ],
+      FilledButton.tonal(
+        onPressed: _busy
+            ? null
+            : () {
+                setState(_closeMenus);
+                _importGoogleDrive();
+              },
+        child: const Text('Drive'),
+      ),
+    ];
+
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 280),
+      constraints: const BoxConstraints(maxHeight: 300),
       child: ListView(
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         children: [
           if (repo.sources.isEmpty)
             Text(
-              _isDesktop
-                  ? 'Henüz kaynak yok. Klasör veya dosya ekle — tarama kopyalamaz. Sürükle-bırak veya Ctrl+O.'
-                  : 'Henüz kaynak yok. Klasör veya galeri ekle.',
+              kIsWeb
+                  ? 'Kaynak yok — Medya veya Drive ile başla.'
+                  : (_isDesktop
+                      ? 'Kaynak yok — Klasör / Disk ekle (Ctrl+O).'
+                      : 'Kaynak yok — Galeri veya Telefon ile başla.'),
               style: TextStyle(
                 fontSize: 13,
                 color: Colors.white.withValues(alpha: 0.6),
@@ -1910,93 +2071,42 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 [
                   '${repo.items.where((m) => m.sourceId == source.id).length} medya',
                   if (source.isRemovableVolume)
-                    repo.isSourceMounted(source)
-                        ? 'disk bağlı'
-                        : 'disk çıkarıldı — pinler gizli',
+                    repo.isSourceMounted(source) ? 'bağlı' : 'çıkarıldı',
                 ].join(' · '),
               ),
               onTap: () => repo.setSourceHidden(source.id, !source.hidden),
-              trailing: IconButton(
-                tooltip: 'Kaynağı sil',
-                onPressed: () => repo.removeSource(source.id),
-                icon: const Icon(Icons.delete_outline),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Yeniden tara',
+                    onPressed: _busy ? null : () => _refreshSource(source),
+                    icon: const Icon(Icons.sync),
+                  ),
+                  IconButton(
+                    tooltip: 'Sil',
+                    onPressed: _busy
+                        ? null
+                        : () => repo.removeSource(source.id),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
               ),
             ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
+          Text(
+            'Ekle',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        setState(_closeMenus);
-                        _importFolder();
-                      },
-                child: const Text('+ Klasör ekle'),
-              ),
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        setState(_closeMenus);
-                        _importExternalVolume();
-                      },
-                child: Text(
-                  _isDesktop ? '+ Disk / SD' : '+ SD / USB disk',
-                ),
-              ),
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        setState(_closeMenus);
-                        _importFiles();
-                      },
-                child: const Text('+ Dosya seç'),
-              ),
-              if (!_isDesktop && !kIsWeb)
-                FilledButton.tonal(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          setState(_closeMenus);
-                          _importEntirePhone();
-                        },
-                  child: const Text('+ Tüm telefon'),
-                ),
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        setState(_closeMenus);
-                        _importFavorites();
-                      },
-                child: Text(
-                  kIsWeb ? '+ Favoriler (Seç→Ekle)' : '+ Favoriler (tümü)',
-                ),
-              ),
-              if (!_isDesktop || kIsWeb)
-                FilledButton.tonal(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          setState(_closeMenus);
-                          _importGallery();
-                        },
-                  child: const Text('+ Galeri'),
-                ),
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        setState(_closeMenus);
-                        _importGoogleDrive();
-                      },
-                child: const Text('+ Google Drive'),
-              ),
-            ],
+            children: addButtons,
           ),
         ],
       ),

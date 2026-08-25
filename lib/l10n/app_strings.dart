@@ -148,13 +148,11 @@ class S {
 MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasında gösterir. Dosyaları bir yerden bir yere kopyalamaz; yalnızca indeks tutar (ad, yol, GPS).
 
 ## Ne yapabilirsiniz?
-• Kaynaklar: klasör, SD/USB disk, dosya, galeri, tüm telefon veya Google Drive ekleyin
-• SD/USB: disk çıkınca pinler gizlenir; yeniden takılınca otomatik görünür (indeks silinmez)
-• GPS konumlu: haritada pin olarak görünür
-• Konum yok: GPS’siz medya listesi; “yeniden dene” EXIF’i tekrar okur
-• Harita türü: uydu / sokak / topo / koyu
-• Güncelleme: uygulama açılışta GitHub Releases’e bakar (Android)
-• iPhone web: seçilen dosya kopyalanmaz; oturumda blob ile gösterilir (sayfa yenilenince yeniden seçin)
+• Kaynaklar: Klasör / Disk / Galeri / Telefon / Drive — her kaynağın yanında «yeniden tara»
+• SD/USB: disk çıkınca pinler gizlenir; takılınca geri gelir (indeks silinmez)
+• GPS’li medya haritada pin; konum yok listesinde «yeniden dene»
+• Harita: uydu / sokak / topo / koyu
+• iPhone web: dosya kopyalanmaz; sayfa yenilenince medyayı yeniden seçin
 
 ## İzinler (Android)
 Fotoğraf, video ve “medya konumu” (EXIF GPS) gerekir. Bilinmeyen uygulamalardan yükleme, güncelleme için gereklidir.
@@ -169,13 +167,11 @@ Google Fotoğraflar bulutu taranmaz; yerel dosya veya Drive gerekir. Windows’t
 MedyaAtlas shows GPS locations from your photos and videos on a world map. It does not copy files from place to place; it only keeps an index (name, path, GPS).
 
 ## What you can do
-• Sources: add folder, SD/USB, files, gallery, entire phone, or Google Drive
-• SD/USB: pins hide when disk is removed; return when remounted (index kept)
-• With GPS: pins on the map
-• No location: missing list; “retry” re-reads EXIF
-• Map type: satellite / street / topo / dark
-• Updates: checks GitHub Releases on launch (Android)
-• iPhone web: selected files are not copied; shown via session blob (re-select after refresh)
+• Sources: Folder / Disk / Gallery / Phone / Drive — tap sync on a source to rescan
+• SD/USB: pins hide when removed; return when remounted (index kept)
+• GPS media as map pins; “retry” on the no-location list
+• Map: satellite / street / topo / dark
+• iPhone web: files are not copied; re-select media after refresh
 
 ## Permissions (Android)
 Photos, videos, and “media location” (EXIF GPS) are required. Install from unknown apps is needed for updates.
@@ -190,12 +186,11 @@ Google Photos cloud is not scanned; use local files or Drive. On Windows use run
 MedyaAtlas zeigt GPS-Positionen aus Fotos und Videos auf einer Weltkarte. Dateien werden nicht kopiert; nur lokal indexiert.
 
 ## Funktionen
-• Quellen: Ordner, SD/USB-Datenträger, Dateien, Galerie, ganzes Telefon oder Google Drive
-• SD/USB: Pins verschwinden beim Auswerfen; nach erneutem Anschließen automatisch wieder da (Index bleibt)
-• Mit GPS: als Pins auf der Karte
-• Ohne Standort: Liste; „erneut prüfen“ liest EXIF erneut
-• Kartentyp: Satellit / Straßen / Topo / Dunkel
-• Updates: beim Start Prüfung über GitHub Releases (Android)
+• Quellen: Ordner / Disk / Galerie / Telefon / Drive — Sync-Taste zum erneuten Scannen
+• SD/USB: Pins weg beim Auswerfen; zurück nach Anschließen (Index bleibt)
+• GPS-Medien als Pins; „erneut prüfen“ in der Ohne-Standort-Liste
+• Karte: Satellit / Straße / Topo / Dunkel
+• iPhone-Web: keine Dateikopie; nach Reload Medien neu wählen
 
 ## Berechtigungen (Android)
 Fotos, Videos und Medienstandort (EXIF-GPS) sind nötig. Unbekannte Apps installieren wird für Updates benötigt.

@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.31',
+    tr: 'Kaynaklar sade: Klasör/Galeri/Telefon; her kaynakta «yeniden tara».',
+    en: 'Sources simplified: Folder/Gallery/Phone; sync on each source to rescan.',
+    de: 'Quellen vereinfacht: Ordner/Galerie/Telefon; Sync pro Quelle zum erneuten Scannen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.30',
     tr: 'Güncelleme döngüsü: uygulama artık cache dışı /r/1.0.30/ yolundan açılır (28↔29 takılması).',
     en: 'Update loop fix: app opens from cache-bust path /r/1.0.30/ (stops 28↔29 bounce).',
