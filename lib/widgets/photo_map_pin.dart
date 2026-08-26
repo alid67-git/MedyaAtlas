@@ -6,6 +6,7 @@ import '../repositories/media_repository.dart';
 import '../services/photo_orient.dart';
 import '../services/video_preview.dart';
 import 'photo_source.dart';
+import 'video_surface.dart';
 
 /// Seçili konum: dairesel fotoğraf + altta konum ucu (Google Fotoğraflar pin).
 class PhotoMapPin extends StatelessWidget {
@@ -143,6 +144,14 @@ class _PinThumb extends StatelessWidget {
     final cached = repo.cachedBytes(item.id);
     if (cached != null) {
       return OrientedMemoryImage(cached, fit: BoxFit.cover);
+    }
+    // Web video: oturum blob’undan ilk kare; yoksa kamera ikonu.
+    if (kIsWeb) {
+      return VideoThumb(
+        path: item.localPath,
+        kind: item.kind,
+        resolveUrl: () => repo.resolvePlayableUrl(item),
+      );
     }
     return ColoredBox(
       color: const Color(0xFF1A2A36),
