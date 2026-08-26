@@ -67,6 +67,24 @@ void main() {
     expect(track!.points.length, 2);
   });
 
+  test('parseGpxText accepts XML namespace prefixes', () {
+    const gpx = '''
+<?xml version="1.0"?>
+<gpx:gpx xmlns:gpx="http://www.topografix.com/GPX/1/1">
+  <gpx:trk>
+    <gpx:trkseg>
+      <gpx:trkpt lat="40.0" lon="28.0"><gpx:ele>10</gpx:ele></gpx:trkpt>
+      <gpx:trkpt lat="40.1" lon="28.1"><gpx:ele>12</gpx:ele></gpx:trkpt>
+    </gpx:trkseg>
+  </gpx:trk>
+</gpx:gpx>
+''';
+    final track = parseGpxText(gpx, name: 'ns.gpx', sourceId: 'rides');
+    expect(track, isNotNull);
+    expect(track!.points.length, 2);
+    expect(track.points.first.elevation, 10);
+  });
+
   test('isTrackFileName', () {
     expect(isTrackFileName('a.gpx'), isTrue);
     expect(isTrackFileName('b.KML'), isTrue);

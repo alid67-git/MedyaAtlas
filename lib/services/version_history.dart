@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.33',
+    tr: 'GPX/KML seçici düzeltmesi (özellikle iPhone Safari); dosya filtresi engeli kaldırıldı.',
+    en: 'GPX/KML picker fix (esp. iPhone Safari); no longer blocked by file filters.',
+    de: 'GPX/KML-Auswahl korrigiert (bes. iPhone Safari); Dateifilter blockiert nicht mehr.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.32',
     tr: 'GPX/KML/KMZ iz yükleme; kaynaklar: Klasör, Galeri, Tüm telefon, Google Drive.',
     en: 'GPX/KML/KMZ track import; sources: Folder, Gallery, Whole phone, Google Drive.',

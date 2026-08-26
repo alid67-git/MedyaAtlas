@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +34,7 @@ import '../services/media_mime.dart';
 import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
+import '../services/track_file_pick.dart';
 import '../services/track_parse.dart';
 import '../services/video_gps.dart';
 import '../services/video_preview.dart';
@@ -665,34 +665,44 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _importTracks() async {
+    // setState/_closeMenus BEFORE pick breaks Safari (user-gesture + input removed).
+    // Close panel only after the picker returns.
     final tracksRepo = context.read<TrackRepository>();
-    final picked = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: const ['gpx', 'kml', 'kmz'],
-      withData: true,
-    );
-    if (!mounted || picked == null || picked.files.isEmpty) return;
+    List<PickedTrackFile>? picked;
+    try {
+      picked = await pickTrackFiles();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _closeMenus();
+        _status = 'Dosya seçici açılamadı: $e';
+      });
+      return;
+    }
+    if (!mounted) return;
+    if (picked == null) {
+      setState(_closeMenus);
+      return;
+    }
+    if (picked.isEmpty) {
+      setState(() {
+        _closeMenus();
+        _status =
+            'GPX/KML/KMZ seçilmedi. Dosya uzantısı .gpx / .kml / .kmz olmalı.';
+      });
+      return;
+    }
+
     setState(() {
+      _closeMenus();
       _beginBusy();
       _status = 'İz dosyaları okunuyor…';
     });
     final tracks = <MapTrack>[];
     var failed = 0;
     try {
-      for (final file in picked.files) {
-        Uint8List? bytes = file.bytes;
-        if ((bytes == null || bytes.isEmpty) && file.path != null) {
-          bytes = await readLocalTextFileLimited(
-            file.path!,
-            maxBytes: 64 * 1024 * 1024,
-          );
-        }
-        if (bytes == null || bytes.isEmpty) {
-          failed++;
-          continue;
-        }
-        final track = parseTrackBytes(fileName: file.name, bytes: bytes);
+      for (final file in picked) {
+        final track = parseTrackBytes(fileName: file.name, bytes: file.bytes);
         if (track == null) {
           failed++;
           continue;
@@ -769,6 +779,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Future<void> _onDrop(DropDoneDetails details) async {
     if (_busy) return;
     final loose = <FolderMediaRef>[];
+    final trackFiles = <PickedTrackFile>[];
     for (final x in details.files) {
       final path = x.path;
       if (path.isEmpty) continue;
@@ -804,6 +815,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             });
           }
         }
+      } else if (localIsFileSync(path) && isTrackFileName(p.basename(path))) {
+        final bytes = await readLocalTextFileLimited(
+          path,
+          maxBytes: 64 * 1024 * 1024,
+        );
+        if (bytes != null && bytes.isNotEmpty) {
+          trackFiles.add(PickedTrackFile(name: p.basename(path), bytes: bytes));
+        }
       } else if (localIsFileSync(path) && isMediaName(p.basename(path))) {
         final size = await localFileLength(path);
         final name = p.basename(path);
@@ -817,6 +836,37 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             readHead: (maxBytes) => readLocalFileHead(path, maxBytes),
           ),
         );
+      }
+    }
+    if (trackFiles.isNotEmpty && mounted) {
+      setState(() {
+        _beginBusy();
+        _status = 'İz dosyaları okunuyor…';
+      });
+      final tracks = <MapTrack>[];
+      var failed = 0;
+      for (final f in trackFiles) {
+        final t = parseTrackBytes(fileName: f.name, bytes: f.bytes);
+        if (t == null) {
+          failed++;
+        } else {
+          tracks.add(t);
+        }
+      }
+      try {
+        if (tracks.isNotEmpty) {
+          await context.read<TrackRepository>().addAll(tracks);
+          if (mounted) _fitVisible(includeTracks: true);
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _endBusy();
+            _status = tracks.isEmpty
+                ? 'Geçerli GPX/KML/KMZ yok.'
+                : '${tracks.length} iz eklendi${failed > 0 ? ' · $failed okunamadı' : ''}';
+          });
+        }
       }
     }
     if (loose.isEmpty || !mounted) return;
@@ -2011,12 +2061,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         child: const Text('Google Drive'),
       ),
       FilledButton.tonal(
-        onPressed: _busy
-            ? null
-            : () {
-                setState(_closeMenus);
-                _importTracks();
-              },
+        // Do not setState/close panel before pick — Safari needs the gesture.
+        onPressed: _busy ? null : _importTracks,
         child: const Text('GPX / KML'),
       ),
     ];

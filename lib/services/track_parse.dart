@@ -97,18 +97,27 @@ MapTrack? parseGpxText(String text, {required String name, required String sourc
   final points = <TrackPoint>[];
   final waypoints = <TrackWaypoint>[];
   final ptRe = RegExp(
-    r'<(?:trkpt|rtept)\b([^>]*)>([\s\S]*?)</(?:trkpt|rtept)>',
+    r'<(?:[\w.-]+:)?(?:trkpt|rtept)\b([^>]*)>([\s\S]*?)</(?:[\w.-]+:)?(?:trkpt|rtept)>',
     caseSensitive: false,
   );
   final wptRe = RegExp(
-    r'<wpt\b([^>]*)>([\s\S]*?)</wpt>',
+    r'<(?:[\w.-]+:)?wpt\b([^>]*)>([\s\S]*?)</(?:[\w.-]+:)?wpt>',
     caseSensitive: false,
   );
   final latRe = RegExp(r'''\blat\s*=\s*["']([^"']+)["']''', caseSensitive: false);
   final lonRe = RegExp(r'''\blon\s*=\s*["']([^"']+)["']''', caseSensitive: false);
-  final eleRe = RegExp(r'<ele[^>]*>([^<]+)</ele>', caseSensitive: false);
-  final timeRe = RegExp(r'<time[^>]*>([^<]+)</time>', caseSensitive: false);
-  final nameRe = RegExp(r'<name[^>]*>([^<]+)</name>', caseSensitive: false);
+  final eleRe = RegExp(
+    r'<(?:[\w.-]+:)?ele\b[^>]*>([^<]+)</(?:[\w.-]+:)?ele>',
+    caseSensitive: false,
+  );
+  final timeRe = RegExp(
+    r'<(?:[\w.-]+:)?time\b[^>]*>([^<]+)</(?:[\w.-]+:)?time>',
+    caseSensitive: false,
+  );
+  final nameRe = RegExp(
+    r'<(?:[\w.-]+:)?name\b[^>]*>([^<]+)</(?:[\w.-]+:)?name>',
+    caseSensitive: false,
+  );
 
   for (final m in ptRe.allMatches(text)) {
     final attrs = m.group(1) ?? '';
@@ -158,7 +167,7 @@ MapTrack? parseGpxText(String text, {required String name, required String sourc
 List<TrackPoint> parseKmlCoordinates(String text) {
   final points = <TrackPoint>[];
   final re = RegExp(
-    r'<coordinates[^>]*>([\s\S]*?)</coordinates>',
+    r'<(?:[\w.-]+:)?coordinates\b[^>]*>([\s\S]*?)</(?:[\w.-]+:)?coordinates>',
     caseSensitive: false,
   );
   for (final m in re.allMatches(text)) {
