@@ -43,7 +43,7 @@ Future<TrackPickResult?> pickTrackFiles() async {
     } catch (_) {}
   }
 
-  Future<Uint8List?> _readFile(web.File file) async {
+  Future<Uint8List?> readFile(web.File file) async {
     try {
       if (file.size > trackFileMaxBytes) return null;
       // Küçük dosya: tek seferde.
@@ -80,7 +80,7 @@ Future<TrackPickResult?> pickTrackFiles() async {
         tooLarge++;
         continue;
       }
-      final bytes = await _readFile(file);
+      final bytes = await readFile(file);
       if (bytes == null || bytes.isEmpty) {
         unreadable++;
         continue;
