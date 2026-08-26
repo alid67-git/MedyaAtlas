@@ -18,6 +18,7 @@ Future<String?> downloadUrlToPath(
   String path, {
   void Function(double progress)? onProgress,
   required int minBytes,
+  int knownTotalBytes = 0,
 }) async {
   final file = File(path);
   if (await file.exists()) {
@@ -33,14 +34,20 @@ Future<String?> downloadUrlToPath(
     if (res.statusCode != 200) {
       return 'İndirme başarısız (${res.statusCode}).';
     }
-    final total = res.contentLength ?? 0;
+    final total = res.contentLength ??
+        (knownTotalBytes > 0 ? knownTotalBytes : 0);
     final sink = file.openWrite();
     var received = 0;
+    var lastPct = -1;
     await for (final chunk in res.stream) {
       sink.add(chunk);
       received += chunk.length;
       if (total > 0) {
-        onProgress?.call(received / total);
+        final pct = (received * 100 ~/ total).clamp(0, 100);
+        if (pct != lastPct || received >= total) {
+          lastPct = pct;
+          onProgress?.call((received / total).clamp(0.0, 1.0));
+        }
       } else if (received > 0) {
         onProgress?.call(
           (received / (received + 5 * 1024 * 1024)).clamp(0.0, 0.9),

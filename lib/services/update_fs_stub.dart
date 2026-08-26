@@ -7,6 +7,7 @@ Future<String?> downloadUrlToPath(
   String path, {
   void Function(double progress)? onProgress,
   required int minBytes,
+  int knownTotalBytes = 0,
 }) async =>
     'Web’de uygulama içi güncelleme yok.';
 

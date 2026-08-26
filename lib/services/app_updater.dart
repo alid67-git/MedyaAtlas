@@ -40,6 +40,7 @@ class AppUpdateInfo {
     required this.assetName,
     required this.platform,
     required this.releaseNotes,
+    this.sizeBytes = 0,
   });
 
   final String latestVersion;
@@ -47,6 +48,8 @@ class AppUpdateInfo {
   final String assetName;
   final UpdatePlatform platform;
   final String releaseNotes;
+  /// GitHub asset boyutu — CDN Content-Length vermezse yüzde için.
+  final int sizeBytes;
 
   bool get isNewer => compareVersions(latestVersion, appVersion) > 0;
 
@@ -58,14 +61,14 @@ class AppUpdateInfo {
     switch (platform) {
       case UpdatePlatform.android:
         return 'Şu an v$appVersion.\n'
-            '$assetName indirilip kurulum açılacak.';
+            'Tek dokunuşla en son $assetName indirilir (ara sürüm yok).';
       case UpdatePlatform.windows:
         return 'Şu an v$appVersion.\n'
-            '$assetName indirilecek; klasör açılınca yeni '
+            'Tek dokunuşla en son $assetName indirilir; klasör açılınca yeni '
             'medyaatlas.exe ile çalıştırın.';
       case UpdatePlatform.web:
         return 'Şu an v$appVersion.\n'
-            'v$latestVersion için sayfa yenilenecek.';
+            'Sayfa en son sürüme yenilenecek.';
     }
   }
 
@@ -73,17 +76,15 @@ class AppUpdateInfo {
     switch (platform) {
       case UpdatePlatform.android:
         return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
-            'En az 2 sürüm geridesiniz; v$latestVersion yüklemeden '
-            'MedyaAtlas kullanılamaz.';
+            'Tek tuşla en son sürüme güncelleyin '
+            '(kaç sürüm geride olursa olsun).';
       case UpdatePlatform.windows:
         return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
-            'En az 2 sürüm geridesiniz; v$latestVersion yüklemeden '
-            'MedyaAtlas kullanılamaz. Zip indirilip yeni medyaatlas.exe '
-            'ile açılmalı.';
+            'Tek tuşla en son zip indirilir; yeni medyaatlas.exe ile açın.';
       case UpdatePlatform.web:
         return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
-            'En az 2 sürüm geridesiniz; v$latestVersion gerekir.\n\n'
-            'Güncelle işe yaramazsa Safari’de açın:\n'
+            'Tek tuşla en son sürüme geçilir.\n\n'
+            'İşe yaramazsa Safari’de açın:\n'
             'alid67-git.github.io/MedyaAtlas/\n'
             'Sonra: Paylaş → Ana Ekrana Ekle\n'
             '(Eski Ana Ekran ikonunu silin.)';
@@ -187,8 +188,7 @@ Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
     if (ver == null || ver.isEmpty) return null;
 
     final assets = (json['assets'] as List?) ?? const [];
-    String? url;
-    var assetName = preferred;
+    var sizeBytes = 0;
     for (final a in assets) {
       if (a is! Map) continue;
       final name = a['name'] as String? ?? '';
@@ -197,19 +197,18 @@ Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
           : (name == windowsZipAssetName ||
               (name.endsWith('.zip') && name.toLowerCase().contains('windows')));
       if (!match) continue;
-      url = a['browser_download_url'] as String?;
-      assetName = name;
+      sizeBytes = (a['size'] as num?)?.toInt() ?? 0;
       if (name == preferred) break;
     }
-    url ??= fallbackUrl;
-    assetName = preferred;
 
+    // Her zaman sabit URL — ara sürüm / versioned asset yok.
     return AppUpdateInfo(
       latestVersion: ver,
-      downloadUrl: url,
-      assetName: assetName,
+      downloadUrl: fallbackUrl,
+      assetName: preferred,
       platform: platform,
       releaseNotes: notes,
+      sizeBytes: sizeBytes,
     );
   } catch (_) {
     return null;
@@ -237,9 +236,17 @@ Future<String?> downloadAndApplyUpdate(
 }) async {
   switch (info.platform) {
     case UpdatePlatform.android:
-      return _downloadAndroidApk(info.downloadUrl, onProgress: onProgress);
+      return _downloadAndroidApk(
+        info.downloadUrl,
+        onProgress: onProgress,
+        knownTotalBytes: info.sizeBytes,
+      );
     case UpdatePlatform.windows:
-      return _downloadWindowsZip(info.downloadUrl, onProgress: onProgress);
+      return _downloadWindowsZip(
+        info.downloadUrl,
+        onProgress: onProgress,
+        knownTotalBytes: info.sizeBytes,
+      );
     case UpdatePlatform.web:
       onProgress?.call(1);
       await reloadWebApp();
@@ -250,6 +257,7 @@ Future<String?> downloadAndApplyUpdate(
 Future<String?> _downloadAndroidApk(
   String url, {
   void Function(double progress)? onProgress,
+  int knownTotalBytes = 0,
 }) async {
   if (!hostIsAndroid) return 'Yalnızca Android.';
   final dir = await apkDownloadDirectory();
@@ -259,6 +267,7 @@ Future<String?> _downloadAndroidApk(
     path,
     onProgress: onProgress,
     minBytes: 1024,
+    knownTotalBytes: knownTotalBytes,
   );
   if (err != null) return err;
   final file = updateFile(path);
@@ -273,6 +282,7 @@ Future<String?> _downloadAndroidApk(
 Future<String?> _downloadWindowsZip(
   String url, {
   void Function(double progress)? onProgress,
+  int knownTotalBytes = 0,
 }) async {
   if (!hostIsWindows) return 'Yalnızca Windows.';
 
@@ -289,6 +299,7 @@ Future<String?> _downloadWindowsZip(
     zipPath,
     onProgress: onProgress,
     minBytes: 1024,
+    knownTotalBytes: knownTotalBytes,
   );
   if (err != null) return err;
 

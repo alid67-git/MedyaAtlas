@@ -166,11 +166,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
     final force = info.isForceRequired;
     if (force) {
+      // Tek ekran + tek tuş — ara diyalog yok (ardarda güncelle çıkmasın).
       setState(() => _forceUpdate = info);
-    } else if (_forceUpdate != null) {
-      setState(() => _forceUpdate = null);
+      return;
     }
-    await _promptUpdate(info, force: force);
+    if (_forceUpdate != null) setState(() => _forceUpdate = null);
+    await _promptUpdate(info, force: false);
   }
 
   Future<void> _promptUpdate(
@@ -188,8 +189,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           child: AlertDialog(
             title: Text(
               force
-                  ? 'Zorunlu güncelleme: v${info.latestVersion}'
-                  : 'Güncelleme var: v${info.latestVersion}',
+                  ? 'Zorunlu güncelleme'
+                  : 'Güncelleme var',
             ),
             content: Text(force ? info.forceDialogBody : info.dialogBody),
             actions: [
@@ -201,8 +202,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               FilledButton(
                 onPressed: () async {
                   if (info.platform == UpdatePlatform.web) {
-                    // iOS: jest içinde yenile — dialog kapanınca navigasyon
-                    // takılabiliyor / eski SW cache’i kalabiliyor.
                     Navigator.pop(ctx, false);
                     await reloadWebApp();
                     return;
@@ -210,11 +209,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   Navigator.pop(ctx, true);
                 },
                 child: Text(
-                  force
-                      ? 'Güncelle'
-                      : (info.platform == UpdatePlatform.web
-                          ? 'Yenile'
-                          : 'İndir'),
+                  info.platform == UpdatePlatform.web ? 'Yenile' : 'Güncelle',
                 ),
               ),
             ],
@@ -230,6 +225,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } finally {
       _updateDialogOpen = false;
     }
+  }
+
+  Future<void> _applyForceUpdate() async {
+    final info = _forceUpdate;
+    if (info == null || _updateDialogOpen) return;
+    if (info.platform == UpdatePlatform.web) {
+      setState(() => _status = 'Sayfa yenileniyor…');
+      await reloadWebApp();
+      return;
+    }
+    await _downloadUpdate(info);
   }
 
   Future<void> _downloadUpdate(AppUpdateInfo info) async {
@@ -255,51 +261,74 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
 
     if (!mounted) return;
+    _updateDialogOpen = true;
     final progress = ValueNotifier<double>(0);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          title: const Text('Güncelleme indiriliyor'),
-          content: ValueListenableBuilder<double>(
-            valueListenable: progress,
-            builder: (context, value, _) => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                LinearProgressIndicator(
-                  value: value <= 0 ? null : value.clamp(0.0, 1.0),
-                ),
-                const SizedBox(height: 12),
-                Text('%${(value * 100).round()} — ${info.assetName}'),
-              ],
+    try {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => PopScope(
+          canPop: false,
+          child: AlertDialog(
+            title: const Text('Güncelleme indiriliyor'),
+            content: ValueListenableBuilder<double>(
+              valueListenable: progress,
+              builder: (context, value, _) {
+                final pct = (value * 100).round().clamp(0, 100);
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    LinearProgressIndicator(
+                      value: value <= 0 ? null : value.clamp(0.0, 1.0),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '%$pct',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      info.assetName,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.65),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    final err = await downloadAndApplyUpdate(
-      info,
-      onProgress: (p) => progress.value = p,
-    );
-    progress.dispose();
-    if (mounted) Navigator.of(context, rootNavigator: true).pop();
-    if (!mounted) return;
-    setState(() {
-      if (err != null) {
-        _status = err;
-      } else if (info.platform == UpdatePlatform.android) {
-        _status =
-            'Kurulum ekranı açıldı — Güncelle’ye basın (silmeden üzerine kurar).';
-      } else {
-        _status =
-            'v${info.latestVersion} indirildi. Bu uygulamayı kapatıp '
-            'yeni medyaatlas.exe ile açın.';
-      }
-    });
+      final err = await downloadAndApplyUpdate(
+        info,
+        onProgress: (p) => progress.value = p,
+      );
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (!mounted) return;
+      setState(() {
+        if (err != null) {
+          _status = err;
+        } else if (info.platform == UpdatePlatform.android) {
+          _status =
+              'Kurulum ekranı açıldı — Güncelle’ye basın (silmeden üzerine kurar).';
+        } else {
+          _status =
+              'İndirme bitti. Bu uygulamayı kapatıp yeni medyaatlas.exe ile açın.';
+        }
+      });
+    } finally {
+      progress.dispose();
+      _updateDialogOpen = false;
+    }
   }
 
   Future<bool> _ensureAndroidMediaAccess() async {
@@ -1695,13 +1724,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         FilledButton.icon(
                           onPressed: _updateDialogOpen
                               ? null
-                              : () async {
-                                  // Dialog yok — doğrudan temiz girişe git.
-                                  setState(() => _status = 'Sayfa yenileniyor…');
-                                  await reloadWebApp();
-                                },
+                              : () => _applyForceUpdate(),
                           icon: const Icon(Icons.download),
-                          label: Text('v${_forceUpdate!.latestVersion} güncelle'),
+                          label: const Text('Güncelle'),
                         ),
                       ],
                     ),

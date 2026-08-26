@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.36',
+    tr: 'Tek tuş güncelleme: ara sürüm yok, doğrudan en son APK; indirmede yüzde gösterilir.',
+    en: 'One-tap update: jump straight to latest APK (no intermediate versions); download shows %.',
+    de: 'Ein-Tipp-Update: direkt neueste APK (keine Zwischenversionen); Download zeigt %.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.35',
     tr: 'Sabit indirme: android-latest/MedyaAtlas.apk; web aynı adrese yazılır (sürüm klasörü yok).',
     en: 'Stable download: android-latest/MedyaAtlas.apk; web overwrites same URL (no version folders).',
