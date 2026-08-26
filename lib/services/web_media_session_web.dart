@@ -6,6 +6,7 @@ import 'package:web/web.dart' as web;
 
 final Map<String, web.File> _files = {};
 final Map<String, String> _urls = {};
+final Set<String> _liveBlobUrls = {};
 
 String _key(String name, int size) => '$name|$size';
 
@@ -14,6 +15,17 @@ void webSessionRegister(String name, int size, Object file) {
   // ignore: avoid_dynamic_calls — package:web File from picker
   _files[_key(name, size)] = file as dynamic;
 }
+
+/// Bu oturumda üretilmiş blob URL’yi canlı say (Hive’dan gelen ölü blob değil).
+void webSessionRememberBlob(String url) {
+  if (url.startsWith('blob:')) _liveBlobUrls.add(url);
+}
+
+bool webSessionIsLiveBlob(String? url) =>
+    url != null && url.startsWith('blob:') && _liveBlobUrls.contains(url);
+
+bool webSessionHasFile(String name, int size) =>
+    _files.containsKey(_key(name, size));
 
 /// İlk oynatmada / gösterimde blob URL (lazy).
 String? webSessionBlobUrl(String name, int size) {
@@ -24,6 +36,7 @@ String? webSessionBlobUrl(String name, int size) {
   if (file == null) return null;
   final url = web.URL.createObjectURL(file);
   _urls[k] = url;
+  _liveBlobUrls.add(url);
   return url;
 }
 
@@ -50,4 +63,5 @@ void webSessionClear() {
   }
   _urls.clear();
   _files.clear();
+  _liveBlobUrls.clear();
 }

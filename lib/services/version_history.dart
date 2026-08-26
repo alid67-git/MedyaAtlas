@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.34',
+    tr: 'GPX seçicide yalnızca Dosyalar (galeri/kamera yok); web videolar uygulama içinde oynar.',
+    en: 'GPX picker shows Files only (no gallery/camera); web videos play in-app.',
+    de: 'GPX-Auswahl nur Dateien (keine Galerie/Kamera); Web-Videos in der App.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.33',
     tr: 'GPX/KML seçici düzeltmesi (özellikle iPhone Safari); dosya filtresi engeli kaldırıldı.',
     en: 'GPX/KML picker fix (esp. iPhone Safari); no longer blocked by file filters.',

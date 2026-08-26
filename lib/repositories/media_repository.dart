@@ -7,7 +7,6 @@ import 'package:uuid/uuid.dart';
 
 import '../models/library_media.dart';
 import '../services/geo.dart';
-import '../services/media_mime.dart';
 import '../services/volume_mount.dart';
 import '../services/web_media_session.dart';
 
@@ -257,17 +256,16 @@ class MediaRepository extends ChangeNotifier {
   /// Oynatma: yerel yol, canlı blob veya web oturum File → lazy blob.
   Future<String?> resolvePlayableUrl(LibraryMedia item) async {
     final path = item.localPath;
-    if (path != null && path.isNotEmpty) {
-      if (!kIsWeb) return path;
-      // blob: URL'ler sekmeye özeldir — sayfa kapanınca ölür. Eski bir
-      // oturumdan kalma blob: yolu şekli hâlâ geçerli görünse de artık
-      // çözülmez; her zaman geçerli oturumdan (webSessionBlobUrl) tazele.
-      if (isWebPlayableUrl(path) && !path.startsWith('blob:')) return path;
+    if (!kIsWeb) {
+      if (path != null && path.isNotEmpty) return path;
+      return null;
     }
-    if (!kIsWeb) return null;
-    // Oturum File → lazy blob. İndekse yazma: blob: sekmeye özel ölür;
-    // kalıcı yol yalnızca gerçek disk / http(s) olmalı.
-    return webSessionBlobUrl(item.name, item.sizeBytes ?? 0);
+    // Önce bu oturumun File’ından taze blob.
+    final fromSession = webSessionBlobUrl(item.name, item.sizeBytes ?? 0);
+    if (fromSession != null) return fromSession;
+    // Aynı sekmede üretilmiş canlı blob (Hive’dan gelen ölü blob: değil).
+    if (webSessionIsLiveBlob(path)) return path;
+    return null;
   }
 
   Future<void> _persistIndex() async {

@@ -287,11 +287,11 @@ class _VideoPageState extends State<_VideoPage> {
       kind: widget.media.kind,
       posterBytes: _poster,
       resolveUrl: () => repo.resolvePlayableUrl(widget.media),
-      // Web + Windows GoPro/DJI: uygulama içi player yerine sistem/Safari.
-      preferExternal: kIsWeb ||
-          (hostIsWindows &&
-              (widget.media.kind == MediaKind.gopro ||
-                  widget.media.kind == MediaKind.drone)),
+      // Windows GoPro/DJI: uygulama içi player yerine sistem oynatıcı.
+      // Web: uygulama içi blob oynatma (Safari popup jest kaybında engellenir).
+      preferExternal: hostIsWindows &&
+          (widget.media.kind == MediaKind.gopro ||
+              widget.media.kind == MediaKind.drone),
     );
   }
 }

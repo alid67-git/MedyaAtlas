@@ -9,13 +9,21 @@ import 'track_parse.dart';
 export 'track_file_types.dart';
 
 /// Safari-safe track picker: keep `<input>` in the DOM until change/cancel.
-/// Empty accept so iOS Files lists GPX/KML/KMZ (strict `.gpx` filter hides them).
+///
+/// Document-only [accept] so iOS shows Files ("Choose Files") — not Photo
+/// Library / Camera. Empty accept was causing that media action sheet.
+const _trackAccept = '.gpx,.kml,.kmz,'
+    'application/gpx+xml,'
+    'application/vnd.google-earth.kml+xml,'
+    'application/vnd.google-earth.kmz,'
+    'application/xml,text/xml';
+
 Future<List<PickedTrackFile>?> pickTrackFiles() async {
   final done = Completer<List<PickedTrackFile>?>();
   final input = web.HTMLInputElement()
     ..type = 'file'
     ..multiple = true
-    ..accept = '';
+    ..accept = _trackAccept;
   input.style
     ..position = 'fixed'
     ..left = '0'

@@ -148,16 +148,10 @@ FolderPickResult _fromFileList(
         : (mime.startsWith('video/')
             ? 'video_${i + 1}.mp4'
             : 'photo_${i + 1}.jpg');
-    final isVid = isVideoName(name) || mime.startsWith('video/');
-    // Video: blob/URL üretme (Safari büyük dosyayı hazırlar → yavaş).
-    // File oturumda; oynatınca lazy blob.
+    // createObjectURL anında biter (dosyayı okumaz) — foto ve video için blob.
     webSessionRegister(name, file.size, captured);
-    final String? blobUrl;
-    if (isVid) {
-      blobUrl = null;
-    } else {
-      blobUrl = web.URL.createObjectURL(captured);
-    }
+    final blobUrl = web.URL.createObjectURL(captured);
+    webSessionRememberBlob(blobUrl);
     items.add(
       FolderMediaRef(
         name: name,

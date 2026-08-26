@@ -474,7 +474,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           size: file.size,
         );
         if (existing != null) {
-          if (isWebPlayableUrl(file.localPath) &&
+          if (file.localPath != null &&
+              file.localPath!.isNotEmpty &&
               existing.localPath != file.localPath) {
             await repo.updateLocalPath(
               id: existing.id,
