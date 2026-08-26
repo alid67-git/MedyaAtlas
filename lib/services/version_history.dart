@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.37',
+    tr: 'Güncelleme ekranı: tam ekran büyük yüzde (RideAtlas/GPX tarzı).',
+    en: 'Update screen: full-screen large percent (RideAtlas/GPX style).',
+    de: 'Update-Bildschirm: großer Prozentwert im Vollbild (RideAtlas/GPX-Stil).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.36',
     tr: 'Tek tuş güncelleme: ara sürüm yok, doğrudan en son APK; indirmede yüzde gösterilir.',
     en: 'One-tap update: jump straight to latest APK (no intermediate versions); download shows %.',
