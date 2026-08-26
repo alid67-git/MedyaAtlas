@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.32',
+    tr: 'GPX/KML/KMZ iz yükleme; kaynaklar: Klasör, Galeri, Tüm telefon, Google Drive.',
+    en: 'GPX/KML/KMZ track import; sources: Folder, Gallery, Whole phone, Google Drive.',
+    de: 'GPX/KML/KMZ-Track-Import; Quellen: Ordner, Galerie, Ganzes Telefon, Google Drive.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.31',
     tr: 'Kaynaklar sade: Klasör/Galeri/Telefon; her kaynakta «yeniden tara».',
     en: 'Sources simplified: Folder/Gallery/Phone; sync on each source to rescan.',

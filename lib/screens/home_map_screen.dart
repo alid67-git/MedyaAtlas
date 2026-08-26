@@ -17,7 +17,9 @@ import '../app_version.dart';
 import '../google_oauth_config.dart';
 import '../l10n/app_strings.dart';
 import '../models/library_media.dart';
+import '../models/map_track.dart';
 import '../repositories/media_repository.dart';
+import '../repositories/track_repository.dart';
 import '../services/android_media_scan.dart';
 import '../services/app_settings.dart';
 import '../services/app_updater.dart';
@@ -33,6 +35,7 @@ import '../services/media_mime.dart';
 import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
+import '../services/track_parse.dart';
 import '../services/video_gps.dart';
 import '../services/video_preview.dart';
 import '../services/photo_orient.dart';
@@ -661,90 +664,65 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     await _ingestPick(picked, alreadyBusy: true);
   }
 
-  Future<void> _importExternalVolume() async {
-    if (!await _ensureAndroidMediaAccess()) return;
-    FolderPickResult? picked;
+  Future<void> _importTracks() async {
+    final tracksRepo = context.read<TrackRepository>();
+    final picked = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: const ['gpx', 'kml', 'kmz'],
+      withData: true,
+    );
+    if (!mounted || picked == null || picked.files.isEmpty) return;
+    setState(() {
+      _beginBusy();
+      _status = 'İz dosyaları okunuyor…';
+    });
+    final tracks = <MapTrack>[];
+    var failed = 0;
     try {
-      setState(() {
-        _beginBusy();
-        _status = 'Disk listeleniyor…';
-      });
-      picked = await pickExternalVolume(
-        onProgress: (n, _) {
-          if (mounted && !_cancel) {
-            setState(() => _status = 'Disk taranıyor… $n medya bulundu');
-          }
-        },
-        isCancelled: () => _cancel,
-      );
-      if (_cancel && mounted) {
-        if (picked == null || picked.items.isEmpty) {
-          setState(() {
-            _endBusy();
-            _status = 'Tarama iptal edildi.';
-          });
-          return;
+      for (final file in picked.files) {
+        Uint8List? bytes = file.bytes;
+        if ((bytes == null || bytes.isEmpty) && file.path != null) {
+          bytes = await readLocalTextFileLimited(
+            file.path!,
+            maxBytes: 64 * 1024 * 1024,
+          );
         }
+        if (bytes == null || bytes.isEmpty) {
+          failed++;
+          continue;
+        }
+        final track = parseTrackBytes(fileName: file.name, bytes: bytes);
+        if (track == null) {
+          failed++;
+          continue;
+        }
+        tracks.add(track);
       }
+      if (tracks.isNotEmpty) {
+        await tracksRepo.addAll(tracks);
+        if (!mounted) return;
+        _fitVisible(includeTracks: true);
+      }
+      if (!mounted) return;
+      setState(() {
+        _endBusy();
+        if (tracks.isEmpty) {
+          _status = failed > 0
+              ? 'Geçerli GPX/KML/KMZ yok ($failed dosya).'
+              : 'İz seçilmedi.';
+        } else {
+          _status =
+              '${tracks.length} iz eklendi${failed > 0 ? ' · $failed okunamadı' : ''}';
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _endBusy();
-        final msg = '$e';
-        _status = msg.contains('Permission denied') ||
-                msg.contains('PathAccessException')
-            ? 'Disk tarandı ama bazı klasörler kapalı (Android/data). '
-                'DCIM veya kart kökünü tekrar seçin; izinli klasörler okunur.'
-            : 'Disk açılamadı: $e';
+        _status = 'İz yükleme: $e';
       });
-      return;
     }
-    if (!mounted) return;
-    if (picked == null) {
-      setState(_endBusy);
-      return;
-    }
-    await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
-  }
-
-  Future<void> _importFiles() async {
-    if (!await _ensureAndroidMediaAccess()) return;
-    // Windows’ta uzun uzantı listeli FileType.custom bazen yalnızca
-    // görüntü filtreler — any alıp istemci tarafında medya süzüyoruz.
-    final picked = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.any,
-      withData: false,
-    );
-    if (!mounted || picked == null || picked.files.isEmpty) return;
-    final refs = <FolderMediaRef>[];
-    for (final file in picked.files) {
-      final path = file.path;
-      if (path == null) continue;
-      if (!isMediaName(file.name)) continue;
-      refs.add(
-        FolderMediaRef(
-          name: file.name,
-          size: file.size,
-          relativePath: file.name,
-          localPath: path,
-          readHead: (maxBytes) => readLocalFileHead(path, maxBytes),
-        ),
-      );
-    }
-    if (refs.isEmpty) {
-      setState(() {
-        _status =
-            'Seçilenlerde foto/video yok. Desteklenen: JPG, PNG, MP4, MOV, GoPro, DJI…';
-      });
-      return;
-    }
-    await _ingestPick(
-      FolderPickResult(
-        folderName: refs.length == 1 ? refs.first.name : '${refs.length} dosya',
-        items: refs,
-      ),
-    );
   }
 
   Future<void> _ingestPick(
@@ -1329,14 +1307,30 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  void _fitVisible() {
+  void _fitVisible({bool includeTracks = false}) {
     final repo = context.read<MediaRepository>();
     final clusters = _clustersOf(repo);
-    if (clusters.isEmpty) return;
-    final points = [
+    final points = <LatLng>[
       for (final c in clusters)
         if (c.latLng.latitude.isFinite && c.latLng.longitude.isFinite) c.latLng,
     ];
+    if (includeTracks || points.isEmpty) {
+      final tracks = context.read<TrackRepository>().visibleTracks;
+      for (final t in tracks) {
+        final b = t.bounds;
+        if (b != null) {
+          points
+            ..add(LatLng(b.south, b.west))
+            ..add(LatLng(b.north, b.east));
+        } else {
+          for (final p in t.points) {
+            if (isValidGps(p.latitude, p.longitude)) {
+              points.add(p.latLng);
+            }
+          }
+        }
+      }
+    }
     if (points.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -1946,7 +1940,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       await _importFavorites();
       return;
     }
-    if (source.label == 'Telefon (tümü)') {
+    if (source.label == 'Telefon (tümü)' || source.label == 'Tüm telefon') {
       await _importEntirePhone();
       return;
     }
@@ -1965,6 +1959,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Widget _sourcesPanel(MediaRepository repo) {
+    final tracks = context.watch<TrackRepository>();
     final addButtons = <Widget>[
       if (!kIsWeb)
         FilledButton.tonal(
@@ -1976,37 +1971,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 },
           child: const Text('Klasör'),
         ),
-      if (!kIsWeb)
-        FilledButton.tonal(
-          onPressed: _busy
-              ? null
-              : () {
-                  setState(_closeMenus);
-                  _importExternalVolume();
-                },
-          child: Text(_isDesktop ? 'Disk' : 'SD / USB'),
-        ),
-      if (_isDesktop && !kIsWeb)
-        FilledButton.tonal(
-          onPressed: _busy
-              ? null
-              : () {
-                  setState(_closeMenus);
-                  _importFiles();
-                },
-          child: const Text('Dosya'),
-        ),
       if (kIsWeb)
-        FilledButton.tonal(
-          onPressed: _busy
-              ? null
-              : () {
-                  setState(_closeMenus);
-                  _importGallery();
-                },
-          child: const Text('Medya'),
-        ),
-      if (!kIsWeb && !_isDesktop) ...[
         FilledButton.tonal(
           onPressed: _busy
               ? null
@@ -2016,6 +1981,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 },
           child: const Text('Galeri'),
         ),
+      if (!kIsWeb && !_isDesktop)
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importGallery();
+                },
+          child: const Text('Galeri'),
+        ),
+      if (!kIsWeb && !_isDesktop)
         FilledButton.tonal(
           onPressed: _busy
               ? null
@@ -2023,9 +1999,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   setState(_closeMenus);
                   _importEntirePhone();
                 },
-          child: const Text('Telefon'),
+          child: const Text('Tüm telefon'),
         ),
-      ],
       FilledButton.tonal(
         onPressed: _busy
             ? null
@@ -2033,23 +2008,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 setState(_closeMenus);
                 _importGoogleDrive();
               },
-        child: const Text('Drive'),
+        child: const Text('Google Drive'),
+      ),
+      FilledButton.tonal(
+        onPressed: _busy
+            ? null
+            : () {
+                setState(_closeMenus);
+                _importTracks();
+              },
+        child: const Text('GPX / KML'),
       ),
     ];
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 300),
+      constraints: const BoxConstraints(maxHeight: 340),
       child: ListView(
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         children: [
-          if (repo.sources.isEmpty)
+          if (repo.sources.isEmpty && tracks.tracks.isEmpty)
             Text(
               kIsWeb
-                  ? 'Kaynak yok — Medya veya Drive ile başla.'
+                  ? 'Kaynak yok — Galeri, Google Drive veya GPX/KML.'
                   : (_isDesktop
-                      ? 'Kaynak yok — Klasör / Disk ekle (Ctrl+O).'
-                      : 'Kaynak yok — Galeri veya Telefon ile başla.'),
+                      ? 'Kaynak yok — Klasör, Google Drive veya GPX/KML (Ctrl+O).'
+                      : 'Kaynak yok — Galeri, Tüm telefon, Google Drive veya GPX/KML.'),
               style: TextStyle(
                 fontSize: 13,
                 color: Colors.white.withValues(alpha: 0.6),
@@ -2085,12 +2069,31 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   ),
                   IconButton(
                     tooltip: 'Sil',
-                    onPressed: _busy
-                        ? null
-                        : () => repo.removeSource(source.id),
+                    onPressed:
+                        _busy ? null : () => repo.removeSource(source.id),
                     icon: const Icon(Icons.delete_outline),
                   ),
                 ],
+              ),
+            ),
+          for (final track in tracks.tracks)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                track.visible
+                    ? Icons.route_outlined
+                    : Icons.visibility_off_outlined,
+              ),
+              title: Text(track.name, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                '${track.pointCount ?? track.points.length} nokta · iz',
+              ),
+              onTap: () => tracks.setVisible(track.id, !track.visible),
+              trailing: IconButton(
+                tooltip: 'Sil',
+                onPressed: _busy ? null : () => tracks.remove(track.id),
+                icon: const Icon(Icons.delete_outline),
               ),
             ),
           const SizedBox(height: 8),
@@ -2168,6 +2171,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     List<LibraryMedia> missing,
     MediaRepository repo,
   ) {
+    final trackRepo = context.watch<TrackRepository>();
+    final polylines = <Polyline>[
+      for (final track in trackRepo.visibleTracks)
+        if (track.points.length >= 2)
+          Polyline(
+            points: [
+              for (final p in track.points)
+                if (isValidGps(p.latitude, p.longitude)) p.latLng,
+            ],
+            strokeWidth: 3.5,
+            color: const Color(0xFFE8A838),
+          ),
+    ];
     return Stack(
       children: [
         FlutterMap(
@@ -2181,6 +2197,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
               userAgentPackageName: 'com.medyaatlas.app',
             ),
+            if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
             MarkerLayer(
               markers: _markersFor(clusters, repo),
             ),

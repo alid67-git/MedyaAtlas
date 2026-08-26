@@ -87,11 +87,11 @@ Future<FolderPickResult> scanEntirePhoneMedia({
   onProgress?.call('Telefon medyası listeleniyor…');
   final album = await _allPhotosAlbum();
   if (album == null) {
-    return const FolderPickResult(folderName: 'Telefon (tümü)', items: []);
+    return const FolderPickResult(folderName: 'Tüm telefon', items: []);
   }
   return _scanAlbumAssets(
     album,
-    folderName: 'Telefon (tümü)',
+    folderName: 'Tüm telefon',
     maxAssets: maxAssets,
     onProgress: onProgress,
   );

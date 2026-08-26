@@ -148,9 +148,9 @@ class S {
 MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasında gösterir. Dosyaları bir yerden bir yere kopyalamaz; yalnızca indeks tutar (ad, yol, GPS).
 
 ## Ne yapabilirsiniz?
-• Kaynaklar: Klasör / Disk / Galeri / Telefon / Drive — her kaynağın yanında «yeniden tara»
-• SD/USB: disk çıkınca pinler gizlenir; takılınca geri gelir (indeks silinmez)
-• GPS’li medya haritada pin; konum yok listesinde «yeniden dene»
+• Kaynaklar: Klasör / Galeri / Tüm telefon / Google Drive / GPX·KML — her kaynakta «yeniden tara»
+• SD/USB ve disk kökleri Klasör seçimiyle eklenir (ayrı Disk butonu yok)
+• GPS’li medya haritada pin; GPX/KML/KMZ izleri turuncu çizgi
 • Harita: uydu / sokak / topo / koyu
 • iPhone web: dosya kopyalanmaz; sayfa yenilenince medyayı yeniden seçin
 
@@ -161,15 +161,15 @@ Fotoğraf, video ve “medya konumu” (EXIF GPS) gerekir. Bilinmeyen uygulamala
 https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
 
 ## Notlar
-Google Fotoğraflar bulutu taranmaz; yerel dosya veya Drive gerekir. Windows’ta run_windows.bat / C:\\src\\MedyaAtlas kullanılır.
+Google Fotoğraflar bulutu taranmaz; yerel dosya veya Google Drive gerekir. Windows’ta run_windows.bat / C:\\src\\MedyaAtlas kullanılır.
 ''',
         AppLang.en => '''
 MedyaAtlas shows GPS locations from your photos and videos on a world map. It does not copy files from place to place; it only keeps an index (name, path, GPS).
 
 ## What you can do
-• Sources: Folder / Disk / Gallery / Phone / Drive — tap sync on a source to rescan
-• SD/USB: pins hide when removed; return when remounted (index kept)
-• GPS media as map pins; “retry” on the no-location list
+• Sources: Folder / Gallery / Whole phone / Google Drive / GPX·KML — tap sync on a source to rescan
+• SD/USB and disk roots are added via Folder (no separate Disk button)
+• GPS media as map pins; GPX/KML/KMZ tracks as orange lines
 • Map: satellite / street / topo / dark
 • iPhone web: files are not copied; re-select media after refresh
 
@@ -180,15 +180,15 @@ Photos, videos, and “media location” (EXIF GPS) are required. Install from u
 https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
 
 ## Notes
-Google Photos cloud is not scanned; use local files or Drive. On Windows use run_windows.bat / C:\\src\\MedyaAtlas.
+Google Photos cloud is not scanned; use local files or Google Drive. On Windows use run_windows.bat / C:\\src\\MedyaAtlas.
 ''',
         AppLang.de => '''
 MedyaAtlas zeigt GPS-Positionen aus Fotos und Videos auf einer Weltkarte. Dateien werden nicht kopiert; nur lokal indexiert.
 
 ## Funktionen
-• Quellen: Ordner / Disk / Galerie / Telefon / Drive — Sync-Taste zum erneuten Scannen
-• SD/USB: Pins weg beim Auswerfen; zurück nach Anschließen (Index bleibt)
-• GPS-Medien als Pins; „erneut prüfen“ in der Ohne-Standort-Liste
+• Quellen: Ordner / Galerie / Ganzes Telefon / Google Drive / GPX·KML — Sync-Taste zum erneuten Scannen
+• SD/USB und Disk-Wurzeln über Ordner (kein eigener Disk-Button)
+• GPS-Medien als Pins; GPX/KML/KMZ-Tracks als orangene Linien
 • Karte: Satellit / Straße / Topo / Dunkel
 • iPhone-Web: keine Dateikopie; nach Reload Medien neu wählen
 
@@ -199,7 +199,7 @@ Fotos, Videos und Medienstandort (EXIF-GPS) sind nötig. Unbekannte Apps install
 https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
 
 ## Hinweise
-Google Fotos Cloud wird nicht gescannt; lokale Dateien oder Drive nutzen. Unter Windows: run_windows.bat / C:\\src\\MedyaAtlas.
+Google Fotos Cloud wird nicht gescannt; lokale Dateien oder Google Drive nutzen. Unter Windows: run_windows.bat / C:\\src\\MedyaAtlas.
 ''',
       };
 }
