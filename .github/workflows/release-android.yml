@@ -103,11 +103,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create versioned GitHub Release
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: MedyaAtlas ${{ steps.meta.outputs.tag }}
-          generate_release_notes: true
+          generate_release_notes: false
           files: dist/MedyaAtlas.apk
           body: |
             ## İndirme (sabit isim — sürüm yok)
