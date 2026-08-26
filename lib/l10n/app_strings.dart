@@ -158,7 +158,7 @@ MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasınd
 Fotoğraf, video ve “medya konumu” (EXIF GPS) gerekir. Bilinmeyen uygulamalardan yükleme, güncelleme için gereklidir.
 
 ## İndirme
-https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaAtlas.apk
 
 ## Notlar
 Google Fotoğraflar bulutu taranmaz; yerel dosya veya Google Drive gerekir. Windows’ta run_windows.bat / C:\\src\\MedyaAtlas kullanılır.
@@ -177,7 +177,7 @@ MedyaAtlas shows GPS locations from your photos and videos on a world map. It do
 Photos, videos, and “media location” (EXIF GPS) are required. Install from unknown apps is needed for updates.
 
 ## Download
-https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaAtlas.apk
 
 ## Notes
 Google Photos cloud is not scanned; use local files or Google Drive. On Windows use run_windows.bat / C:\\src\\MedyaAtlas.
@@ -196,7 +196,7 @@ MedyaAtlas zeigt GPS-Positionen aus Fotos und Videos auf einer Weltkarte. Dateie
 Fotos, Videos und Medienstandort (EXIF-GPS) sind nötig. Unbekannte Apps installieren wird für Updates benötigt.
 
 ## Download
-https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaAtlas.apk
 
 ## Hinweise
 Google Fotos Cloud wird nicht gescannt; lokale Dateien oder Google Drive nutzen. Unter Windows: run_windows.bat / C:\\src\\MedyaAtlas.

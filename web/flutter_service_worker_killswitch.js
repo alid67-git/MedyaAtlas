@@ -16,7 +16,7 @@ self.addEventListener('activate', function (event) {
         type: 'window',
         includeUncontrolled: true,
       });
-      var url = 'https://alid67-git.github.io/MedyaAtlas/r/1.0.30/?t=' + Date.now();
+      var url = 'https://alid67-git.github.io/MedyaAtlas/?t=' + Date.now();
       await Promise.all(clients.map(function (c) {
         if ('navigate' in c) return c.navigate(url);
         return null;

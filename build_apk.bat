@@ -66,7 +66,7 @@ echo APK hazir (sabit ad):
 echo   %CD%\%OUT%
 echo.
 echo Indirme linki:
-echo   https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
+echo   https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaAtlas.apk
 echo.
 explorer "dist"
 

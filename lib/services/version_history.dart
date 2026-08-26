@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.35',
+    tr: 'Sabit indirme: android-latest/MedyaAtlas.apk; web aynı adrese yazılır (sürüm klasörü yok).',
+    en: 'Stable download: android-latest/MedyaAtlas.apk; web overwrites same URL (no version folders).',
+    de: 'Fester Download: android-latest/MedyaAtlas.apk; Web überschreibt dieselbe URL.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.34',
     tr: 'GPX seçicide yalnızca Dosyalar (galeri/kamera yok); web videolar uygulama içinde oynar.',
     en: 'GPX picker shows Files only (no gallery/camera); web videos play in-app.',

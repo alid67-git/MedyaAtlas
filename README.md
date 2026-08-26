@@ -6,12 +6,14 @@ Dağıtım: GitHub **Releases** (APK / Windows zip). Web derlemesi: `flutter bui
 
 ## İndirme (sabit dosya adları)
 
-- **Android:** https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk  
-- **Windows:** https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas-windows.zip  
+- **Android:** https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaAtlas.apk  
+- **Windows:** https://github.com/alid67-git/MedyaAtlas/releases/download/windows-latest/MedyaAtlas-windows.zip  
 
-Dosya adında sürüm numarası yok; her release aynı isimle yayınlanır.
+Dosya adında ve indirme URL’sinde sürüm numarası yok; her release aynı isimle (`android-latest` / `windows-latest`) üzerine yazılır.
 
 ## iPhone (web)
+
+Sabit adres (sürüm yok): https://alid67-git.github.io/MedyaAtlas/  
 
 Safari’de açıp **Paylaş → Ana Ekrana Ekle**. Klasör tarama (5TB disk kökü) web’de yok; **foto/video seçici** ile medya eklenir. Tam SD/HDD kök tarama için Android veya Windows uygulaması gerekir.
 
