@@ -75,7 +75,7 @@ echo Windows zip hazir (sabit ad):
 echo   %CD%\%OUT%
 echo.
 echo Indirme linki:
-echo   https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas-windows.zip
+echo   https://github.com/alid67-git/MedyaAtlas/releases/download/windows-latest/MedyaAtlas-windows.zip
 echo.
 explorer "dist"
 

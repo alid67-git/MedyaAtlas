@@ -2,11 +2,10 @@ import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
-import '../app_version.dart';
+/// Sabit web adresi — her sürüm aynı yola yazılır (/r/x.y.z yok).
+const _webAppRootUrl = 'https://alid67-git.github.io/MedyaAtlas/';
 
-/// Sürüm klasörü — eski Flutter SW'nin /MedyaAtlas/index.html precache'inden kaçınır.
-String get webAppReleasePathUrl =>
-    'https://alid67-git.github.io/MedyaAtlas/r/$appVersion/';
+String get webAppReleasePathUrl => _webAppRootUrl;
 
 Future<void> reloadWebApp() async {
   try {
@@ -14,7 +13,7 @@ Future<void> reloadWebApp() async {
   } catch (_) {}
 
   final stamp = DateTime.now().millisecondsSinceEpoch;
-  web.window.location.replace('$webAppReleasePathUrl?t=$stamp');
+  web.window.location.replace('$_webAppRootUrl?t=$stamp');
 }
 
 Future<void> _purgeWebCaches() async {

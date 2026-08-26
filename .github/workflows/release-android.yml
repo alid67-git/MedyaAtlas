@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release etiketi (örn. v0.7.1). Boşsa pubspec version kullanılır.'
+        description: 'Sürüm etiketi (örn. v1.0.35). Boşsa pubspec version kullanılır. İndirme her zaman android-latest.'
         required: false
         type: string
 
@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,7 +54,7 @@ jobs:
             flutter build apk --release
           fi
 
-      - name: Resolve tag and copy APK
+      - name: Resolve version and copy APK
         id: meta
         run: |
           set -e
@@ -69,12 +70,13 @@ jobs:
             v*) ;;
             *) TAG="v$TAG" ;;
           esac
+          VERSION="${TAG#v}"
           NAME="MedyaAtlas.apk"
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk "dist/$NAME"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "apk_name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "pubspec=$PUBSPEC_VER" >> "$GITHUB_OUTPUT"
           ls -lh "dist/$NAME"
 
       - name: Upload APK artifact
@@ -83,7 +85,24 @@ jobs:
           name: MedyaAtlas-apk
           path: dist/MedyaAtlas.apk
 
-      - name: Create GitHub Release
+      # Sabit indirme linki — sürüm klasörü/adı yok (RideAtlas android-latest gibi).
+      - name: Publish rolling android-latest
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: MedyaAtlas Android (latest) - ${{ steps.meta.outputs.version }}
+          files: dist/MedyaAtlas.apk
+          make_latest: false
+          body: |
+            Sabit indirme (her build aynı URL/isim):
+
+            https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaAtlas.apk
+
+            Sürüm: ${{ steps.meta.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create versioned GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
@@ -91,20 +110,14 @@ jobs:
           generate_release_notes: true
           files: dist/MedyaAtlas.apk
           body: |
-            ## İndirme (sabit dosya adları)
+            ## İndirme (sabit isim — sürüm yok)
 
-            - Android: https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas.apk
-            - Windows: https://github.com/alid67-git/MedyaAtlas/releases/latest/download/MedyaAtlas-windows.zip
-
-            Uygulama açılışta GitHub Releases’e bakıp “güncelleme var” der ve indirir
-            (Android APK kurulum / Windows zip).
+            - Android: https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaAtlas.apk
+            - Windows: https://github.com/alid67-git/MedyaAtlas/releases/download/windows-latest/MedyaAtlas-windows.zip
+            - Web: https://alid67-git.github.io/MedyaAtlas/
 
             **Not:** 0.7.8’den itibaren APK imzası sabittir. Daha eski sürüm kuruluysa
             bir kez kaldırıp yeniden kurun; sonraki güncellemeler silmeden olur.
-
-            ### Not
-            - Sideload APK (Play Store imzası değil)
-            - Kaynak: https://github.com/alid67-git/MedyaAtlas
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -145,7 +158,23 @@ jobs:
           name: MedyaAtlas-windows
           path: dist/MedyaAtlas-windows.zip
 
-      - name: Attach zip to GitHub Release
+      - name: Publish rolling windows-latest
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: windows-latest
+          name: MedyaAtlas Windows (latest) - ${{ needs.android-apk.outputs.version }}
+          files: dist/MedyaAtlas-windows.zip
+          make_latest: false
+          body: |
+            Sabit indirme:
+
+            https://github.com/alid67-git/MedyaAtlas/releases/download/windows-latest/MedyaAtlas-windows.zip
+
+            Sürüm: ${{ needs.android-apk.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach zip to versioned release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.android-apk.outputs.tag }}

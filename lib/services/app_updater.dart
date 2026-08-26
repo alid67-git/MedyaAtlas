@@ -18,14 +18,18 @@ const githubRepo = 'alid67-git/MedyaAtlas';
 const apkAssetName = 'MedyaAtlas.apk';
 const windowsZipAssetName = 'MedyaAtlas-windows.zip';
 
+/// RideAtlas tarzı sabit etiketler — URL’de sürüm yok.
+const androidLatestTag = 'android-latest';
+const windowsLatestTag = 'windows-latest';
+
 const apkLatestUrl =
-    'https://github.com/$githubRepo/releases/latest/download/$apkAssetName';
+    'https://github.com/$githubRepo/releases/download/$androidLatestTag/$apkAssetName';
 const windowsZipLatestUrl =
-    'https://github.com/$githubRepo/releases/latest/download/$windowsZipAssetName';
+    'https://github.com/$githubRepo/releases/download/$windowsLatestTag/$windowsZipAssetName';
 const webAppRootUrl = 'https://alid67-git.github.io/MedyaAtlas/';
 
-/// Çalışan sürümün cache-bust yolu (eski SW precache dışı).
-String get webAppLatestUrl => '${webAppRootUrl}r/$appVersion/';
+/// Canlı web — her sürüm aynı adrese yazılır (/r/x.y.z yok).
+String get webAppLatestUrl => webAppRootUrl;
 
 enum UpdatePlatform { android, windows, web }
 
@@ -80,7 +84,7 @@ class AppUpdateInfo {
         return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
             'En az 2 sürüm geridesiniz; v$latestVersion gerekir.\n\n'
             'Güncelle işe yaramazsa Safari’de açın:\n'
-            'alid67-git.github.io/MedyaAtlas/r/$latestVersion/\n'
+            'alid67-git.github.io/MedyaAtlas/\n'
             'Sonra: Paylaş → Ana Ekrana Ekle\n'
             '(Eski Ana Ekran ikonunu silin.)';
     }
@@ -138,7 +142,7 @@ Future<AppUpdateInfo?> _fetchFromWebVersionJson() async {
     if (ver.isEmpty) return null;
     return AppUpdateInfo(
       latestVersion: ver,
-      downloadUrl: '${webAppRootUrl}r/$ver/',
+      downloadUrl: webAppRootUrl,
       assetName: 'MedyaAtlas web',
       platform: UpdatePlatform.web,
       releaseNotes: '',
@@ -150,10 +154,25 @@ Future<AppUpdateInfo?> _fetchFromWebVersionJson() async {
 
 Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
   try {
+    if (platform == UpdatePlatform.web) {
+      // Web sürümü Pages version.json’dan; release tag’e bakma.
+      return null;
+    }
+
+    final rollingTag = platform == UpdatePlatform.android
+        ? androidLatestTag
+        : windowsLatestTag;
+    final preferred = platform == UpdatePlatform.android
+        ? apkAssetName
+        : windowsZipAssetName;
+    final fallbackUrl = platform == UpdatePlatform.android
+        ? apkLatestUrl
+        : windowsZipLatestUrl;
+
     final res = await http
         .get(
           Uri.parse(
-            'https://api.github.com/repos/$githubRepo/releases/latest',
+            'https://api.github.com/repos/$githubRepo/releases/tags/$rollingTag',
           ),
           headers: {
             'Accept': 'application/vnd.github+json',
@@ -163,27 +182,11 @@ Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
         .timeout(const Duration(seconds: 20));
     if (res.statusCode != 200) return null;
     final json = jsonDecode(res.body) as Map<String, dynamic>;
-    final tag = (json['tag_name'] as String? ?? '').replaceFirst('v', '');
-    if (tag.isEmpty) return null;
     final notes = (json['body'] as String?)?.trim() ?? '';
+    final ver = _versionFromRollingRelease(json);
+    if (ver == null || ver.isEmpty) return null;
 
-    if (platform == UpdatePlatform.web) {
-      return AppUpdateInfo(
-        latestVersion: tag,
-        downloadUrl: '${webAppRootUrl}r/$tag/',
-        assetName: 'MedyaAtlas web',
-        platform: UpdatePlatform.web,
-        releaseNotes: notes,
-      );
-    }
-
-    final preferred = platform == UpdatePlatform.android
-        ? apkAssetName
-        : windowsZipAssetName;
-    final fallbackUrl =
-        platform == UpdatePlatform.android ? apkLatestUrl : windowsZipLatestUrl;
     final assets = (json['assets'] as List?) ?? const [];
-
     String? url;
     var assetName = preferred;
     for (final a in assets) {
@@ -202,7 +205,7 @@ Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
     assetName = preferred;
 
     return AppUpdateInfo(
-      latestVersion: tag,
+      latestVersion: ver,
       downloadUrl: url,
       assetName: assetName,
       platform: platform,
@@ -211,6 +214,20 @@ Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
   } catch (_) {
     return null;
   }
+}
+
+/// `MedyaAtlas Android (latest) - 1.0.35` veya gövdede `Sürüm: 1.0.35`.
+String? _versionFromRollingRelease(Map<String, dynamic> json) {
+  final name = (json['name'] as String?)?.trim() ?? '';
+  final body = (json['body'] as String?)?.trim() ?? '';
+  final fromName = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(name)?.group(1);
+  if (fromName != null) return fromName;
+  final fromBody = RegExp(
+    r'S[uü]r[uü]m\s*:\s*(\d+\.\d+\.\d+)',
+    caseSensitive: false,
+  ).firstMatch(body)?.group(1);
+  if (fromBody != null) return fromBody;
+  return RegExp(r'(\d+\.\d+\.\d+)').firstMatch(body)?.group(1);
 }
 
 /// Güncelleme: APK kurulum / Windows zip / web sayfa yenileme.
