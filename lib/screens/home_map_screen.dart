@@ -40,6 +40,7 @@ import '../services/video_gps.dart';
 import '../services/video_preview.dart';
 import '../services/photo_orient.dart';
 import '../services/web_media_session.dart';
+import '../widgets/app_update_progress.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/drop_host.dart';
 import '../widgets/media_viewer.dart';
@@ -79,6 +80,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Timer? _mountTimer;
   /// Zorunlu güncelleme — harita kullanılmaz.
   AppUpdateInfo? _forceUpdate;
+  /// Zorunlu/ indirme sırasında ekrandaki yüzde (null = indirmiyor).
+  double? _updateDownloadProgress;
   var _updateDialogOpen = false;
 
   /// Tarama sırasında harita pinlerini dondur — ara notifyListeners NaN pin
@@ -235,10 +238,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       await reloadWebApp();
       return;
     }
-    await _downloadUpdate(info);
+    await _downloadUpdate(info, onForceScreen: true);
   }
 
-  Future<void> _downloadUpdate(AppUpdateInfo info) async {
+  Future<void> _downloadUpdate(
+    AppUpdateInfo info, {
+    bool onForceScreen = false,
+  }) async {
     if (info.platform == UpdatePlatform.web) {
       setState(() => _status = 'Sayfa yenileniyor…');
       final err = await downloadAndApplyUpdate(info);
@@ -264,57 +270,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _updateDialogOpen = true;
     final progress = ValueNotifier<double>(0);
     try {
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => PopScope(
-          canPop: false,
-          child: AlertDialog(
-            title: const Text('Güncelleme indiriliyor'),
-            content: ValueListenableBuilder<double>(
-              valueListenable: progress,
-              builder: (context, value, _) {
-                final pct = (value * 100).round().clamp(0, 100);
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    LinearProgressIndicator(
-                      value: value <= 0 ? null : value.clamp(0.0, 1.0),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '%$pct',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      info.assetName,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.65),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-      );
+      if (onForceScreen) {
+        // Tam ekran yüzde — diyalog yok (GPX/RideAtlas tarzı).
+        setState(() => _updateDownloadProgress = 0);
+        progress.addListener(() {
+          if (mounted) {
+            setState(() => _updateDownloadProgress = progress.value);
+          }
+        });
+      } else {
+        showAppUpdateProgressDialog(
+          context: context,
+          progress: progress,
+          subtitle: info.assetName,
+        );
+      }
 
       final err = await downloadAndApplyUpdate(
         info,
         onProgress: (p) => progress.value = p,
       );
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (!onForceScreen && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       if (!mounted) return;
       setState(() {
+        _updateDownloadProgress = null;
         if (err != null) {
           _status = err;
         } else if (info.platform == UpdatePlatform.android) {
@@ -328,6 +309,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } finally {
       progress.dispose();
       _updateDialogOpen = false;
+      if (mounted && _updateDownloadProgress != null) {
+        setState(() => _updateDownloadProgress = null);
+      }
     }
   }
 
@@ -1700,34 +1684,41 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.system_update_alt,
-                          size: 56,
-                          color: Color(0xFF2EC4B6),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Zorunlu güncelleme',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _forceUpdate!.forceDialogBody,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            height: 1.4,
+                        if (_updateDownloadProgress != null) ...[
+                          AppUpdateProgressPanel(
+                            progress: _updateDownloadProgress!,
+                            subtitle: _forceUpdate!.assetName,
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                        FilledButton.icon(
-                          onPressed: _updateDialogOpen
-                              ? null
-                              : () => _applyForceUpdate(),
-                          icon: const Icon(Icons.download),
-                          label: const Text('Güncelle'),
-                        ),
+                        ] else ...[
+                          const Icon(
+                            Icons.system_update_alt,
+                            size: 56,
+                            color: Color(0xFF2EC4B6),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Zorunlu güncelleme',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _forceUpdate!.forceDialogBody,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          FilledButton.icon(
+                            onPressed: _updateDialogOpen
+                                ? null
+                                : () => _applyForceUpdate(),
+                            icon: const Icon(Icons.download),
+                            label: const Text('Güncelle'),
+                          ),
+                        ],
                       ],
                     ),
                   ),
