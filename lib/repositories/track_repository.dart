@@ -88,8 +88,47 @@ class TrackRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setVisibleMany(Iterable<String> ids, bool visible) async {
+    final want = ids.toSet();
+    var changed = false;
+    for (var i = 0; i < _tracks.length; i++) {
+      final t = _tracks[i];
+      if (!want.contains(t.id) || t.visible == visible) continue;
+      _tracks[i] = t.copyWith(visible: visible);
+      changed = true;
+    }
+    if (!changed) return;
+    await _persist();
+    notifyListeners();
+  }
+
+  /// [ids] null → tüm izler.
+  Future<void> setOnlyVisible(Iterable<String>? ids) async {
+    final want = ids?.toSet();
+    var changed = false;
+    for (var i = 0; i < _tracks.length; i++) {
+      final t = _tracks[i];
+      final next = want == null ? true : want.contains(t.id);
+      if (t.visible == next) continue;
+      _tracks[i] = t.copyWith(visible: next);
+      changed = true;
+    }
+    if (!changed) return;
+    await _persist();
+    notifyListeners();
+  }
+
   Future<void> remove(String id) async {
     _tracks.removeWhere((t) => t.id == id);
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> removeMany(Iterable<String> ids) async {
+    final want = ids.toSet();
+    final before = _tracks.length;
+    _tracks.removeWhere((t) => want.contains(t.id));
+    if (_tracks.length == before) return;
     await _persist();
     notifyListeners();
   }

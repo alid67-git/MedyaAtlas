@@ -3,15 +3,12 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 
-import 'local_fs.dart';
 import 'track_file_types.dart';
-import 'track_parse.dart';
 
 export 'track_file_types.dart';
 
-/// Native: prefer unfiltered picker then keep only track extensions.
-/// Custom `.gpx` filters are unreliable on some Android/iOS file UIs.
-Future<List<PickedTrackFile>?> pickTrackFiles() async {
+/// Native: filtre yok → uzantı + içerik sniffer; büyük dosyalar diskten okunur.
+Future<TrackPickResult?> pickTrackFiles() async {
   final picked = await FilePicker.platform.pickFiles(
     allowMultiple: true,
     type: FileType.any,
@@ -20,22 +17,46 @@ Future<List<PickedTrackFile>?> pickTrackFiles() async {
   if (picked == null || picked.files.isEmpty) return null;
 
   final out = <PickedTrackFile>[];
+  var wrongType = 0;
+  var unreadable = 0;
+  var tooLarge = 0;
+
   for (final file in picked.files) {
-    if (!isTrackFileName(file.name)) continue;
     Uint8List? bytes = file.bytes;
-    if ((bytes == null || bytes.isEmpty) && file.path != null) {
-      final path = file.path!;
-      bytes = await readLocalTextFileLimited(path, maxBytes: 64 * 1024 * 1024);
-      if (bytes == null || bytes.isEmpty) {
-        try {
-          bytes = await File(path).readAsBytes();
-        } catch (_) {
-          bytes = null;
+    final path = file.path;
+    final size = file.size;
+    if (size > trackFileMaxBytes) {
+      tooLarge++;
+      continue;
+    }
+    if ((bytes == null || bytes.isEmpty) && path != null && path.isNotEmpty) {
+      try {
+        final len = await File(path).length();
+        if (len > trackFileMaxBytes) {
+          tooLarge++;
+          continue;
         }
+        bytes = await File(path).readAsBytes();
+      } catch (_) {
+        unreadable++;
+        continue;
       }
     }
-    if (bytes == null || bytes.isEmpty) continue;
+    if (bytes == null || bytes.isEmpty) {
+      unreadable++;
+      continue;
+    }
+    if (!isAcceptableTrackFile(name: file.name, bytes: bytes)) {
+      wrongType++;
+      continue;
+    }
     out.add(PickedTrackFile(name: file.name, bytes: bytes));
   }
-  return out;
+
+  return TrackPickResult(
+    files: out,
+    skippedWrongType: wrongType,
+    skippedUnreadable: unreadable,
+    skippedTooLarge: tooLarge,
+  );
 }
