@@ -82,6 +82,22 @@ void main() {
     expect(json['lng'], isNull);
   });
 
+  test('blob: localPath Hive indeksine yazılmaz', () {
+    final media = LibraryMedia(
+      id: 'blob',
+      name: 'y.jpg',
+      addedAt: DateTime.utc(2026, 8, 19),
+      kind: MediaKind.photo,
+      sourceId: 'gallery',
+      localPath: 'blob:https://example.com/dead',
+    );
+    expect(media.toJson()['localPath'], isNull);
+    expect(
+      media.copyWith(clearLocalPath: true).localPath,
+      isNull,
+    );
+  });
+
   test('isValidGps 0,0 ve sınır dışı reddeder', () {
     expect(isValidGps(0, 0), isFalse);
     expect(isValidGps(91, 29), isFalse);
@@ -295,6 +311,11 @@ void main() {
     );
     expect(
       isForceUpdateRequired(current: '0.8.1', latest: '1.0.5'),
+      isTrue,
+    );
+    // Telefon 1.0.23, canlı/release 1.0.26+ → zorunlu uyarı
+    expect(
+      isForceUpdateRequired(current: '1.0.23', latest: '1.0.26'),
       isTrue,
     );
   });

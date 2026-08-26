@@ -111,8 +111,24 @@ class MediaRepository extends ChangeNotifier {
     return changed;
   }
 
+  /// Eski kayıtlardaki ölü blob: yolları — oturum File yoksa oynatılamaz.
+  int _stripStaleBlobPathsInMemory() {
+    var changed = 0;
+    for (var i = 0; i < _items.length; i++) {
+      final item = _items[i];
+      final path = item.localPath;
+      if (path == null || !path.startsWith('blob:')) continue;
+      _items[i] = item.copyWith(clearLocalPath: true);
+      _itemJsonCache.remove(item.id);
+      changed++;
+    }
+    return changed;
+  }
+
   void _sanitizeLoadedGps() {
-    if (_stripInvalidGpsInMemory() > 0) {
+    final gps = _stripInvalidGpsInMemory();
+    final blobs = _stripStaleBlobPathsInMemory();
+    if (gps > 0 || blobs > 0) {
       unawaited(_persistIndex());
     }
   }
@@ -243,15 +259,15 @@ class MediaRepository extends ChangeNotifier {
     final path = item.localPath;
     if (path != null && path.isNotEmpty) {
       if (!kIsWeb) return path;
-      if (isWebPlayableUrl(path)) return path;
+      // blob: URL'ler sekmeye özeldir — sayfa kapanınca ölür. Eski bir
+      // oturumdan kalma blob: yolu şekli hâlâ geçerli görünse de artık
+      // çözülmez; her zaman geçerli oturumdan (webSessionBlobUrl) tazele.
+      if (isWebPlayableUrl(path) && !path.startsWith('blob:')) return path;
     }
     if (!kIsWeb) return null;
-    final url = webSessionBlobUrl(item.name, item.sizeBytes ?? 0);
-    if (url != null && url.isNotEmpty) {
-      // Sonraki açılışlar için indeksde tut (dosya kopyası değil, URL).
-      await updateLocalPath(id: item.id, localPath: url, persist: false);
-    }
-    return url;
+    // Oturum File → lazy blob. İndekse yazma: blob: sekmeye özel ölür;
+    // kalıcı yol yalnızca gerçek disk / http(s) olmalı.
+    return webSessionBlobUrl(item.name, item.sizeBytes ?? 0);
   }
 
   Future<void> _persistIndex() async {

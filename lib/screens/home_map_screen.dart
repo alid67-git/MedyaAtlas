@@ -17,10 +17,13 @@ import '../app_version.dart';
 import '../google_oauth_config.dart';
 import '../l10n/app_strings.dart';
 import '../models/library_media.dart';
+import '../models/map_track.dart';
 import '../repositories/media_repository.dart';
+import '../repositories/track_repository.dart';
 import '../services/android_media_scan.dart';
 import '../services/app_settings.dart';
 import '../services/app_updater.dart';
+import '../services/web_reload.dart';
 import '../services/cluster.dart';
 import '../services/exif_gps.dart';
 import '../services/folder_picker.dart';
@@ -32,6 +35,7 @@ import '../services/media_mime.dart';
 import '../services/media_permissions.dart';
 import '../services/place_search.dart';
 import '../services/search_text.dart';
+import '../services/track_parse.dart';
 import '../services/video_gps.dart';
 import '../services/video_preview.dart';
 import '../services/photo_orient.dart';
@@ -195,7 +199,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   child: const Text('Sonra'),
                 ),
               FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
+                onPressed: () async {
+                  if (info.platform == UpdatePlatform.web) {
+                    // iOS: jest içinde yenile — dialog kapanınca navigasyon
+                    // takılabiliyor / eski SW cache’i kalabiliyor.
+                    Navigator.pop(ctx, false);
+                    await reloadWebApp();
+                    return;
+                  }
+                  Navigator.pop(ctx, true);
+                },
                 child: Text(
                   force
                       ? 'Güncelle'
@@ -651,90 +664,65 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     await _ingestPick(picked, alreadyBusy: true);
   }
 
-  Future<void> _importExternalVolume() async {
-    if (!await _ensureAndroidMediaAccess()) return;
-    FolderPickResult? picked;
+  Future<void> _importTracks() async {
+    final tracksRepo = context.read<TrackRepository>();
+    final picked = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: const ['gpx', 'kml', 'kmz'],
+      withData: true,
+    );
+    if (!mounted || picked == null || picked.files.isEmpty) return;
+    setState(() {
+      _beginBusy();
+      _status = 'İz dosyaları okunuyor…';
+    });
+    final tracks = <MapTrack>[];
+    var failed = 0;
     try {
-      setState(() {
-        _beginBusy();
-        _status = 'Disk listeleniyor…';
-      });
-      picked = await pickExternalVolume(
-        onProgress: (n, _) {
-          if (mounted && !_cancel) {
-            setState(() => _status = 'Disk taranıyor… $n medya bulundu');
-          }
-        },
-        isCancelled: () => _cancel,
-      );
-      if (_cancel && mounted) {
-        if (picked == null || picked.items.isEmpty) {
-          setState(() {
-            _endBusy();
-            _status = 'Tarama iptal edildi.';
-          });
-          return;
+      for (final file in picked.files) {
+        Uint8List? bytes = file.bytes;
+        if ((bytes == null || bytes.isEmpty) && file.path != null) {
+          bytes = await readLocalTextFileLimited(
+            file.path!,
+            maxBytes: 64 * 1024 * 1024,
+          );
         }
+        if (bytes == null || bytes.isEmpty) {
+          failed++;
+          continue;
+        }
+        final track = parseTrackBytes(fileName: file.name, bytes: bytes);
+        if (track == null) {
+          failed++;
+          continue;
+        }
+        tracks.add(track);
       }
+      if (tracks.isNotEmpty) {
+        await tracksRepo.addAll(tracks);
+        if (!mounted) return;
+        _fitVisible(includeTracks: true);
+      }
+      if (!mounted) return;
+      setState(() {
+        _endBusy();
+        if (tracks.isEmpty) {
+          _status = failed > 0
+              ? 'Geçerli GPX/KML/KMZ yok ($failed dosya).'
+              : 'İz seçilmedi.';
+        } else {
+          _status =
+              '${tracks.length} iz eklendi${failed > 0 ? ' · $failed okunamadı' : ''}';
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _endBusy();
-        final msg = '$e';
-        _status = msg.contains('Permission denied') ||
-                msg.contains('PathAccessException')
-            ? 'Disk tarandı ama bazı klasörler kapalı (Android/data). '
-                'DCIM veya kart kökünü tekrar seçin; izinli klasörler okunur.'
-            : 'Disk açılamadı: $e';
+        _status = 'İz yükleme: $e';
       });
-      return;
     }
-    if (!mounted) return;
-    if (picked == null) {
-      setState(_endBusy);
-      return;
-    }
-    await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
-  }
-
-  Future<void> _importFiles() async {
-    if (!await _ensureAndroidMediaAccess()) return;
-    // Windows’ta uzun uzantı listeli FileType.custom bazen yalnızca
-    // görüntü filtreler — any alıp istemci tarafında medya süzüyoruz.
-    final picked = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.any,
-      withData: false,
-    );
-    if (!mounted || picked == null || picked.files.isEmpty) return;
-    final refs = <FolderMediaRef>[];
-    for (final file in picked.files) {
-      final path = file.path;
-      if (path == null) continue;
-      if (!isMediaName(file.name)) continue;
-      refs.add(
-        FolderMediaRef(
-          name: file.name,
-          size: file.size,
-          relativePath: file.name,
-          localPath: path,
-          readHead: (maxBytes) => readLocalFileHead(path, maxBytes),
-        ),
-      );
-    }
-    if (refs.isEmpty) {
-      setState(() {
-        _status =
-            'Seçilenlerde foto/video yok. Desteklenen: JPG, PNG, MP4, MOV, GoPro, DJI…';
-      });
-      return;
-    }
-    await _ingestPick(
-      FolderPickResult(
-        folderName: refs.length == 1 ? refs.first.name : '${refs.length} dosya',
-        items: refs,
-      ),
-    );
   }
 
   Future<void> _ingestPick(
@@ -1319,14 +1307,30 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  void _fitVisible() {
+  void _fitVisible({bool includeTracks = false}) {
     final repo = context.read<MediaRepository>();
     final clusters = _clustersOf(repo);
-    if (clusters.isEmpty) return;
-    final points = [
+    final points = <LatLng>[
       for (final c in clusters)
         if (c.latLng.latitude.isFinite && c.latLng.longitude.isFinite) c.latLng,
     ];
+    if (includeTracks || points.isEmpty) {
+      final tracks = context.read<TrackRepository>().visibleTracks;
+      for (final t in tracks) {
+        final b = t.bounds;
+        if (b != null) {
+          points
+            ..add(LatLng(b.south, b.west))
+            ..add(LatLng(b.north, b.east));
+        } else {
+          for (final p in t.points) {
+            if (isValidGps(p.latitude, p.longitude)) {
+              points.add(p.latLng);
+            }
+          }
+        }
+      }
+    }
     if (points.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -1640,10 +1644,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         FilledButton.icon(
                           onPressed: _updateDialogOpen
                               ? null
-                              : () => _promptUpdate(
-                                    _forceUpdate!,
-                                    force: true,
-                                  ),
+                              : () async {
+                                  // Dialog yok — doğrudan temiz girişe git.
+                                  setState(() => _status = 'Sayfa yenileniyor…');
+                                  await reloadWebApp();
+                                },
                           icon: const Icon(Icons.download),
                           label: Text('v${_forceUpdate!.latestVersion} güncelle'),
                         ),
@@ -1866,18 +1871,169 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     );
   }
 
+  /// Yüklü kaynağı elle yenile (klasörü yeniden tara / galeri-telefon tekrar seç).
+  Future<void> _refreshSource(MediaSource source) async {
+    if (_busy) return;
+    setState(_closeMenus);
+
+    final root = source.rootPath?.trim();
+    if (root != null && root.isNotEmpty) {
+      if (!await _ensureAndroidMediaAccess()) return;
+      setState(() {
+        _beginBusy();
+        _status = '"${source.label}" yeniden taranıyor…';
+      });
+      try {
+        final result = await scanMediaDirectory(
+          root,
+          folderName: source.label,
+          onProgress: (n, _) {
+            if (mounted && !_cancel) {
+              setState(() => _status = '"${source.label}"… $n medya');
+            }
+          },
+          isCancelled: () => _cancel,
+        );
+        if (!mounted) return;
+        if (_cancel && result.items.isEmpty) {
+          setState(() {
+            _endBusy();
+            _status = 'Tarama iptal edildi.';
+          });
+          return;
+        }
+        if (result.items.isEmpty) {
+          setState(() {
+            _endBusy();
+            _status = '"${source.label}" içinde yeni medya yok.';
+          });
+          return;
+        }
+        final repo = context.read<MediaRepository>();
+        await repo.ensureSource(
+          id: source.id,
+          label: source.label,
+          rootPath: root,
+        );
+        await _ingest(
+          result.items,
+          source: source,
+          bulkMode: true,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _endBusy();
+          _status = 'Yeniden tarama: $e';
+        });
+        return;
+      }
+      if (mounted) setState(_endBusy);
+      return;
+    }
+
+    if (source.id == gallerySourceId || source.label == 'Galeri') {
+      await _importGallery();
+      return;
+    }
+    if (source.id == 'favorites_web' || source.label == 'Favoriler') {
+      await _importFavorites();
+      return;
+    }
+    if (source.label == 'Telefon (tümü)' || source.label == 'Tüm telefon') {
+      await _importEntirePhone();
+      return;
+    }
+
+    // Drive / etiketli kaynak — aynı akışı tekrar aç.
+    if (source.label.toLowerCase().contains('drive') ||
+        source.label.toLowerCase().contains('google')) {
+      await _importGoogleDrive();
+      return;
+    }
+
+    setState(
+      () => _status =
+          '"${source.label}" için alttan yeniden ekleyin (klasör / medya).',
+    );
+  }
+
   Widget _sourcesPanel(MediaRepository repo) {
+    final tracks = context.watch<TrackRepository>();
+    final addButtons = <Widget>[
+      if (!kIsWeb)
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importFolder();
+                },
+          child: const Text('Klasör'),
+        ),
+      if (kIsWeb)
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importGallery();
+                },
+          child: const Text('Galeri'),
+        ),
+      if (!kIsWeb && !_isDesktop)
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importGallery();
+                },
+          child: const Text('Galeri'),
+        ),
+      if (!kIsWeb && !_isDesktop)
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importEntirePhone();
+                },
+          child: const Text('Tüm telefon'),
+        ),
+      FilledButton.tonal(
+        onPressed: _busy
+            ? null
+            : () {
+                setState(_closeMenus);
+                _importGoogleDrive();
+              },
+        child: const Text('Google Drive'),
+      ),
+      FilledButton.tonal(
+        onPressed: _busy
+            ? null
+            : () {
+                setState(_closeMenus);
+                _importTracks();
+              },
+        child: const Text('GPX / KML'),
+      ),
+    ];
+
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 280),
+      constraints: const BoxConstraints(maxHeight: 340),
       child: ListView(
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         children: [
-          if (repo.sources.isEmpty)
+          if (repo.sources.isEmpty && tracks.tracks.isEmpty)
             Text(
-              _isDesktop
-                  ? 'Henüz kaynak yok. Klasör veya dosya ekle — tarama kopyalamaz. Sürükle-bırak veya Ctrl+O.'
-                  : 'Henüz kaynak yok. Klasör veya galeri ekle.',
+              kIsWeb
+                  ? 'Kaynak yok — Galeri, Google Drive veya GPX/KML.'
+                  : (_isDesktop
+                      ? 'Kaynak yok — Klasör, Google Drive veya GPX/KML (Ctrl+O).'
+                      : 'Kaynak yok — Galeri, Tüm telefon, Google Drive veya GPX/KML.'),
               style: TextStyle(
                 fontSize: 13,
                 color: Colors.white.withValues(alpha: 0.6),
@@ -1899,93 +2055,61 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 [
                   '${repo.items.where((m) => m.sourceId == source.id).length} medya',
                   if (source.isRemovableVolume)
-                    repo.isSourceMounted(source)
-                        ? 'disk bağlı'
-                        : 'disk çıkarıldı — pinler gizli',
+                    repo.isSourceMounted(source) ? 'bağlı' : 'çıkarıldı',
                 ].join(' · '),
               ),
               onTap: () => repo.setSourceHidden(source.id, !source.hidden),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Yeniden tara',
+                    onPressed: _busy ? null : () => _refreshSource(source),
+                    icon: const Icon(Icons.sync),
+                  ),
+                  IconButton(
+                    tooltip: 'Sil',
+                    onPressed:
+                        _busy ? null : () => repo.removeSource(source.id),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              ),
+            ),
+          for (final track in tracks.tracks)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                track.visible
+                    ? Icons.route_outlined
+                    : Icons.visibility_off_outlined,
+              ),
+              title: Text(track.name, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                '${track.pointCount ?? track.points.length} nokta · iz',
+              ),
+              onTap: () => tracks.setVisible(track.id, !track.visible),
               trailing: IconButton(
-                tooltip: 'Kaynağı sil',
-                onPressed: () => repo.removeSource(source.id),
+                tooltip: 'Sil',
+                onPressed: _busy ? null : () => tracks.remove(track.id),
                 icon: const Icon(Icons.delete_outline),
               ),
             ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
+          Text(
+            'Ekle',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        setState(_closeMenus);
-                        _importFolder();
-                      },
-                child: const Text('+ Klasör ekle'),
-              ),
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        setState(_closeMenus);
-                        _importExternalVolume();
-                      },
-                child: Text(
-                  _isDesktop ? '+ Disk / SD' : '+ SD / USB disk',
-                ),
-              ),
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        setState(_closeMenus);
-                        _importFiles();
-                      },
-                child: const Text('+ Dosya seç'),
-              ),
-              if (!_isDesktop && !kIsWeb)
-                FilledButton.tonal(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          setState(_closeMenus);
-                          _importEntirePhone();
-                        },
-                  child: const Text('+ Tüm telefon'),
-                ),
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        setState(_closeMenus);
-                        _importFavorites();
-                      },
-                child: Text(
-                  kIsWeb ? '+ Favoriler (Seç→Ekle)' : '+ Favoriler (tümü)',
-                ),
-              ),
-              if (!_isDesktop || kIsWeb)
-                FilledButton.tonal(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          setState(_closeMenus);
-                          _importGallery();
-                        },
-                  child: const Text('+ Galeri'),
-                ),
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        setState(_closeMenus);
-                        _importGoogleDrive();
-                      },
-                child: const Text('+ Google Drive'),
-              ),
-            ],
+            children: addButtons,
           ),
         ],
       ),
@@ -2047,6 +2171,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     List<LibraryMedia> missing,
     MediaRepository repo,
   ) {
+    final trackRepo = context.watch<TrackRepository>();
+    final polylines = <Polyline>[
+      for (final track in trackRepo.visibleTracks)
+        if (track.points.length >= 2)
+          Polyline(
+            points: [
+              for (final p in track.points)
+                if (isValidGps(p.latitude, p.longitude)) p.latLng,
+            ],
+            strokeWidth: 3.5,
+            color: const Color(0xFFE8A838),
+          ),
+    ];
     return Stack(
       children: [
         FlutterMap(
@@ -2060,6 +2197,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
               userAgentPackageName: 'com.medyaatlas.app',
             ),
+            if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
             MarkerLayer(
               markers: _markersFor(clusters, repo),
             ),
@@ -2365,9 +2503,32 @@ class _Thumb extends StatelessWidget {
     if (item.isVideo) {
       return _VideoThumbCached(item: item, repo: repo);
     }
+    // Web: eski oturumdan kalma blob: yolu şekli hâlâ geçerli görünür ama
+    // sayfa kapanınca ölür — mevcut oturumdan doğrula/tazele.
+    if (kIsWeb) {
+      return FutureBuilder<String?>(
+        future: repo.resolvePlayableUrl(item),
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const ColoredBox(color: Color(0xFF1A2A36));
+          }
+          final fromSession =
+              photoFromPath(snap.data, fit: BoxFit.cover);
+          if (fromSession != null) return fromSession;
+          return _thumbBytesFallback(item: item, repo: repo);
+        },
+      );
+    }
     // Web: blob (HEIC dahil Safari img). Hive’daki HEIC baytını Image.memory’ye verme.
     final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
     if (fromDisk != null) return fromDisk;
+    return _thumbBytesFallback(item: item, repo: repo);
+  }
+
+  Widget _thumbBytesFallback({
+    required LibraryMedia item,
+    required MediaRepository repo,
+  }) {
     final cached = repo.cachedBytes(item.id);
     if (cached != null &&
         cached.isNotEmpty &&

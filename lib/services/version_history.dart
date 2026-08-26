@@ -23,6 +23,48 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.32',
+    tr: 'GPX/KML/KMZ iz yükleme; kaynaklar: Klasör, Galeri, Tüm telefon, Google Drive.',
+    en: 'GPX/KML/KMZ track import; sources: Folder, Gallery, Whole phone, Google Drive.',
+    de: 'GPX/KML/KMZ-Track-Import; Quellen: Ordner, Galerie, Ganzes Telefon, Google Drive.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.31',
+    tr: 'Kaynaklar sade: Klasör/Galeri/Telefon; her kaynakta «yeniden tara».',
+    en: 'Sources simplified: Folder/Gallery/Phone; sync on each source to rescan.',
+    de: 'Quellen vereinfacht: Ordner/Galerie/Telefon; Sync pro Quelle zum erneuten Scannen.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.30',
+    tr: 'Güncelleme döngüsü: uygulama artık cache dışı /r/1.0.30/ yolundan açılır (28↔29 takılması).',
+    en: 'Update loop fix: app opens from cache-bust path /r/1.0.30/ (stops 28↔29 bounce).',
+    de: 'Update-Schleife: App startet über Cache-freien Pfad /r/1.0.30/.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.29',
+    tr: 'iPhone güncelleme takılması: go.html temiz giriş; Ana Ekran ikonunu silip Safari’den go.html açın.',
+    en: 'iPhone update stuck: clean go.html entry; delete Home Screen icon and open go.html in Safari.',
+    de: 'iPhone-Update hängt: sauberer go.html-Einstieg; Home-Screen-Icon löschen und go.html in Safari öffnen.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.28',
+    tr: 'Zorunlu güncelleme iPhone’da gerçekten yeniler: SW/cache temizlenir, eski main.dart.js takılmaz.',
+    en: 'Forced update really refreshes on iPhone: clears SW/cache so old main.dart.js cannot stick.',
+    de: 'Zwangsupdate aktualisiert auf iPhone wirklich: SW/Cache wird geleert, altes main.dart.js bleibt nicht hängen.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.27',
+    tr: 'Web güncelleme: canlı version.json da kontrol edilir (yalnızca Pages deploy yetmez diye uyarı kaçmasın).',
+    en: 'Web updates: also checks live version.json so a Pages-only deploy still prompts.',
+    de: 'Web-Updates: prüft auch live version.json, damit Pages-Deploy allein warnt.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.26',
+    tr: 'Ölü blob URL yok: sekmeyi kapatınca kırık ikon yerine «yeniden seçin»; blob indeksine yazılmaz.',
+    en: 'No dead blob URLs: after closing the tab you get “reselect”, not a broken icon; blobs stay out of the index.',
+    de: 'Keine toten Blob-URLs: nach Tab-Schließung „erneut auswählen“ statt kaputtem Icon; Blobs nicht im Index.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.25',
     tr: 'Büyük kütüphanede Galeri\'den ekleme artık yavaşlamıyor.',
     en: 'Adding from Gallery no longer slows down as your library grows.',

@@ -63,7 +63,12 @@ class _VideoThumbState extends State<VideoThumb> {
 
   Future<void> _open() async {
     var path = widget.path;
-    if ((path == null || path.isEmpty || (kIsWeb && !isWebPlayableUrl(path))) &&
+    // blob: URL'ler sekmeye özeldir — eski oturumdan kalma bir blob: yolu
+    // şekli hâlâ geçerli görünür, gerçekte ölüdür. Her zaman resolveUrl ile
+    // (mevcut oturumdan) doğrula/tazele.
+    if ((path == null ||
+            path.isEmpty ||
+            (kIsWeb && (!isWebPlayableUrl(path) || path.startsWith('blob:')))) &&
         widget.resolveUrl != null) {
       path = await widget.resolveUrl!();
     }
@@ -238,7 +243,12 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
 
   Future<String?> _effectivePath() async {
     var path = widget.path;
-    if ((path == null || path.isEmpty || (kIsWeb && !isWebPlayableUrl(path))) &&
+    // blob: URL'ler sekmeye özeldir — eski oturumdan kalma bir blob: yolu
+    // şekli hâlâ geçerli görünür, gerçekte ölüdür. Her zaman resolveUrl ile
+    // (mevcut oturumdan) doğrula/tazele.
+    if ((path == null ||
+            path.isEmpty ||
+            (kIsWeb && (!isWebPlayableUrl(path) || path.startsWith('blob:')))) &&
         widget.resolveUrl != null) {
       path = await widget.resolveUrl!();
     }

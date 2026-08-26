@@ -54,6 +54,7 @@ class LibraryMedia {
     bool? locationMissing,
     String? localPath,
     bool clearLocation = false,
+    bool clearLocalPath = false,
   }) =>
       LibraryMedia(
         id: id,
@@ -66,7 +67,7 @@ class LibraryMedia {
         lng: clearLocation ? null : (lng ?? this.lng),
         takenAt: takenAt ?? this.takenAt,
         locationMissing: locationMissing ?? this.locationMissing,
-        localPath: localPath ?? this.localPath,
+        localPath: clearLocalPath ? null : (localPath ?? this.localPath),
         sizeBytes: sizeBytes,
       );
 
@@ -83,9 +84,16 @@ class LibraryMedia {
         'lng': isValidGps(lat, lng) ? lng : null,
         'takenAt': takenAt?.toIso8601String(),
         'locationMissing': locationMissing || !isValidGps(lat, lng),
-        'localPath': localPath,
+        // blob: URL'ler sekmeye özel — Hive'a yazılırsa sonraki açılışta ölür.
+        'localPath': _persistableLocalPath(localPath),
         'sizeBytes': sizeBytes,
       };
+
+  static String? _persistableLocalPath(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('blob:')) return null;
+    return path;
+  }
 
   factory LibraryMedia.fromJson(Map<String, dynamic> json) {
     final kindName = json['kind'] as String? ?? json['type'] as String? ?? 'photo';

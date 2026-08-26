@@ -2,48 +2,50 @@
 <html>
 <head>
   <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="MedyaAtlas — GPS medya haritası (iPhone / tarayıcı).">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-
-  <!-- iOS / Desktop “Ana Ekrana Ekle”: kök apple-touch-icon şart (icons/ yetmez). -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MedyaAtlas">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.0.12">
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-180x180.png?v=1.0.12">
-  <link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167x167.png?v=1.0.12">
-  <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152x152.png?v=1.0.12">
-  <link rel="apple-touch-icon" sizes="120x120" href="apple-touch-icon-120x120.png?v=1.0.12">
-  <link rel="apple-touch-icon-precomposed" href="apple-touch-icon-precomposed.png?v=1.0.12">
-
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=1.0.12"/>
-  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=1.0.12"/>
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/Icon-192.png?v=1.0.12"/>
-  <link rel="shortcut icon" type="image/png" href="favicon.png?v=1.0.12"/>
-
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <title>MedyaAtlas</title>
-  <link rel="manifest" href="manifest.json?v=1.0.12">
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#071018">
+  <style>
+    html, body { margin: 0; height: 100%; background: #071018; color: #c8d0d8;
+      font-family: -apple-system, system-ui, sans-serif; }
+    .boot { display: flex; align-items: center; justify-content: center;
+      height: 100%; }
+  </style>
 </head>
 <body>
+  <div class="boot" id="boot">MedyaAtlas…</div>
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function (regs) {
-        regs.forEach(function (r) { r.unregister(); });
-      });
-      if (window.caches && caches.keys) {
-        caches.keys().then(function (keys) {
-          keys.forEach(function (k) { caches.delete(k); });
-        });
-      }
-    }
+    (async function () {
+      try {
+        if ('serviceWorker' in navigator) {
+          var regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }
+        if (window.caches && caches.keys) {
+          var keys = await caches.keys();
+          await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        }
+      } catch (e) {}
+      var s = document.createElement('script');
+      s.src = 'flutter_bootstrap.js';
+      s.async = true;
+      s.onload = function () {
+        var b = document.getElementById('boot');
+        if (b) b.remove();
+      };
+      document.body.appendChild(s);
+    })();
   </script>
-  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
