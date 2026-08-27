@@ -15,6 +15,9 @@ const _bytesBoxName = 'medyaatlas_media_bytes';
 const _payloadBoxName = 'medyaatlas_media_payload';
 const _sourcesBoxName = 'medyaatlas_sources';
 const _indexKey = 'index';
+const _gpsDeepAlgoKey = 'gps_deep_algo';
+/// GoPro kuyruk + isolate tarayıcı — eski «denenmiş» bayrağını bir kez temizle.
+const _gpsDeepAlgoVersion = '2';
 const gallerySourceId = 'gallery';
 const phoneSourceId = 'phone_all';
 const favoritesSourceId = 'favorites';
@@ -102,9 +105,21 @@ class MediaRepository extends ChangeNotifier {
       await _persistSources();
       if (mergedPhone) await _persistIndex();
     }
+    await _migrateGpsDeepAlgoIfNeeded();
     refreshMountStates(notify: false);
     _ready = true;
     notifyListeners();
+  }
+
+  Future<void> _migrateGpsDeepAlgoIfNeeded() async {
+    final box = _indexBox;
+    if (box == null) return;
+    if (box.get(_gpsDeepAlgoKey) == _gpsDeepAlgoVersion) return;
+    await clearGpsDeepTriedForKinds({
+      MediaKind.gopro,
+      MediaKind.drone,
+    }, persist: true);
+    await box.put(_gpsDeepAlgoKey, _gpsDeepAlgoVersion);
   }
 
   /// «Telefon (tümü)» / rastgele UUID → tek [phoneSourceId]; çift satırları sil.
@@ -684,6 +699,25 @@ class MediaRepository extends ChangeNotifier {
     for (var i = 0; i < _items.length; i++) {
       final m = _items[i];
       if (!m.hasLocation && m.gpsDeepTried) {
+        _items[i] = m.copyWith(gpsDeepTried: false);
+        _itemJsonCache.remove(m.id);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    if (persist) await _persistIndex();
+    notifyListeners();
+  }
+
+  /// Belirli türlerde (GoPro/DJI) eski tarayıcı bayrağını temizle — bir kez.
+  Future<void> clearGpsDeepTriedForKinds(
+    Set<MediaKind> kinds, {
+    bool persist = true,
+  }) async {
+    var changed = false;
+    for (var i = 0; i < _items.length; i++) {
+      final m = _items[i];
+      if (!m.hasLocation && m.gpsDeepTried && kinds.contains(m.kind)) {
         _items[i] = m.copyWith(gpsDeepTried: false);
         _itemJsonCache.remove(m.id);
         changed = true;

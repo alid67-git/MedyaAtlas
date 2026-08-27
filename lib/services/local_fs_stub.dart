@@ -18,6 +18,12 @@ Future<Uint8List> readLocalFileHead(
   bool Function()? isCancelled,
 }) async => Uint8List(0);
 
+Future<Uint8List> readLocalFileTail(
+  String path,
+  int maxBytes, {
+  bool Function()? isCancelled,
+}) async => Uint8List(0);
+
 Future<Uint8List?> readLocalTextFileLimited(
   String path, {
   int maxBytes = 8 * 1024 * 1024,
