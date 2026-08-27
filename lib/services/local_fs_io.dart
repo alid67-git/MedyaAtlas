@@ -50,14 +50,43 @@ Future<DateTime?> localFileModified(String path) async {
   }
 }
 
-Future<Uint8List> readLocalFileHead(String path, int maxBytes) async {
+/// Dosya başını oku. [isCancelled] true olursa kısmi/boş döner (iptal).
+Future<Uint8List> readLocalFileHead(
+  String path,
+  int maxBytes, {
+  bool Function()? isCancelled,
+}) async {
   final file = File(path);
   final size = await file.length();
   final n = math.min(size, maxBytes);
   if (n <= 0) return Uint8List(0);
+  if (isCancelled?.call() == true) return Uint8List(0);
+
+  // Küçük head: tek okuma.
+  const chunk = 512 * 1024;
+  if (n <= chunk || isCancelled == null) {
+    final raf = await file.open();
+    try {
+      if (isCancelled?.call() == true) return Uint8List(0);
+      return await raf.read(n);
+    } finally {
+      await raf.close();
+    }
+  }
+
+  // Büyük head: dilimli oku — iptal bir sonraki dilimde işler.
+  final out = BytesBuilder(copy: false);
   final raf = await file.open();
   try {
-    return await raf.read(n);
+    var remaining = n;
+    while (remaining > 0) {
+      if (isCancelled()) return Uint8List(0);
+      final take = remaining > chunk ? chunk : remaining;
+      out.add(await raf.read(take));
+      remaining -= take;
+      await Future<void>.delayed(Duration.zero);
+    }
+    return out.takeBytes();
   } finally {
     await raf.close();
   }
@@ -66,12 +95,16 @@ Future<Uint8List> readLocalFileHead(String path, int maxBytes) async {
 Future<Uint8List?> readLocalTextFileLimited(
   String path, {
   int maxBytes = 8 * 1024 * 1024,
+  bool Function()? isCancelled,
 }) async {
   final file = File(path);
   if (!await file.exists()) return null;
   final len = await file.length();
   if (len <= 0 || len > maxBytes) return null;
-  return file.readAsBytes();
+  if (isCancelled?.call() == true) return null;
+  final bytes = await readLocalFileHead(path, len, isCancelled: isCancelled);
+  if (isCancelled?.call() == true || bytes.isEmpty) return null;
+  return bytes;
 }
 
 File localFile(String path) => File(path);
