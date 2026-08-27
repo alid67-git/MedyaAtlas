@@ -24,6 +24,7 @@ import '../services/app_settings.dart';
 import '../services/app_updater.dart';
 import '../services/web_reload.dart';
 import '../services/cluster.dart';
+import '../services/device_location.dart';
 import '../services/exif_gps.dart';
 import '../services/folder_picker.dart';
 import '../services/geo.dart';
@@ -73,6 +74,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _busy = false;
   bool _cancel = false;
   bool _dropping = false;
+  bool _locating = false;
   bool _sourcesOpen = false;
   bool _tracksOpen = false;
   /// Haritada medya: tümü / görünen izlere yakın / gizle.
@@ -1876,6 +1878,96 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
   }
 
+  /// Cihaz konumu + son ~5 gün GPS’li medya; sokak zoom değil, birkaç günlük alan.
+  Future<void> _goToMyLocation() async {
+    if (_locating) return;
+    setState(() {
+      _locating = true;
+      _status = 'Konum alınıyor…';
+    });
+    try {
+      final me = await fetchDeviceLocation();
+      if (!mounted) return;
+      if (me == null) {
+        setState(() {
+          _locating = false;
+          _status =
+              'Konum alınamadı. Konum servisi / izin açık mı kontrol edin.';
+        });
+        return;
+      }
+
+      final repo = context.read<MediaRepository>();
+      final cutoff =
+          DateTime.now().toUtc().subtract(const Duration(days: 5));
+      final points = <LatLng>[me];
+      for (final m in repo.withLocation) {
+        if (!_kinds.contains(m.kind)) continue;
+        final when = (m.takenAt ?? m.addedAt).toUtc();
+        if (when.isBefore(cutoff)) continue;
+        final ll = m.latLng;
+        if (ll != null) points.add(ll);
+      }
+
+      setState(() {
+        _locating = false;
+        _status = null;
+        _sourcesOpen = false;
+        _tracksOpen = false;
+        _kindMenu = null;
+        _showMissing = false;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        try {
+          _map.rotate(0);
+          if (points.length == 1) {
+            // Tek nokta: birkaç günlük yerel ölçek (~şehir/bölge), dip zoom değil.
+            _map.moveAndRotate(me, 11, 0);
+            return;
+          }
+          final bounds = _expandBoundsMinSpan(
+            LatLngBounds.fromPoints(points),
+            minLatSpan: 0.08,
+            minLngSpan: 0.08,
+          );
+          _map.fitCamera(
+            CameraFit.bounds(
+              bounds: bounds,
+              padding: const EdgeInsets.fromLTRB(36, 120, 36, 72),
+              maxZoom: 12,
+            ),
+          );
+          _map.rotate(0);
+        } catch (_) {}
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _locating = false;
+        _status = 'Konum: $e';
+      });
+    }
+  }
+
+  /// Çok dar sığdırmayı engelle — en az ~9 km’lik pencere.
+  LatLngBounds _expandBoundsMinSpan(
+    LatLngBounds b, {
+    required double minLatSpan,
+    required double minLngSpan,
+  }) {
+    final latSpan = (b.north - b.south).abs();
+    final lngSpan = (b.east - b.west).abs();
+    final padLat = latSpan < minLatSpan ? (minLatSpan - latSpan) / 2 : 0.0;
+    final padLng = lngSpan < minLngSpan ? (minLngSpan - lngSpan) / 2 : 0.0;
+    if (padLat == 0 && padLng == 0) return b;
+    return LatLngBounds(
+      LatLng(b.south - padLat, b.west - padLng),
+      LatLng(b.north + padLat, b.east + padLng),
+    );
+  }
+
   List<LibraryMedia> _filtered(MediaRepository repo) {
     var items = repo.visibleItems.where((m) {
       if (!_kinds.contains(m.kind)) return false;
@@ -2190,6 +2282,39 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       visible: visible,
                       clusterCount: clusters.length,
                       missingCount: missing.length,
+                    ),
+                  ),
+                // Sağ alt: konumum (son birkaç günlük alan).
+                if (!_showMissing)
+                  Positioned(
+                    right: 14,
+                    bottom: (_busy ||
+                            (_status != null && _status!.isNotEmpty))
+                        ? 78
+                        : 20,
+                    child: Material(
+                      elevation: 4,
+                      color: const Color(0xFF0A1C28),
+                      shape: const CircleBorder(
+                        side: BorderSide(color: Color(0xFF2EC4B6), width: 1.2),
+                      ),
+                      child: IconButton(
+                        tooltip: 'Konumum (son günler)',
+                        onPressed: _locating ? null : _goToMyLocation,
+                        icon: _locating
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Color(0xFF2EC4B6),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.my_location,
+                                color: Color(0xFF2EC4B6),
+                              ),
+                      ),
                     ),
                   ),
               ],
