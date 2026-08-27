@@ -340,12 +340,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       return;
     }
     if (!await _ensureAndroidMediaAccess()) return;
+    final repo = context.read<MediaRepository>();
     setState(() {
       _beginBusy();
       _status = 'Telefon taranıyor…';
     });
     try {
+      final knownIds = <String>{};
+      final needGpsIds = <String>{};
+      for (final m in repo.items) {
+        final id = phoneAssetIdFromRelativePath(m.relativePath);
+        if (id == null) continue;
+        knownIds.add(id);
+        if (!m.hasLocation) needGpsIds.add(id);
+      }
       final picked = await scanEntirePhoneMedia(
+        knownAssetIds: knownIds.isEmpty ? null : knownIds,
+        needGpsAssetIds: needGpsIds.isEmpty ? null : needGpsIds,
         onProgress: (s) {
           if (mounted && !_cancel) setState(() => _status = s);
         },
@@ -574,14 +585,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         return;
       }
       final refs = <FolderMediaRef>[];
+      final trackFiles = <PickedTrackFile>[];
+      var skippedNonMedia = 0;
       for (final file in files) {
+        final name = file.name;
+        if (isTrackFileName(name)) {
+          try {
+            final bytes = await file.readAsBytes();
+            if (isAcceptableTrackFile(name: name, bytes: bytes)) {
+              trackFiles.add(PickedTrackFile(name: name, bytes: bytes));
+              continue;
+            }
+          } catch (_) {}
+          skippedNonMedia++;
+          continue;
+        }
+        if (!isMediaName(name)) {
+          skippedNonMedia++;
+          continue;
+        }
         final size = await file.length();
         final path = file.path.isEmpty ? null : file.path;
         refs.add(
           FolderMediaRef(
-            name: file.name,
+            name: name,
             size: size,
-            relativePath: file.name,
+            relativePath: name,
             localPath: path,
             readHead: (maxBytes) async {
               final end = size < maxBytes ? size : maxBytes;
@@ -595,12 +624,39 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
       }
       if (!mounted) return;
+      if (trackFiles.isNotEmpty) {
+        // GPX/KML yanlışlıkla Galeri’den seçildi → iz olarak ekle.
+        await _addPickedTracks(
+          TrackPickResult(files: trackFiles),
+          alreadyMenusClosed: true,
+        );
+      }
+      if (!mounted) return;
+      if (refs.isEmpty) {
+        setState(() {
+          if (trackFiles.isEmpty && skippedNonMedia > 0) {
+            _status =
+                'Galeriye foto/video seçin (GPX için İzler / Dosyalar). '
+                '$skippedNonMedia dosya atlandı.';
+          } else if (trackFiles.isEmpty) {
+            _status = 'Medya seçilmedi.';
+          }
+          // trackFiles: durum _addPickedTracks’ta.
+        });
+        return;
+      }
       final repo = context.read<MediaRepository>();
       final source = await repo.ensureSource(
         id: gallerySourceId,
         label: 'Galeri',
       );
       await _ingest(refs, source: source);
+      if (mounted && skippedNonMedia > 0) {
+        setState(
+          () => _status =
+              '${_status ?? ''} · $skippedNonMedia GPX/diğer atlandı (İzler menüsü)',
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _status = 'Galeri açılamadı: $e');
@@ -711,7 +767,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   Future<void> _importTracks() async {
     // setState/_closeMenus BEFORE pick breaks Safari (user-gesture + input removed).
-    final tracksRepo = context.read<TrackRepository>();
     TrackPickResult? picked;
     try {
       picked = await pickTrackFiles();
@@ -757,15 +812,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       return;
     }
 
-    // Haritayı hemen göster — izler adım adım eklenecek.
-    setState(() {
-      _sourcesOpen = false;
-      _kindMenu = null;
-      _tracksOpen = false;
-      _showMissing = false;
-      _panelCluster = null;
-      _status = 'İzler ekleniyor: 0/${picked!.files.length}…';
-    });
+    await _addPickedTracks(picked);
+  }
+
+  /// GPX/KML ekle — İzler menüsü veya Galeri’den yanlışlıkla seçilen izler.
+  Future<void> _addPickedTracks(
+    TrackPickResult picked, {
+    bool alreadyMenusClosed = false,
+  }) async {
+    final tracksRepo = context.read<TrackRepository>();
+    if (!alreadyMenusClosed) {
+      setState(() {
+        _sourcesOpen = false;
+        _kindMenu = null;
+        _tracksOpen = false;
+        _showMissing = false;
+        _panelCluster = null;
+        _status = 'İzler ekleniyor: 0/${picked.files.length}…';
+      });
+    } else if (mounted) {
+      setState(
+        () => _status = 'İzler ekleniyor: 0/${picked.files.length}…',
+      );
+    }
 
     var added = 0;
     var dup = 0;
@@ -884,32 +953,56 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (bulk) {
         final fresh = <FolderMediaRef>[];
         var skippedKnown = 0;
+        var gpsFilled = 0;
         for (final f in items) {
           final rel = f.relativePath ?? f.name;
-          if (repo.findByIndex(
-                sourceId: source.id,
-                relativePath: rel,
-                size: f.size,
-              ) !=
-              null) {
+          final existing = repo.findByIndex(
+            sourceId: source.id,
+            relativePath: rel,
+            size: f.size,
+          );
+          if (existing != null) {
             skippedKnown++;
+            // MediaStore’da GPS belirdi → kayıtlı medyayı güncelle.
+            if (!existing.hasLocation &&
+                f.knownLat != null &&
+                f.knownLng != null) {
+              final point = latLngOrNull(f.knownLat, f.knownLng);
+              if (point != null) {
+                await repo.updateLocation(
+                  id: existing.id,
+                  lat: point.latitude,
+                  lng: point.longitude,
+                  persist: false,
+                  notify: false,
+                );
+                gpsFilled++;
+              }
+            }
             continue;
           }
           fresh.add(f);
         }
+        if (gpsFilled > 0) {
+          await repo.flush(notify: true);
+        }
         if (fresh.isEmpty) {
           if (mounted) {
             setState(() {
-              _status =
-                  '"${source.label}": yeni yok · $skippedKnown kayıtlı atlandı';
+              _status = gpsFilled > 0
+                  ? '"${source.label}": $gpsFilled GPS güncellendi · '
+                      '$skippedKnown kayıtlı'
+                  : '"${source.label}": yeni yok · $skippedKnown kayıtlı atlandı';
             });
           }
           return;
         }
-        if (mounted && skippedKnown > 0) {
+        if (mounted && (skippedKnown > 0 || gpsFilled > 0)) {
           setState(
             () => _status =
-                '"${source.label}": ${fresh.length} yeni · $skippedKnown atlandı…',
+                '"${source.label}": ${fresh.length} yeni'
+                '${skippedKnown > 0 ? ' · $skippedKnown atlandı' : ''}'
+                '${gpsFilled > 0 ? ' · $gpsFilled GPS' : ''}…',
           );
         }
         items = fresh;
@@ -1092,6 +1185,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       // Her dosyada nefes — İptal tuşu bir sonraki dosyada işlensin.
       await Future<void>.delayed(Duration.zero);
       if (_cancel) break;
+      if (!isMediaName(file.name) &&
+          !(file.mimeType?.startsWith('image/') ?? false) &&
+          !(file.mimeType?.startsWith('video/') ?? false)) {
+        failed++;
+        continue;
+      }
       final kind =
           detectKind(file.name) ??
           (file.isVideo ? MediaKind.video : MediaKind.photo);
@@ -1440,11 +1539,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           );
         }
         var gotGps = false;
+        var couldRead = false;
         try {
           LatLng? gps;
           DateTime? taken;
-          final needsDeep =
-              item.kind == MediaKind.gopro || item.kind == MediaKind.drone;
+          // Yeniden dene: tüm videolarda baş+kuyruk (GoPro GPMF sonda).
+          final needsDeep = item.kind != MediaKind.photo;
           final phoneId = phoneAssetIdFromRelativePath(item.relativePath);
           if (phoneId != null && hostIsAndroid) {
             final got = await readPhoneAssetGpsDeep(
@@ -1452,10 +1552,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               isPhoto: item.kind == MediaKind.photo,
               headLimit: item.kind == MediaKind.photo
                   ? photoHeadBytes
-                  : (needsDeep ? videoGpsScanBytes : videoHeadBytes),
+                  : videoGpsScanBytes,
               tailLimit: needsDeep ? videoGpsTailBytes : 0,
             );
             checked++;
+            couldRead = (got.head != null && got.head!.isNotEmpty) ||
+                (got.tail != null && got.tail!.isNotEmpty) ||
+                (got.path != null && got.path!.isNotEmpty) ||
+                (got.lat != null && got.lng != null);
             if (got.lat != null && got.lng != null) {
               gps = latLngOrNull(got.lat, got.lng);
             }
@@ -1482,12 +1586,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             if (path != null &&
                 path.isNotEmpty &&
                 await localFileExists(path)) {
+              couldRead = true;
               final size = await localFileLength(path);
               final limit = item.kind == MediaKind.photo
                   ? (size <= 0
                         ? photoHeadBytes
                         : (size <= previewStoreBytes ? size : photoHeadBytes))
-                  : (needsDeep ? videoGpsScanBytes : videoHeadBytes);
+                  : videoGpsScanBytes;
               if (size > 0 && limit > 0) {
                 head = await readLocalFileHead(
                   path,
@@ -1508,11 +1613,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 item.sizeBytes!,
                 limit,
               );
+              if (head != null && head.isNotEmpty) couldRead = true;
             }
             head ??= await repo.bytesOf(item.id);
+            if (head != null && head.isNotEmpty) couldRead = true;
             if (head == null || head.isEmpty) {
               if (item.kind == MediaKind.photo) {
-                await repo.markGpsDeepTried(id: item.id);
+                if (couldRead) {
+                  await repo.markGpsDeepTried(id: item.id);
+                }
                 continue;
               }
               checked++;
@@ -1523,7 +1632,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 isCancelled: () => _cancel,
               );
               if (gps == null) {
-                await repo.markGpsDeepTried(id: item.id);
+                if (couldRead ||
+                    (item.localPath != null && item.localPath!.isNotEmpty)) {
+                  await repo.markGpsDeepTried(id: item.id);
+                }
                 continue;
               }
             } else {
@@ -1556,7 +1668,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
         } catch (_) {}
         if (_cancel) break;
-        if (!gotGps) {
+        // Okunamadıysa «denenmiş» işaretleme — sonra tekrar denenebilsin.
+        if (!gotGps && couldRead) {
           await repo.markGpsDeepTried(id: item.id);
         }
         // Her dosyadan sonra kısa nefes — harita/İptal boyansın.

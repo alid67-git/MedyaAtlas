@@ -76,9 +76,14 @@ bool looksLikeApk(Object file) {
 ///
 /// Android 10+: GPS için [AssetEntity.latlngAsync] gerekir (`latitude`
 /// getter boş kalır). ACCESS_MEDIA_LOCATION + mediaLocation: true şart.
+///
+/// [knownAssetIds]: zaten indekste — dosya IO atlanır (yeniden tara hızlı).
+/// [needGpsAssetIds]: bilinen ama GPS’siz — yalnızca MediaStore lat/lng.
 Future<FolderPickResult> scanEntirePhoneMedia({
   int maxAssets = 8000,
   void Function(String status)? onProgress,
+  Set<String>? knownAssetIds,
+  Set<String>? needGpsAssetIds,
 }) async {
   await _ensurePhoneMediaPermission();
   onProgress?.call('Telefon medyası listeleniyor…');
@@ -91,6 +96,8 @@ Future<FolderPickResult> scanEntirePhoneMedia({
     folderName: 'Tüm telefon',
     maxAssets: maxAssets,
     onProgress: onProgress,
+    knownAssetIds: knownAssetIds,
+    needGpsAssetIds: needGpsAssetIds,
   );
 }
 
@@ -205,6 +212,8 @@ Future<FolderPickResult> _scanAlbumAssets(
   int maxAssets = 8000,
   void Function(String status)? onProgress,
   bool onlyFavorites = false,
+  Set<String>? knownAssetIds,
+  Set<String>? needGpsAssetIds,
 }) async {
   final total = await album.assetCountAsync;
   final end = total > maxAssets ? maxAssets : total;
@@ -212,6 +221,8 @@ Future<FolderPickResult> _scanAlbumAssets(
 
   final items = <FolderMediaRef>[];
   var withGps = 0;
+  var skippedKnown = 0;
+  var gpsRefresh = 0;
   const page = 40;
   for (var start = 0; start < end; start += page) {
     final stop = math.min(start + page, end);
@@ -224,6 +235,23 @@ Future<FolderPickResult> _scanAlbumAssets(
 
       final name = _assetFileName(asset);
       final id = asset.id;
+      final alreadyKnown = knownAssetIds?.contains(id) ?? false;
+      final wantsGps = needGpsAssetIds?.contains(id) ?? false;
+
+      // Bilinen + GPS’i var → listele ama dosya açma (ingest atlayacak).
+      if (alreadyKnown && !wantsGps) {
+        skippedKnown++;
+        items.add(
+          FolderMediaRef(
+            name: name,
+            size: 0,
+            relativePath: phoneRelativePath(id),
+            lastModified: asset.createDateTime,
+            readHead: (_) async => Uint8List(0),
+          ),
+        );
+        continue;
+      }
 
       double? knownLat;
       double? knownLng;
@@ -233,8 +261,25 @@ Future<FolderPickResult> _scanAlbumAssets(
           knownLat = ll.latitude;
           knownLng = ll.longitude;
           withGps++;
+          if (alreadyKnown) gpsRefresh++;
         }
       } catch (_) {}
+
+      // Bilinen ama GPS’siz: MediaStore lat/lng yeter; originFile yok.
+      if (alreadyKnown && wantsGps) {
+        items.add(
+          FolderMediaRef(
+            name: name,
+            size: 0,
+            relativePath: phoneRelativePath(id),
+            lastModified: asset.createDateTime,
+            knownLat: knownLat,
+            knownLng: knownLng,
+            readHead: (_) async => Uint8List(0),
+          ),
+        );
+        continue;
+      }
 
       String? localPath;
       var size = 0;
@@ -259,8 +304,10 @@ Future<FolderPickResult> _scanAlbumAssets(
         ),
       );
     }
+    final hint = skippedKnown > 0 ? ' · $skippedKnown kayıtlı' : '';
+    final gpsHint = gpsRefresh > 0 ? ' · $gpsRefresh GPS güncel' : '';
     onProgress?.call(
-      '$folderName: ${items.length}/$end · $withGps GPS…',
+      '$folderName: ${items.length}/$end · $withGps GPS$hint$gpsHint…',
     );
   }
 
@@ -317,10 +364,20 @@ Future<
   Uint8List? head;
   Uint8List? tail;
   try {
-    final file = await asset.originFile ?? await asset.file;
+    File? file = await asset.originFile;
+    file ??= await asset.file;
+    // originFile bazen boş/proxy; file yedek.
     if (file != null) {
       path = file.path;
-      final size = await file.length();
+      var size = await file.length();
+      if (size <= 0) {
+        final alt = await asset.file;
+        if (alt != null && alt.path != file.path) {
+          file = alt;
+          path = alt.path;
+          size = await alt.length();
+        }
+      }
       if (lat == null || isPhoto || headLimit > 0) {
         final n = math.min(size, headLimit <= 0 ? photoHeadBytes : headLimit);
         if (n > 0) {
@@ -378,8 +435,11 @@ String _assetFileName(AssetEntity asset) {
   if (title.isEmpty) title = 'media_${asset.id}';
   if (isMediaName(title)) return title;
   final ext = asset.type == AssetType.video ? '.mp4' : '.jpg';
-  if (title.contains('.')) return title;
-  return '$title$ext';
+  // .gpx vb. yanlış uzantıyı medya sanma — gövde + doğru uzantı.
+  final dot = title.lastIndexOf('.');
+  final stem = dot > 0 ? title.substring(0, dot) : title;
+  final safe = stem.trim().isEmpty ? 'media_${asset.id}' : stem.trim();
+  return '$safe$ext';
 }
 
 Future<Uint8List> _readAssetHead(AssetEntity asset, int maxBytes) async {

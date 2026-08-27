@@ -18,7 +18,7 @@ const _sourcesBoxName = 'medyaatlas_sources';
 const _indexKey = 'index';
 const _gpsDeepAlgoKey = 'gps_deep_algo';
 /// GoPro kuyruk + isolate tarayıcı — eski «denenmiş» bayrağını bir kez temizle.
-const _gpsDeepAlgoVersion = '2';
+const _gpsDeepAlgoVersion = '3';
 const gallerySourceId = 'gallery';
 const phoneSourceId = 'phone_all';
 const favoritesSourceId = 'favorites';
@@ -119,6 +119,7 @@ class MediaRepository extends ChangeNotifier {
     await clearGpsDeepTriedForKinds({
       MediaKind.gopro,
       MediaKind.drone,
+      MediaKind.video,
     }, persist: true);
     await box.put(_gpsDeepAlgoKey, _gpsDeepAlgoVersion);
   }

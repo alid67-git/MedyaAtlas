@@ -21,6 +21,8 @@ bool looksLikeApk(Object file) => false;
 Future<FolderPickResult> scanEntirePhoneMedia({
   int maxAssets = 8000,
   void Function(String status)? onProgress,
+  Set<String>? knownAssetIds,
+  Set<String>? needGpsAssetIds,
 }) async {
   throw UnsupportedError('Telefon tarama web’de yok; dosya seçici kullanın.');
 }
