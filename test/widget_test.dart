@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:medyaatlas/models/library_media.dart';
 import 'package:medyaatlas/models/map_track.dart';
 import 'package:medyaatlas/services/app_updater.dart';
@@ -103,6 +104,22 @@ void main() {
     expect(isValidGps(91, 29), isFalse);
     expect(isValidGps(41, 181), isFalse);
     expect(isValidGps(41.0, 29.0), isTrue);
+  });
+
+  test('isNearTrackPoints koridor mesafesi', () {
+    final track = [
+      const LatLng(41.0, 29.0),
+      const LatLng(41.01, 29.01),
+      const LatLng(41.02, 29.02),
+    ];
+    expect(
+      isNearTrackPoints(const LatLng(41.001, 29.001), track, maxMeters: 450),
+      isTrue,
+    );
+    expect(
+      isNearTrackPoints(const LatLng(42.5, 30.5), track, maxMeters: 450),
+      isFalse,
+    );
   });
 
   test('MediaSource JSON roundtrip', () {

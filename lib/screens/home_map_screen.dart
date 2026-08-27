@@ -55,6 +55,9 @@ const _worldCenter = LatLng(20, 0);
 
 bool get _isDesktop => hostIsDesktop;
 
+/// İz paneli: medya pinlerini nasıl göster.
+enum _TrackMediaFilter { all, onTracks, hidden }
+
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key});
 
@@ -71,7 +74,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _dropping = false;
   bool _sourcesOpen = false;
   bool _tracksOpen = false;
-  final Set<String> _trackSelection = {};
+  /// Haritada medya: tümü / görünen izlere yakın / gizle.
+  _TrackMediaFilter _trackMediaFilter = _TrackMediaFilter.all;
   String? _kindMenu;
   String? _status;
   bool _showMissing = false;
@@ -763,9 +767,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (tracks.isNotEmpty) {
         await tracksRepo.addAll(tracks);
         if (!mounted) return;
-        _trackSelection
-          ..clear()
-          ..addAll(tracks.map((t) => t.id));
         _fitVisible(includeTracks: true);
       }
       if (!mounted) return;
@@ -1601,7 +1602,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   List<LibraryMedia> _filtered(MediaRepository repo) {
-    return repo.visibleItems.where((m) {
+    var items = repo.visibleItems.where((m) {
       if (!_kinds.contains(m.kind)) return false;
       final source = repo.sourceOf(m.sourceId);
       return itemMatchesQuery(
@@ -1610,7 +1611,41 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         sourceLabel: source?.label,
         query: _query,
       );
-    }).toList();
+    });
+
+    switch (_trackMediaFilter) {
+      case _TrackMediaFilter.hidden:
+        items = items.where((m) => !m.hasLocation);
+        break;
+      case _TrackMediaFilter.onTracks:
+        final trackPts = _visibleTrackLatLngs();
+        if (trackPts.isEmpty) {
+          items = items.where((m) => !m.hasLocation);
+        } else {
+          items = items.where((m) {
+            if (!m.hasLocation) return true;
+            final ll = latLngOrNull(m.lat, m.lng);
+            if (ll == null) return false;
+            return isNearTrackPoints(ll, trackPts, maxMeters: 450);
+          });
+        }
+        break;
+      case _TrackMediaFilter.all:
+        break;
+    }
+    return items.toList();
+  }
+
+  List<LatLng> _visibleTrackLatLngs() {
+    final out = <LatLng>[];
+    for (final t in context.read<TrackRepository>().visibleTracks) {
+      for (final p in t.points) {
+        if (isValidGps(p.latitude, p.longitude)) {
+          out.add(p.latLng);
+        }
+      }
+    }
+    return out;
   }
 
   List<LocationCluster> _clustersOf(MediaRepository repo) {
@@ -2444,13 +2479,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Widget _tracksPanel() {
     final tracksRepo = context.watch<TrackRepository>();
     final tracks = tracksRepo.tracks;
-    final selected = _trackSelection.intersection(
-      tracks.map((t) => t.id).toSet(),
-    );
-    final allSelected = tracks.isNotEmpty && selected.length == tracks.length;
+    final visibleCount = tracks.where((t) => t.visible).length;
+    final allVisible = tracks.isNotEmpty && visibleCount == tracks.length;
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 420),
+      constraints: const BoxConstraints(maxHeight: 460),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -2477,69 +2510,91 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ],
             ),
           ),
-          if (tracks.isNotEmpty)
+          if (tracks.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
               child: Wrap(
                 spacing: 6,
                 runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  ActionChip(
+                  FilterChip(
+                    selected: allVisible,
                     avatar: Icon(
-                      allSelected
+                      allVisible
                           ? Icons.check_box
                           : Icons.check_box_outline_blank,
                       size: 18,
                     ),
-                    label: const Text('Tümü'),
-                    onPressed: () {
-                      setState(() {
-                        if (allSelected) {
-                          _trackSelection.clear();
-                        } else {
-                          _trackSelection
-                            ..clear()
-                            ..addAll(tracks.map((t) => t.id));
-                        }
-                      });
-                    },
-                  ),
-                  ActionChip(
-                    label: const Text('Hiçbiri'),
-                    onPressed: () => setState(_trackSelection.clear),
-                  ),
-                  ActionChip(
                     label: Text(
-                      selected.isEmpty
-                          ? 'Haritada hepsi'
-                          : 'Haritada seçilen (${selected.length})',
+                      allVisible ? 'Tümü (haritada)' : 'Tümü',
                     ),
-                    onPressed: () async {
-                      if (selected.isEmpty) {
-                        await tracksRepo.setOnlyVisible(null);
+                    onSelected: (_) async {
+                      if (allVisible) {
+                        await tracksRepo.setOnlyVisible(const []);
                       } else {
-                        await tracksRepo.setOnlyVisible(selected);
+                        await tracksRepo.setOnlyVisible(null);
                       }
                       if (mounted) setState(() {});
                     },
                   ),
-                  if (selected.isNotEmpty)
-                    ActionChip(
-                      avatar: const Icon(Icons.delete_outline, size: 18),
-                      label: Text('Sil (${selected.length})'),
-                      onPressed: _busy
-                          ? null
-                          : () async {
-                              await tracksRepo.removeMany(selected);
-                              if (!mounted) return;
-                              setState(() {
-                                _trackSelection.removeWhere(selected.contains);
-                              });
-                            },
+                  Text(
+                    '$visibleCount/${tracks.length} haritada',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.55),
                     ),
+                  ),
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Medya pinleri',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      FilterChip(
+                        selected: _trackMediaFilter == _TrackMediaFilter.all,
+                        label: const Text('Tüm medya'),
+                        onSelected: (_) => setState(
+                          () => _trackMediaFilter = _TrackMediaFilter.all,
+                        ),
+                      ),
+                      FilterChip(
+                        selected:
+                            _trackMediaFilter == _TrackMediaFilter.onTracks,
+                        label: const Text('İz üzerindeki'),
+                        onSelected: (_) => setState(
+                          () => _trackMediaFilter = _TrackMediaFilter.onTracks,
+                        ),
+                      ),
+                      FilterChip(
+                        selected:
+                            _trackMediaFilter == _TrackMediaFilter.hidden,
+                        label: const Text('Medya gizle'),
+                        onSelected: (_) => setState(
+                          () => _trackMediaFilter = _TrackMediaFilter.hidden,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
           const Divider(height: 1),
           Flexible(
             child: tracks.isEmpty
@@ -2565,20 +2620,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     itemCount: tracks.length,
                     itemBuilder: (context, i) {
                       final t = tracks[i];
-                      final isSel = selected.contains(t.id);
                       return CheckboxListTile(
                         dense: true,
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8,
+                          horizontal: 4,
                         ),
-                        value: isSel,
-                        secondary: Icon(
-                          t.visible
-                              ? Icons.route_outlined
-                              : Icons.visibility_off_outlined,
-                          color: t.visible
-                              ? const Color(0xFFE8A838)
-                              : Colors.white54,
+                        value: t.visible,
+                        secondary: IconButton(
+                          tooltip: 'Sil',
+                          icon: const Icon(Icons.delete_outline, size: 20),
+                          onPressed: _busy
+                              ? null
+                              : () async {
+                                  await tracksRepo.remove(t.id);
+                                  if (mounted) setState(() {});
+                                },
                         ),
                         title: Text(t.name, overflow: TextOverflow.ellipsis),
                         subtitle: Text(
@@ -2586,14 +2642,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           '${t.visible ? "haritada" : "gizli"}',
                         ),
                         controlAffinity: ListTileControlAffinity.leading,
-                        onChanged: (v) {
-                          setState(() {
-                            if (v == true) {
-                              _trackSelection.add(t.id);
-                            } else {
-                              _trackSelection.remove(t.id);
-                            }
-                          });
+                        onChanged: (v) async {
+                          await tracksRepo.setVisible(t.id, v == true);
+                          if (mounted) setState(() {});
                         },
                       );
                     },
@@ -2620,7 +2671,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 Align(
                   alignment: Alignment.centerLeft,
                   child: FilledButton.tonal(
-                    // Safari: pick öncesi setState yok.
                     onPressed: _busy ? null : _importTracks,
                     child: const Text('GPX / KML ekle'),
                   ),
@@ -2736,6 +2786,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
             _TrackLinesLayer(tracks: trackRepo.visibleTracks.toList()),
             _TrackBadgeLayer(tracks: trackRepo.visibleTracks.toList()),
+            // Medya pinleri en üstte — iz rozetinin altında kalmasın.
             MarkerLayer(markers: _markersFor(clusters, repo)),
           ],
         ),
@@ -2771,7 +2822,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   ) {
     final out = <Marker>[];
     final selectedId = _panelCluster?.id;
-    for (final cluster in clusters) {
+    // Önce ısı lekeleri, seçili foto pin en sonda → her zaman üstte.
+    final ordered = [
+      ...clusters.where((c) => c.id != selectedId),
+      ...clusters.where((c) => c.id == selectedId),
+    ];
+    for (final cluster in ordered) {
       final lat = cluster.latitude;
       final lng = cluster.longitude;
       if (!lat.isFinite || !lng.isFinite) continue;
@@ -2781,8 +2837,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         out.add(
           Marker(
             point: LatLng(lat, lng),
-            width: 64,
-            height: 76,
+            width: 56,
+            height: 68,
             alignment: Alignment.bottomCenter,
             child: GestureDetector(
               onTap: () => _openCluster(cluster),
@@ -2797,8 +2853,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       } else {
         final n = cluster.items.length;
         final size = math.min(
-          88.0,
-          36 + math.sqrt(n.clamp(1, 200).toDouble()) * 9,
+          36.0,
+          16 + math.sqrt(n.clamp(1, 200).toDouble()) * 2.8,
         );
         out.add(
           Marker(
@@ -3336,7 +3392,7 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
   }
 
   void _rebuildMarkers() {
-    const size = 36.0;
+    const size = 28.0;
     final markers = <Marker>[];
     for (final track in widget.tracks) {
       final center = _trackAnchor(track);
@@ -3351,10 +3407,10 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
               color: Color(0xF0FF8C12),
               shape: BoxShape.circle,
               border: Border.fromBorderSide(
-                BorderSide(color: Colors.white, width: 2.2),
+                BorderSide(color: Colors.white, width: 2),
               ),
             ),
-            child: Icon(Icons.route, color: Colors.white, size: 17),
+            child: Icon(Icons.route, color: Colors.white, size: 14),
           ),
         ),
       );

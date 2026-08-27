@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.47',
+    tr: 'İz kutusu=harita; Tümü yeterli; küçük net pinler; iz üzerindeki / gizle medya.',
+    en: 'Track checkbox=map; All only; smaller pins; media on-track / hide filters.',
+    de: 'Spur-Checkbox=Karte; nur Alle; kleinere Pins; Medien auf Spur / ausblenden.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.46',
     tr: 'Harita kaydır/zoom: izler pan sırasında yeniden çizilmez (RideAtlas gibi ANR yok).',
     en: 'Map pan/zoom: tracks not rebuilt during gestures (no ANR, like RideAtlas).',

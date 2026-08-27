@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Google Fotoğraflar tarzı yumuşak ısı lekesi (mavi → mor → sarı çekirdek).
+/// Küçük, net konum vurgusu — büyük bulanık leke değil.
 class HeatBlob extends StatelessWidget {
   const HeatBlob({super.key, required this.count});
 
@@ -11,22 +11,19 @@ class HeatBlob extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = count.clamp(1, 500);
-    final size = math.min(88.0, 36 + math.sqrt(n) * 9);
-    final heat = math.min(1.0, math.log(n + 1) / math.log(40));
+    // Dünya ölçeğinde de abartısız; yoğunlukta hafif büyür.
+    final size = math.min(36.0, 16 + math.sqrt(n) * 2.8);
+    final heat = math.min(1.0, math.log(n + 1) / math.log(50));
 
-    final outer = Color.lerp(
-      const Color(0x8840A0FF),
-      const Color(0xAA7B5CFF),
-      heat,
-    )!;
-    final mid = Color.lerp(
-      const Color(0xCC7B5CFF),
-      const Color(0xEEFF5CA8),
+    // Magenta → amber çekirdek — sarı iz ve mavi haritadan ayrılır.
+    final ring = Color.lerp(
+      const Color(0xFFE11D48),
+      const Color(0xFFF97316),
       heat,
     )!;
     final core = Color.lerp(
-      const Color(0xDDFF8A5C),
-      const Color(0xFFF5E64A),
+      const Color(0xFFFF4D6D),
+      const Color(0xFFFBBF24),
       heat,
     )!;
 
@@ -34,11 +31,7 @@ class HeatBlob extends StatelessWidget {
       width: size,
       height: size,
       child: CustomPaint(
-        painter: _HeatBlobPainter(
-          outer: outer,
-          mid: mid,
-          core: core,
-        ),
+        painter: _HeatBlobPainter(ring: ring, core: core, count: n),
       ),
     );
   }
@@ -46,50 +39,60 @@ class HeatBlob extends StatelessWidget {
 
 class _HeatBlobPainter extends CustomPainter {
   _HeatBlobPainter({
-    required this.outer,
-    required this.mid,
+    required this.ring,
     required this.core,
+    required this.count,
   });
 
-  final Color outer;
-  final Color mid;
+  final Color ring;
   final Color core;
+  final int count;
 
   @override
   void paint(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
     final r = size.shortestSide / 2;
 
-    final glow = Paint()
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-    glow.shader = RadialGradient(
-      colors: [
-        core.withValues(alpha: 0.95),
-        mid.withValues(alpha: 0.55),
-        outer.withValues(alpha: 0.22),
-        outer.withValues(alpha: 0.0),
-      ],
-      stops: const [0.0, 0.28, 0.62, 1.0],
-    ).createShader(Rect.fromCircle(center: c, radius: r));
-    canvas.drawCircle(c, r, glow);
+    // Hafif dış halo (az blur — düzensiz büyük leke olmasın).
+    final halo = Paint()
+      ..color = ring.withValues(alpha: 0.35)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+    canvas.drawCircle(c, r, halo);
 
-    final solid = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          core,
-          mid.withValues(alpha: 0.75),
-          outer.withValues(alpha: 0.0),
-        ],
-        stops: const [0.0, 0.35, 1.0],
-      ).createShader(Rect.fromCircle(center: c, radius: r * 0.72));
-    canvas.drawCircle(c, r * 0.72, solid);
+    canvas.drawCircle(
+      c,
+      r * 0.78,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6,
+    );
+    canvas.drawCircle(c, r * 0.72, Paint()..color = ring);
+    canvas.drawCircle(c, r * 0.38, Paint()..color = core);
+
+    if (count > 1) {
+      final label = count > 99 ? '99+' : '$count';
+      final tp = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: math.max(8.0, r * 0.55),
+            fontWeight: FontWeight.w800,
+            height: 1,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, c - Offset(tp.width / 2, tp.height / 2));
+    }
   }
 
   @override
   bool shouldRepaint(covariant _HeatBlobPainter oldDelegate) =>
-      oldDelegate.outer != outer ||
-      oldDelegate.mid != mid ||
-      oldDelegate.core != core;
+      oldDelegate.ring != ring ||
+      oldDelegate.core != core ||
+      oldDelegate.count != count;
 }
 
 /// Eski sayı rozeti — ısı lekesine yönlendir.
