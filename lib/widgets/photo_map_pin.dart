@@ -23,8 +23,8 @@ class PhotoMapPin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const pin = 58.0;
-    const tip = 10.0;
+    const pin = 48.0;
+    const tip = 9.0;
     return SizedBox(
       width: pin,
       height: pin + tip,
