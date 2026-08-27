@@ -12,6 +12,19 @@ String mediaIndexId({
 }) =>
     '$sourceId|$relativePath|$size';
 
+/// MediaStore / Photos varlık id’si — `phone/<assetId>` veya `phone/<assetId>/...`.
+String? phoneAssetIdFromRelativePath(String? relativePath) {
+  if (relativePath == null) return null;
+  final parts = relativePath.split('/');
+  if (parts.length >= 2 && parts[0] == 'phone' && parts[1].isNotEmpty) {
+    return parts[1];
+  }
+  return null;
+}
+
+/// Sabit telefon medya yolu (başlık değişince indeks kaymasın).
+String phoneRelativePath(String assetId) => 'phone/$assetId';
+
 /// Yerel kütüphanedeki bir medya kaydı (Hive indeks).
 class LibraryMedia {
   const LibraryMedia({

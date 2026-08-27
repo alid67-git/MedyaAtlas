@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.43',
+    tr: 'Yeniden tara çift ekleme yok: sabit telefon kaynağı + asset id anahtarı.',
+    en: 'Rescan no longer doubles media: stable phone source + asset-id key.',
+    de: 'Neu-Scan verdoppelt Medien nicht: stabile Telefon-Quelle + Asset-ID.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.42',
     tr: 'İptal tuşu: dilimli okuma + sık kontrol — gecikme azalır; belirgin İptal butonu.',
     en: 'Cancel: chunked reads + frequent checks — less delay; clearer Cancel button.',

@@ -9,6 +9,10 @@ import 'package:photo_manager/photo_manager.dart';
 
 import 'folder_types.dart';
 import 'geo.dart';
+import '../models/library_media.dart' show phoneRelativePath;
+
+export '../models/library_media.dart'
+    show phoneAssetIdFromRelativePath, phoneRelativePath;
 
 const _installerChannel = MethodChannel('medyaatlas/installer');
 
@@ -65,15 +69,7 @@ bool looksLikeApk(Object file) {
   }
 }
 
-/// `phone/<assetId>/...` relativePath içinden MediaStore id’sini çıkar.
-String? phoneAssetIdFromRelativePath(String? relativePath) {
-  if (relativePath == null) return null;
-  final parts = relativePath.split('/');
-  if (parts.length >= 2 && parts[0] == 'phone' && parts[1].isNotEmpty) {
-    return parts[1];
-  }
-  return null;
-}
+/// `phone/<assetId>` relativePath — başlık indekse girmez (yeniden tara çift eklemesin).
 
 /// Telefondaki tüm yerel foto/videoları MediaStore / Photos üzerinden tara.
 ///
@@ -253,7 +249,7 @@ Future<FolderPickResult> _scanAlbumAssets(
         FolderMediaRef(
           name: name,
           size: size,
-          relativePath: 'phone/$id/$name',
+          relativePath: phoneRelativePath(id),
           localPath: localPath,
           lastModified: asset.createDateTime,
           knownLat: knownLat,
