@@ -21,6 +21,17 @@ class TrackRepository extends ChangeNotifier {
   List<MapTrack> get tracks => List.unmodifiable(_tracks);
   Iterable<MapTrack> get visibleTracks => _tracks.where((t) => t.visible);
 
+  /// Kayıt tarihi (addedAt) — en yeni üstte; tarihi olmayanlar sonda.
+  void _sortNewestFirst() {
+    _tracks.sort((a, b) {
+      final aa = a.addedAt ?? 0;
+      final bb = b.addedAt ?? 0;
+      final byDate = bb.compareTo(aa);
+      if (byDate != 0) return byDate;
+      return b.name.toLowerCase().compareTo(a.name.toLowerCase());
+    });
+  }
+
   /// Aynı rota daha önce yüklendi mi? (ad + bounds + uç noktalar)
   bool hasEquivalent(MapTrack track) {
     final key = trackContentKey(track);
@@ -51,6 +62,7 @@ class TrackRepository extends ChangeNotifier {
               (e) => MapTrack.fromJson(Map<String, dynamic>.from(e as Map)),
             ),
           );
+        _sortNewestFirst();
       }
     } catch (e) {
       debugPrint('MedyaAtlas: iz indeksi okunamadı: $e');
@@ -77,8 +89,9 @@ class TrackRepository extends ChangeNotifier {
     if (i >= 0) {
       _tracks[i] = track;
     } else {
-      _tracks.insert(0, track);
+      _tracks.add(track);
     }
+    _sortNewestFirst();
     await _persist();
     notifyListeners();
   }
@@ -89,9 +102,10 @@ class TrackRepository extends ChangeNotifier {
       if (i >= 0) {
         _tracks[i] = t;
       } else {
-        _tracks.insert(0, t);
+        _tracks.add(t);
       }
     }
+    _sortNewestFirst();
     await _persist();
     notifyListeners();
   }
