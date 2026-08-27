@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.38',
+    tr: 'İzler menüsü: çoklu seçim (biri/hepsi); büyük GPX okuma + doğru hata mesajı.',
+    en: 'Tracks menu: multi-select (one/all); large GPX read + honest error messages.',
+    de: 'Spur-Menü: Mehrfachauswahl; große GPX-Dateien + klare Fehlermeldungen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.37',
     tr: 'Güncelleme ekranı: tam ekran büyük yüzde (RideAtlas/GPX tarzı).',
     en: 'Update screen: full-screen large percent (RideAtlas/GPX style).',

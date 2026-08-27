@@ -70,6 +70,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _cancel = false;
   bool _dropping = false;
   bool _sourcesOpen = false;
+  bool _tracksOpen = false;
+  final Set<String> _trackSelection = {};
   String? _kindMenu;
   String? _status;
   bool _showMissing = false;
@@ -680,9 +682,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   Future<void> _importTracks() async {
     // setState/_closeMenus BEFORE pick breaks Safari (user-gesture + input removed).
-    // Close panel only after the picker returns.
     final tracksRepo = context.read<TrackRepository>();
-    List<PickedTrackFile>? picked;
+    TrackPickResult? picked;
     try {
       picked = await pickTrackFiles();
     } catch (e) {
@@ -695,27 +696,45 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
     if (!mounted) return;
     if (picked == null) {
-      setState(_closeMenus);
+      setState(() {
+        _sourcesOpen = false;
+        _kindMenu = null;
+        _tracksOpen = true;
+      });
       return;
     }
     if (picked.isEmpty) {
       setState(() {
-        _closeMenus();
-        _status =
-            'GPX/KML/KMZ seçilmedi. Dosya uzantısı .gpx / .kml / .kmz olmalı.';
+        _sourcesOpen = false;
+        _kindMenu = null;
+        _tracksOpen = true;
+        if (picked!.skippedTooLarge > 0) {
+          _status =
+              'Dosya çok büyük (üst sınır ~${trackFileMaxBytes ~/ (1024 * 1024)} MB).';
+        } else if (picked.skippedUnreadable > 0) {
+          _status =
+              'Dosya okunamadı (büyük GPX telefonda bellek sınırına takılabilir).';
+        } else if (picked.skippedWrongType > 0) {
+          _status =
+              'GPX/KML/KMZ değil. Uzantı .gpx / .kml / .kmz olmalı.';
+        } else {
+          _status = 'İz seçilmedi.';
+        }
       });
       return;
     }
 
     setState(() {
-      _closeMenus();
+      _sourcesOpen = false;
+      _kindMenu = null;
+      _tracksOpen = true;
       _beginBusy();
       _status = 'İz dosyaları okunuyor…';
     });
     final tracks = <MapTrack>[];
     var failed = 0;
     try {
-      for (final file in picked) {
+      for (final file in picked.files) {
         final track = parseTrackBytes(fileName: file.name, bytes: file.bytes);
         if (track == null) {
           failed++;
@@ -726,9 +745,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (tracks.isNotEmpty) {
         await tracksRepo.addAll(tracks);
         if (!mounted) return;
+        _trackSelection
+          ..clear()
+          ..addAll(tracks.map((t) => t.id));
         _fitVisible(includeTracks: true);
       }
       if (!mounted) return;
+      final skipHint = picked.skippedTotal > 0
+          ? ' · ${picked.skippedTotal} atlandı'
+          : '';
       setState(() {
         _endBusy();
         if (tracks.isEmpty) {
@@ -737,7 +762,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               : 'İz seçilmedi.';
         } else {
           _status =
-              '${tracks.length} iz eklendi${failed > 0 ? ' · $failed okunamadı' : ''}';
+              '${tracks.length} iz eklendi${failed > 0 ? ' · $failed okunamadı' : ''}$skipHint';
         }
       });
     } catch (e) {
@@ -829,27 +854,36 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             });
           }
         }
-      } else if (localIsFileSync(path) && isTrackFileName(p.basename(path))) {
-        final bytes = await readLocalTextFileLimited(
-          path,
-          maxBytes: 64 * 1024 * 1024,
-        );
-        if (bytes != null && bytes.isNotEmpty) {
-          trackFiles.add(PickedTrackFile(name: p.basename(path), bytes: bytes));
-        }
-      } else if (localIsFileSync(path) && isMediaName(p.basename(path))) {
-        final size = await localFileLength(path);
+      } else if (localIsFileSync(path)) {
         final name = p.basename(path);
-        loose.add(
-          FolderMediaRef(
-            name: name,
-            size: size,
-            relativePath: name,
-            localPath: path,
-            lastModified: await localFileModified(path),
-            readHead: (maxBytes) => readLocalFileHead(path, maxBytes),
-          ),
-        );
+        if (isTrackFileName(name)) {
+          final bytes = await readLocalTextFileLimited(
+            path,
+            maxBytes: trackFileMaxBytes,
+          );
+          if (bytes != null && bytes.isNotEmpty) {
+            trackFiles.add(PickedTrackFile(name: name, bytes: bytes));
+          } else if (mounted) {
+            final len = await localFileLength(path);
+            setState(() {
+              _status = len > trackFileMaxBytes
+                  ? 'İz dosyası çok büyük (üst sınır ~${trackFileMaxBytes ~/ (1024 * 1024)} MB).'
+                  : 'İz dosyası okunamadı: $name';
+            });
+          }
+        } else if (isMediaName(name)) {
+          final size = await localFileLength(path);
+          loose.add(
+            FolderMediaRef(
+              name: name,
+              size: size,
+              relativePath: name,
+              localPath: path,
+              lastModified: await localFileModified(path),
+              readHead: (maxBytes) => readLocalFileHead(path, maxBytes),
+            ),
+          );
+        }
       }
     }
     if (trackFiles.isNotEmpty && mounted) {
@@ -1349,6 +1383,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   void _closeMenus() {
     _sourcesOpen = false;
+    _tracksOpen = false;
     _kindMenu = null;
   }
 
@@ -1442,6 +1477,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _panelCluster = cluster;
       _showMissing = false;
       _sourcesOpen = false;
+      _tracksOpen = false;
       _kindMenu = null;
     });
     if (_isDesktop || MediaQuery.sizeOf(context).width >= 960) {
@@ -1604,6 +1640,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             borderRadius: BorderRadius.circular(12),
                             clipBehavior: Clip.antiAlias,
                             child: _sourcesPanel(repo),
+                          ),
+                        ),
+                      if (_tracksOpen)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                          child: Material(
+                            elevation: 8,
+                            color: const Color(0xFF0A1C28),
+                            borderRadius: BorderRadius.circular(12),
+                            clipBehavior: Clip.antiAlias,
+                            child: _tracksPanel(),
                           ),
                         ),
                       if (_kindMenu != null)
@@ -1804,7 +1851,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     badge: sourceCount,
                     onPressed: () => setState(() {
                       _sourcesOpen = !_sourcesOpen;
-                      if (_sourcesOpen) _kindMenu = null;
+                      if (_sourcesOpen) {
+                        _tracksOpen = false;
+                        _kindMenu = null;
+                      }
+                    }),
+                  ),
+                  _TopIcon(
+                    tooltip: 'İzler (GPX)',
+                    selected: _tracksOpen,
+                    icon: Icons.route_outlined,
+                    badge: '${context.watch<TrackRepository>().tracks.length}',
+                    onPressed: () => setState(() {
+                      _tracksOpen = !_tracksOpen;
+                      if (_tracksOpen) {
+                        _sourcesOpen = false;
+                        _kindMenu = null;
+                      }
                     }),
                   ),
                   _TopIcon(
@@ -1816,6 +1879,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       _showMissing = false;
                       _panelCluster = null;
                       _sourcesOpen = false;
+                      _tracksOpen = false;
                       _kindMenu = _kindMenu == 'located' ? null : 'located';
                     }),
                   ),
@@ -1827,6 +1891,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     onPressed: () => setState(() {
                       _panelCluster = null;
                       _sourcesOpen = false;
+                      _tracksOpen = false;
                       if (_showMissing) {
                         _showMissing = false;
                         _kindMenu = null;
@@ -1844,7 +1909,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   _TopIcon(
                     tooltip: s.fitAll,
                     icon: Icons.zoom_out_map,
-                    onPressed: hasPins ? _fitVisible : null,
+                    onPressed: hasPins ||
+                            context
+                                .read<TrackRepository>()
+                                .visibleTracks
+                                .isNotEmpty
+                        ? () => _fitVisible(includeTracks: true)
+                        : null,
                   ),
                   _TopIcon(
                     tooltip: s.help,
@@ -2026,7 +2097,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Widget _sourcesPanel(MediaRepository repo) {
-    final tracks = context.watch<TrackRepository>();
     final addButtons = <Widget>[
       if (!kIsWeb)
         FilledButton.tonal(
@@ -2077,11 +2147,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               },
         child: const Text('Google Drive'),
       ),
-      FilledButton.tonal(
-        // Do not setState/close panel before pick — Safari needs the gesture.
-        onPressed: _busy ? null : _importTracks,
-        child: const Text('GPX / KML'),
-      ),
     ];
 
     return ConstrainedBox(
@@ -2090,13 +2155,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         children: [
-          if (repo.sources.isEmpty && tracks.tracks.isEmpty)
+          if (repo.sources.isEmpty)
             Text(
               kIsWeb
-                  ? 'Kaynak yok — Galeri, Google Drive veya GPX/KML.'
+                  ? 'Kaynak yok — Galeri veya Google Drive. İzler için üstteki rota ikonu.'
                   : (_isDesktop
-                      ? 'Kaynak yok — Klasör, Google Drive veya GPX/KML (Ctrl+O).'
-                      : 'Kaynak yok — Galeri, Tüm telefon, Google Drive veya GPX/KML.'),
+                      ? 'Kaynak yok — Klasör veya Google Drive (Ctrl+O). İzler için rota ikonu.'
+                      : 'Kaynak yok — Galeri, Tüm telefon veya Google Drive. İzler için rota ikonu.'),
               style: TextStyle(
                 fontSize: 13,
                 color: Colors.white.withValues(alpha: 0.6),
@@ -2139,26 +2204,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ],
               ),
             ),
-          for (final track in tracks.tracks)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                track.visible
-                    ? Icons.route_outlined
-                    : Icons.visibility_off_outlined,
-              ),
-              title: Text(track.name, overflow: TextOverflow.ellipsis),
-              subtitle: Text(
-                '${track.pointCount ?? track.points.length} nokta · iz',
-              ),
-              onTap: () => tracks.setVisible(track.id, !track.visible),
-              trailing: IconButton(
-                tooltip: 'Sil',
-                onPressed: _busy ? null : () => tracks.remove(track.id),
-                icon: const Icon(Icons.delete_outline),
-              ),
-            ),
           const SizedBox(height: 8),
           Text(
             'Ekle',
@@ -2173,6 +2218,173 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             spacing: 8,
             runSpacing: 8,
             children: addButtons,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tracksPanel() {
+    final tracksRepo = context.watch<TrackRepository>();
+    final tracks = tracksRepo.tracks;
+    final selected =
+        _trackSelection.intersection(tracks.map((t) => t.id).toSet());
+    final allSelected = tracks.isNotEmpty && selected.length == tracks.length;
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 420),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'İzler (GPX / KML)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Kapat',
+                  onPressed: () => setState(() => _tracksOpen = false),
+                  icon: const Icon(Icons.close, size: 20),
+                ),
+              ],
+            ),
+          ),
+          if (tracks.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ActionChip(
+                    avatar: Icon(
+                      allSelected
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      size: 18,
+                    ),
+                    label: const Text('Tümü'),
+                    onPressed: () {
+                      setState(() {
+                        if (allSelected) {
+                          _trackSelection.clear();
+                        } else {
+                          _trackSelection
+                            ..clear()
+                            ..addAll(tracks.map((t) => t.id));
+                        }
+                      });
+                    },
+                  ),
+                  ActionChip(
+                    label: const Text('Hiçbiri'),
+                    onPressed: () => setState(_trackSelection.clear),
+                  ),
+                  ActionChip(
+                    label: Text(
+                      selected.isEmpty
+                          ? 'Haritada hepsi'
+                          : 'Haritada seçilen (${selected.length})',
+                    ),
+                    onPressed: () async {
+                      if (selected.isEmpty) {
+                        await tracksRepo.setOnlyVisible(null);
+                      } else {
+                        await tracksRepo.setOnlyVisible(selected);
+                      }
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                  if (selected.isNotEmpty)
+                    ActionChip(
+                      avatar: const Icon(Icons.delete_outline, size: 18),
+                      label: Text('Sil (${selected.length})'),
+                      onPressed: _busy
+                          ? null
+                          : () async {
+                              await tracksRepo.removeMany(selected);
+                              if (!mounted) return;
+                              setState(() {
+                                _trackSelection.removeWhere(selected.contains);
+                              });
+                            },
+                    ),
+                ],
+              ),
+            ),
+          const Divider(height: 1),
+          Flexible(
+            child: tracks.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Text(
+                      'Henüz iz yok. GPX, KML veya KMZ ekleyin. '
+                      'Birini, birkaçını veya tümünü seçip haritada gösterebilirsiniz.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+                    itemCount: tracks.length,
+                    itemBuilder: (context, i) {
+                      final t = tracks[i];
+                      final isSel = selected.contains(t.id);
+                      return CheckboxListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        value: isSel,
+                        secondary: Icon(
+                          t.visible
+                              ? Icons.route_outlined
+                              : Icons.visibility_off_outlined,
+                          color: t.visible
+                              ? const Color(0xFFE8A838)
+                              : Colors.white54,
+                        ),
+                        title: Text(t.name, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                          '${t.pointCount ?? t.points.length} nokta · '
+                          '${t.visible ? "haritada" : "gizli"}',
+                        ),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        onChanged: (v) {
+                          setState(() {
+                            if (v == true) {
+                              _trackSelection.add(t.id);
+                            } else {
+                              _trackSelection.remove(t.id);
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.tonal(
+                // Safari: pick öncesi setState yok.
+                onPressed: _busy ? null : _importTracks,
+                child: const Text('GPX / KML ekle'),
+              ),
+            ),
           ),
         ],
       ),

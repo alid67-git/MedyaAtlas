@@ -1,25 +1,22 @@
 import 'dart:async';
 import 'dart:js_interop';
+import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
 
 import 'track_file_types.dart';
-import 'track_parse.dart';
 
 export 'track_file_types.dart';
 
-/// Safari-safe track picker: keep `<input>` in the DOM until change/cancel.
-///
-/// Document-only [accept] so iOS shows Files ("Choose Files") — not Photo
-/// Library / Camera. Empty accept was causing that media action sheet.
-const _trackAccept = '.gpx,.kml,.kmz,'
+/// Safari-safe track picker. Document accept + content sniff for odd names.
+const _trackAccept = '.gpx,.kml,.kmz,.xml,'
     'application/gpx+xml,'
     'application/vnd.google-earth.kml+xml,'
     'application/vnd.google-earth.kmz,'
-    'application/xml,text/xml';
+    'application/xml,text/xml,application/octet-stream';
 
-Future<List<PickedTrackFile>?> pickTrackFiles() async {
-  final done = Completer<List<PickedTrackFile>?>();
+Future<TrackPickResult?> pickTrackFiles() async {
+  final done = Completer<TrackPickResult?>();
   final input = web.HTMLInputElement()
     ..type = 'file'
     ..multiple = true
@@ -36,7 +33,7 @@ Future<List<PickedTrackFile>?> pickTrackFiles() async {
 
   web.document.body?.appendChild(input);
 
-  void finish(List<PickedTrackFile>? value) {
+  void finish(TrackPickResult? value) {
     if (!done.isCompleted) done.complete(value);
   }
 
@@ -46,25 +43,63 @@ Future<List<PickedTrackFile>?> pickTrackFiles() async {
     } catch (_) {}
   }
 
+  Future<Uint8List?> readFile(web.File file) async {
+    try {
+      if (file.size > trackFileMaxBytes) return null;
+      // Küçük dosya: tek seferde.
+      if (file.size <= 32 * 1024 * 1024) {
+        final buffer = await file.arrayBuffer().toDart;
+        return buffer.toDart.asUint8List();
+      }
+      // Büyük dosya: dilimli oku (iPhone’da tek arrayBuffer OOM verebilir).
+      final out = BytesBuilder(copy: false);
+      const chunk = 4 * 1024 * 1024;
+      var offset = 0;
+      while (offset < file.size) {
+        final end = offset + chunk > file.size ? file.size : offset + chunk;
+        final part = file.slice(offset, end);
+        final buffer = await part.arrayBuffer().toDart;
+        out.add(buffer.toDart.asUint8List());
+        offset = end;
+      }
+      return out.takeBytes();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> readFiles(web.FileList list) async {
     final out = <PickedTrackFile>[];
+    var wrongType = 0;
+    var unreadable = 0;
+    var tooLarge = 0;
     for (var i = 0; i < list.length; i++) {
       final file = list.item(i);
       if (file == null) continue;
-      if (!isTrackFileName(file.name)) continue;
-      try {
-        final buffer = await file.arrayBuffer().toDart;
-        out.add(
-          PickedTrackFile(
-            name: file.name,
-            bytes: buffer.toDart.asUint8List(),
-          ),
-        );
-      } catch (_) {
-        /* skip unreadable */
+      if (file.size > trackFileMaxBytes) {
+        tooLarge++;
+        continue;
       }
+      final bytes = await readFile(file);
+      if (bytes == null || bytes.isEmpty) {
+        unreadable++;
+        continue;
+      }
+      final name = file.name.trim().isEmpty ? 'track_$i.gpx' : file.name;
+      if (!isAcceptableTrackFile(name: name, bytes: bytes)) {
+        wrongType++;
+        continue;
+      }
+      out.add(PickedTrackFile(name: name, bytes: bytes));
     }
-    finish(out);
+    finish(
+      TrackPickResult(
+        files: out,
+        skippedWrongType: wrongType,
+        skippedUnreadable: unreadable,
+        skippedTooLarge: tooLarge,
+      ),
+    );
   }
 
   input.addEventListener(
