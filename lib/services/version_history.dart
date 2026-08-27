@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.50',
+    tr: 'Çoklu GPX; seçici already_active düzeltmesi; izler haritada adım adım; yinelenen rota uyarısı 1 sn.',
+    en: 'Multi GPX; fix picker already_active; progressive map add; 1s duplicate toast.',
+    de: 'Mehrere GPX; already_active behoben; schrittweise Karte; 1s Duplikat-Hinweis.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.49',
     tr: 'Drive ≠ Google Foto netleştirildi; OAuth yoksa kısa yardım; Foto için Tüm telefon.',
     en: 'Clarify Drive ≠ Google Photos; short OAuth help; use Whole phone for Photos.',

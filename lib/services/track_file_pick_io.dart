@@ -3,16 +3,15 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 
+import 'file_picker_safe.dart';
 import 'track_file_types.dart';
 import 'track_parse.dart';
 
 export 'track_file_types.dart';
 
-/// Native: tüm dosyalar + içerik tanıma.
-/// Drive’daki uzantısız GPX’ler (.gpx yok) böyle seçilir; foto içerik ile elenir.
+/// Native: çoklu seçim + içerik tanıma. `already_active` güvenli yeniden dener.
 Future<TrackPickResult?> pickTrackFiles({bool allowAny = true}) async {
-  // allowAny varsayılan true — uzantı filtresi Drive uzantısızlarını gizler.
-  final picked = await FilePicker.platform.pickFiles(
+  final picked = await pickFilesResilient(
     allowMultiple: true,
     type: allowAny ? FileType.any : FileType.custom,
     allowedExtensions: allowAny ? null : const ['gpx', 'kml', 'kmz', 'xml'],

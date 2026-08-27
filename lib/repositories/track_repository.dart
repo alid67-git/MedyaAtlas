@@ -21,6 +21,22 @@ class TrackRepository extends ChangeNotifier {
   List<MapTrack> get tracks => List.unmodifiable(_tracks);
   Iterable<MapTrack> get visibleTracks => _tracks.where((t) => t.visible);
 
+  /// Aynı rota daha önce yüklendi mi? (ad + bounds + uç noktalar)
+  bool hasEquivalent(MapTrack track) {
+    final key = trackContentKey(track);
+    for (final t in _tracks) {
+      if (trackContentKey(t) == key) return true;
+    }
+    return false;
+  }
+
+  /// Yoksa ekler; varsa false.
+  Future<bool> addIfNew(MapTrack track) async {
+    if (hasEquivalent(track)) return false;
+    await add(track);
+    return true;
+  }
+
   Future<void> init() async {
     if (_ready) return;
     _box = await Hive.openBox<String>(_tracksBoxName);

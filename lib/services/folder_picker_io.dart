@@ -3,10 +3,10 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 
 import 'folder_types.dart';
+import 'file_picker_safe.dart';
 import 'scan_paths.dart';
 import 'volume_mount.dart';
 
@@ -121,7 +121,7 @@ Future<FolderPickResult?> pickMediaFolder({
   void Function(int found, String currentPath)? onProgress,
   bool Function()? isCancelled,
 }) async {
-  final dirPath = await FilePicker.platform.getDirectoryPath(
+  final dirPath = await pickDirectoryPathResilient(
     dialogTitle: 'Medya klasörü seç (foto + video)',
   );
   if (dirPath == null) return null;
@@ -137,7 +137,7 @@ Future<FolderPickResult?> pickExternalVolume({
   void Function(int found, String currentPath)? onProgress,
   bool Function()? isCancelled,
 }) async {
-  final dirPath = await FilePicker.platform.getDirectoryPath(
+  final dirPath = await pickDirectoryPathResilient(
     dialogTitle: 'SD kart veya harici disk kökünü seç (DCIM / tüm kart)',
   );
   if (dirPath == null) return null;

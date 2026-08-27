@@ -251,6 +251,13 @@ MapTrack? parseTrackBytes({
   }
 }
 
+/// [compute] için — büyük GPX UI’yi kilitlemesin.
+/// Argüman Map olmalı (SendPort kısıtı); özel sınıf kullanma.
+MapTrack? parseTrackIsolate(Map<String, Object> args) => parseTrackBytes(
+      fileName: args['fileName'] as String,
+      bytes: args['bytes'] as Uint8List,
+    );
+
 /// Dosya uzantısı veya içerik — Drive’da uzantısız GPX’ler için.
 enum TrackFormat { gpx, kml, kmz }
 

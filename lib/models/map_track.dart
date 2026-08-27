@@ -159,3 +159,21 @@ class MapTrack {
         addedAt: (json['addedAt'] as num?)?.toInt(),
       );
 }
+
+/// Yinelenen yükleme kontrolü — UUID farklı olsa bile aynı rota.
+String trackContentKey(MapTrack t) {
+  final b = t.bounds;
+  final n = t.pointCount ?? t.points.length;
+  final first = t.points.isEmpty ? null : t.points.first;
+  final last = t.points.isEmpty ? null : t.points.last;
+  String fmt(double v) => v.toStringAsFixed(5);
+  return [
+    t.name.trim().toLowerCase(),
+    '$n',
+    if (b != null)
+      '${fmt(b.south)},${fmt(b.west)},${fmt(b.north)},${fmt(b.east)}',
+    if (first != null) '${fmt(first.latitude)},${fmt(first.longitude)}',
+    if (last != null) '${fmt(last.latitude)},${fmt(last.longitude)}',
+    '${t.timeStart ?? ''}-${t.timeEnd ?? ''}',
+  ].join('|');
+}
