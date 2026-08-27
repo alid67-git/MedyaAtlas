@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.44',
+    tr: 'Sığdır: kuzey yukarı + tam ekran; izler küçük zoom’da kalın çizgi + rozet.',
+    en: 'Fit-all: north-up + fill screen; tracks thick + badge at low zoom.',
+    de: 'Einpassen: Norden oben; Spuren bei Zoom-out dick + Badge.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.43',
     tr: 'Yeniden tara çift ekleme yok: sabit telefon kaynağı + asset id anahtarı.',
     en: 'Rescan no longer doubles media: stable phone source + asset-id key.',

@@ -1542,11 +1542,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       for (final c in clusters)
         if (c.latLng.latitude.isFinite && c.latLng.longitude.isFinite) c.latLng,
     ];
+    // Fit-all: medya + izler birlikte (yalnızca medya boşsa da izler).
     if (includeTracks || points.isEmpty) {
       final tracks = context.read<TrackRepository>().visibleTracks;
       for (final t in tracks) {
         final b = t.bounds;
-        if (b != null) {
+        if (b != null &&
+            b.south.isFinite &&
+            b.north.isFinite &&
+            b.west.isFinite &&
+            b.east.isFinite) {
           points
             ..add(LatLng(b.south, b.west))
             ..add(LatLng(b.north, b.east));
@@ -1563,17 +1568,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
+        // Yamuk / döndürülmüş haritayı kuzey yukarı al, sonra ekranı kapla.
+        _map.rotate(0);
         if (points.length == 1) {
-          _map.move(points.first, 13);
+          _map.moveAndRotate(points.first, 13, 0);
           return;
         }
         _map.fitCamera(
           CameraFit.bounds(
             bounds: LatLngBounds.fromPoints(points),
-            padding: const EdgeInsets.all(48),
+            padding: const EdgeInsets.fromLTRB(36, 120, 36, 72),
             maxZoom: 15,
           ),
         );
+        _map.rotate(0);
       } catch (_) {
         /* harita henüz bağlı değil */
       }
@@ -2693,18 +2701,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     MediaRepository repo,
   ) {
     final trackRepo = context.watch<TrackRepository>();
-    final polylines = <Polyline>[
-      for (final track in trackRepo.visibleTracks)
-        if (track.points.length >= 2)
-          Polyline(
-            points: [
-              for (final p in track.points)
-                if (isValidGps(p.latitude, p.longitude)) p.latLng,
-            ],
-            strokeWidth: 3.5,
-            color: const Color(0xFFE8A838),
-          ),
-    ];
     return Stack(
       children: [
         FlutterMap(
@@ -2718,7 +2714,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
               userAgentPackageName: 'com.medyaatlas.app',
             ),
-            if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
+            _TrackLinesLayer(tracks: trackRepo.visibleTracks.toList()),
+            _TrackBadgeLayer(tracks: trackRepo.visibleTracks.toList()),
             MarkerLayer(markers: _markersFor(clusters, repo)),
           ],
         ),
@@ -3207,5 +3204,121 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
       kind: widget.item.kind,
       resolveUrl: () => widget.repo.resolvePlayableUrl(widget.item),
     );
+  }
+}
+
+/// Zoom’a göre kalınlaşan iz çizgisi — küçük haritada da medya pinlerinden ayrılır.
+class _TrackLinesLayer extends StatelessWidget {
+  const _TrackLinesLayer({required this.tracks});
+
+  final List<MapTrack> tracks;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tracks.isEmpty) return const SizedBox.shrink();
+    final zoom = MapCamera.maybeOf(context)?.zoom ?? 3;
+    final stroke = zoom < 3.5
+        ? 11.0
+        : zoom < 5
+            ? 8.5
+            : zoom < 7
+                ? 6.0
+                : zoom < 10
+                    ? 4.5
+                    : 3.5;
+    final under = stroke + (zoom < 6 ? 4.0 : 2.5);
+    final polylines = <Polyline>[];
+    for (final track in tracks) {
+      final pts = <LatLng>[
+        for (final p in track.points)
+          if (isValidGps(p.latitude, p.longitude)) p.latLng,
+      ];
+      if (pts.length < 2) continue;
+      // Koyu kontur — ısı lekeleri yanında turuncu iz okunur.
+      polylines.add(
+        Polyline(
+          points: pts,
+          strokeWidth: under,
+          color: const Color(0xE0121C28),
+        ),
+      );
+      polylines.add(
+        Polyline(
+          points: pts,
+          strokeWidth: stroke,
+          color: const Color(0xFFFFB020),
+        ),
+      );
+    }
+    if (polylines.isEmpty) return const SizedBox.shrink();
+    return PolylineLayer(polylines: polylines);
+  }
+}
+
+/// Her iz için orta nokta rozeti — dünya ölçeğinde bile “burada ride var”.
+class _TrackBadgeLayer extends StatelessWidget {
+  const _TrackBadgeLayer({required this.tracks});
+
+  final List<MapTrack> tracks;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tracks.isEmpty) return const SizedBox.shrink();
+    final zoom = MapCamera.maybeOf(context)?.zoom ?? 3;
+    final size = zoom < 4
+        ? 46.0
+        : zoom < 7
+            ? 38.0
+            : 30.0;
+    final markers = <Marker>[];
+    for (final track in tracks) {
+      final center = _trackAnchor(track);
+      if (center == null) continue;
+      markers.add(
+        Marker(
+          point: center,
+          width: size,
+          height: size,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xF0FF8C12),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x88000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.route,
+              color: Colors.white,
+              size: size * 0.48,
+            ),
+          ),
+        ),
+      );
+    }
+    if (markers.isEmpty) return const SizedBox.shrink();
+    return MarkerLayer(markers: markers);
+  }
+
+  LatLng? _trackAnchor(MapTrack track) {
+    final b = track.bounds;
+    if (b != null &&
+        b.south.isFinite &&
+        b.north.isFinite &&
+        b.west.isFinite &&
+        b.east.isFinite) {
+      return LatLng((b.south + b.north) / 2, (b.west + b.east) / 2);
+    }
+    final pts = [
+      for (final p in track.points)
+        if (isValidGps(p.latitude, p.longitude)) p.latLng,
+    ];
+    if (pts.isEmpty) return null;
+    return pts[pts.length ~/ 2];
   }
 }
