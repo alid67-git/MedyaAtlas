@@ -36,6 +36,7 @@ import '../services/place_search.dart';
 import '../services/search_text.dart';
 import '../services/track_file_pick.dart';
 import '../services/track_parse.dart';
+import '../services/track_media_match.dart';
 import '../services/video_gps.dart';
 import '../services/video_preview.dart';
 import '../services/photo_orient.dart';
@@ -1618,16 +1619,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         items = items.where((m) => !m.hasLocation);
         break;
       case _TrackMediaFilter.onTracks:
-        final trackPts = _visibleTrackLatLngs();
-        if (trackPts.isEmpty) {
+        final tracks =
+            context.read<TrackRepository>().visibleTracks.toList();
+        if (tracks.isEmpty) {
           items = items.where((m) => !m.hasLocation);
         } else {
-          items = items.where((m) {
-            if (!m.hasLocation) return true;
-            final ll = latLngOrNull(m.lat, m.lng);
-            if (ll == null) return false;
-            return isNearTrackPoints(ll, trackPts, maxMeters: 450);
-          });
+          items = items.where(
+            (m) => mediaMatchesTracks(m, tracks),
+          );
         }
         break;
       case _TrackMediaFilter.all:
@@ -1636,25 +1635,50 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     return items.toList();
   }
 
-  List<LatLng> _visibleTrackLatLngs() {
-    final out = <LatLng>[];
-    for (final t in context.read<TrackRepository>().visibleTracks) {
-      for (final p in t.points) {
-        if (isValidGps(p.latitude, p.longitude)) {
-          out.add(p.latLng);
-        }
+  /// Harita pinleri — «iz üzerindeki» modunda GPS’siz medyayı zamana göre yerleştirir.
+  List<LibraryMedia> _locatedForMap(MediaRepository repo) {
+    final filtered = _filtered(repo);
+    if (_trackMediaFilter == _TrackMediaFilter.hidden) {
+      return const [];
+    }
+    if (_trackMediaFilter != _TrackMediaFilter.onTracks) {
+      return filtered.where((m) => m.hasLocation).toList();
+    }
+    final tracks = context.read<TrackRepository>().visibleTracks.toList();
+    if (tracks.isEmpty) return const [];
+    final out = <LibraryMedia>[];
+    for (final m in filtered) {
+      final pos = resolveMediaOnTracks(m, tracks);
+      if (pos == null) continue;
+      if (m.hasLocation &&
+          m.lat == pos.latitude &&
+          m.lng == pos.longitude) {
+        out.add(m);
+      } else {
+        out.add(
+          m.copyWith(
+            lat: pos.latitude,
+            lng: pos.longitude,
+            locationMissing: false,
+          ),
+        );
       }
     }
     return out;
   }
 
   List<LocationCluster> _clustersOf(MediaRepository repo) {
-    return groupByLocation(
-      _filtered(repo).where((m) => m.hasLocation).toList(),
-    );
+    return groupByLocation(_locatedForMap(repo));
   }
 
   List<LibraryMedia> _missingOf(MediaRepository repo) {
+    if (_trackMediaFilter == _TrackMediaFilter.onTracks) {
+      // Haritada zamana yerleştirilenleri «GPS yok» listesinden çıkar.
+      final onMapIds = _locatedForMap(repo).map((m) => m.id).toSet();
+      return _filtered(repo)
+          .where((m) => !m.hasLocation && !onMapIds.contains(m.id))
+          .toList();
+    }
     return _filtered(repo).where((m) => !m.hasLocation).toList();
   }
 
@@ -2577,6 +2601,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         selected:
                             _trackMediaFilter == _TrackMediaFilter.onTracks,
                         label: const Text('İz üzerindeki'),
+                        tooltip:
+                            'Yakın (~2.5 km) veya iz zamanındaki medya; '
+                            'GPS’siz GoPro iz saatine yerleştirilir',
                         onSelected: (_) => setState(
                           () => _trackMediaFilter = _TrackMediaFilter.onTracks,
                         ),
