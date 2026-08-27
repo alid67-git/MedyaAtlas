@@ -996,8 +996,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         : (bulkMode ? bulkGpsVideoHeadBytes : videoHeadBytes);
     final progressEvery = kIsWeb ? 1 : (bulkMode ? 40 : 8);
     final persistEvery = bulkMode ? 64 : 8;
-    // Her dosyada nefes — İptal tuşu bir sonraki dosyada işlensin.
-    const yieldEvery = 1;
 
     // Tür filtresi yalnızca harita/liste görünümünü etkiler — tarama her
     // zaman foto + video + GoPro + drone ekler.
@@ -1011,6 +1009,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               : '${source.label}: ${i + 1}/${files.length} · $withGps GPS · $missing yok · ${kindCountsLabel(kindCounts)}',
         );
       }
+      // Her dosyada nefes — İptal tuşu bir sonraki dosyada işlensin.
       await Future<void>.delayed(Duration.zero);
       if (_cancel) break;
       final kind =
