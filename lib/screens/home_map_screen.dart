@@ -858,21 +858,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
       } else if (localIsFileSync(path)) {
         final name = p.basename(path);
-        if (isTrackFileName(name)) {
-          final bytes = await readLocalTextFileLimited(
-            path,
-            maxBytes: trackFileMaxBytes,
+        final maybeTrackBytes = await readLocalTextFileLimited(
+          path,
+          maxBytes: trackFileMaxBytes,
+        );
+        if (maybeTrackBytes != null &&
+            maybeTrackBytes.isNotEmpty &&
+            isAcceptableTrackFile(name: name, bytes: maybeTrackBytes)) {
+          final kind =
+              detectTrackFormat(fileName: name, bytes: maybeTrackBytes)!;
+          trackFiles.add(
+            PickedTrackFile(
+              name: ensureTrackExtension(name, kind),
+              bytes: maybeTrackBytes,
+            ),
           );
-          if (bytes != null && bytes.isNotEmpty) {
-            trackFiles.add(PickedTrackFile(name: name, bytes: bytes));
-          } else if (mounted) {
-            final len = await localFileLength(path);
-            setState(() {
-              _status = len > trackFileMaxBytes
-                  ? 'İz dosyası çok büyük (üst sınır ~${trackFileMaxBytes ~/ (1024 * 1024)} MB).'
-                  : 'İz dosyası okunamadı: $name';
-            });
-          }
         } else if (isMediaName(name)) {
           final size = await localFileLength(path);
           loose.add(
@@ -2371,13 +2371,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                     child: Text(
                       hostIsAppleWeb || hostIsIOS
-                          ? 'GPX/KML ekleyin. iPhone’da «Dosyalar» / İndirilenler’den seçin — '
-                              'Fotoğraflar/Galeri değil.'
+                          ? 'GPX ekleyin: Dosyalar → Browse → Google Drive. '
+                              'Uzantı (.gpx) olmasa da yüklenir. Fotoğraflar değil.'
                           : hostIsAndroid
-                              ? 'GPX/KML ekleyin. Dosya yöneticisi veya İndirilenler’den seçin — '
-                                  'Galeri (foto) değil. Galeri yalnızca foto/video içindir.'
-                              : 'GPX, KML veya KMZ ekleyin. Birini, birkaçını veya tümünü '
-                                  'seçip haritada gösterebilirsiniz.',
+                              ? 'GPX ekleyin: Dosyalar / Drive / İndirilenler. '
+                                  'Uzantı olmasa da içerik tanınır. Galeri (foto) değil.'
+                              : 'GPX, KML veya KMZ ekleyin. Uzantı olmasa da GPX içeriği tanınır.',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.white.withValues(alpha: 0.6),
@@ -2430,10 +2429,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               children: [
                 Text(
                   hostIsAppleWeb || hostIsIOS
-                      ? 'Seçicide «Dosyalar» / «Browse» kullanın (Fotoğraflar değil).'
+                      ? 'Dosyalar → Browse → Drive. Uzantısız kayıtlar da olur (Fotoğraflar değil).'
                       : hostIsAndroid
-                          ? 'Seçicide İndirilenler / Dosyalar — Galeri değil.'
-                          : 'Yalnızca .gpx / .kml / .kmz dosyaları.',
+                          ? 'Drive / İndirilenler — uzantı olmasa da GPX tanınır (Galeri değil).'
+                          : 'Uzantı olmasa da GPX/KML içeriği tanınır.',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.5),

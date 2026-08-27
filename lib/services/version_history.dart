@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.40',
+    tr: 'Uzantısız Drive GPX’leri tanır (iPhone+Android); içerikten parse.',
+    en: 'Recognizes extensionless Drive GPX (iPhone+Android); parse by content.',
+    de: 'Erkennt GPX ohne Endung (Drive) auf iPhone+Android; Inhalt-Parse.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.39',
     tr: 'GPX: Galeri değil Dosyalar; Android/iPhone medya butonları ayrıldı; net hata metni.',
     en: 'GPX: Files not Gallery; Android/iPhone media buttons split; clearer errors.',

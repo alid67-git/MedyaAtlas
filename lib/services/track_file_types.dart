@@ -35,22 +35,8 @@ class TrackPickResult {
 }
 
 /// Uzantı yoksa / yanlışsa içerikten GPX·KML·KMZ tanı.
-bool looksLikeTrackBytes(List<int> bytes) {
-  if (bytes.isEmpty) return false;
-  // KMZ = zip
-  if (bytes.length >= 4 &&
-      bytes[0] == 0x50 &&
-      bytes[1] == 0x4b &&
-      (bytes[2] == 0x03 || bytes[2] == 0x05 || bytes[2] == 0x07)) {
-    return true;
-  }
-  final n = bytes.length < 800 ? bytes.length : 800;
-  final head = utf8.decode(bytes.sublist(0, n), allowMalformed: true).toLowerCase();
-  return head.contains('<gpx') ||
-      head.contains('<kml') ||
-      head.contains('http://www.opengis.net/kml') ||
-      head.contains('topografix.com/gpx');
-}
+bool looksLikeTrackBytes(List<int> bytes) =>
+    detectTrackFormat(fileName: '', bytes: bytes) != null;
 
 /// Galeri/foto seçildi mi? (yanlış tür mesajı için)
 bool looksLikeImageOrVideoName(String name) {
@@ -91,7 +77,7 @@ bool looksLikeImageBytes(List<int> bytes) {
 }
 
 bool isAcceptableTrackFile({required String name, required List<int> bytes}) =>
-    isTrackFileName(name) || looksLikeTrackBytes(bytes);
+    detectTrackFormat(fileName: name, bytes: bytes) != null;
 
 /// Kullanıcıya net uyarı — Galeri/foto vs gerçek GPX.
 String trackWrongTypeMessage({
@@ -99,13 +85,13 @@ String trackWrongTypeMessage({
   bool sawMedia = false,
 }) {
   if (sawMedia) {
-    return 'Foto/video seçildi (Galeri). GPX için Dosyalar / dosya yöneticisi / '
-        'İndirilenler’den .gpx · .kml · .kmz seçin — Galeri değil.';
+    return 'Foto/video seçildi (Galeri). GPX için Dosyalar / Browse / Drive’dan seçin — '
+        'Fotoğraflar değil. Uzantı olmasa da GPX içeriği kabul edilir.';
   }
   if (count > 1) {
-    return '$count dosya GPX/KML/KMZ değil. Uzantı .gpx / .kml / .kmz olmalı '
-        '(Galeri değil — Dosyalar / İndirilenler).';
+    return '$count dosya GPX/KML içeriği değil. Drive’daki uzantısız kayıtlar da '
+        'Dosyalar’dan seçilebilir; Fotoğraflar değil.';
   }
-  return 'GPX/KML/KMZ değil. Dosyalar veya İndirilenler’den .gpx seçin '
-      '(Galeri / Fotoğraflar değil).';
+  return 'GPX/KML içeriği tanınmadı. Drive’da uzantı olmasa da Dosyalar / Browse ile seçin '
+      '(Fotoğraflar / Galeri değil).';
 }

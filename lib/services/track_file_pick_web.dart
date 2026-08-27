@@ -5,20 +5,25 @@ import 'dart:typed_data';
 import 'package:web/web.dart' as web;
 
 import 'track_file_types.dart';
+import 'track_parse.dart';
 
 export 'track_file_types.dart';
 
-/// iPhone Safari: yalnızca uzantı — MIME/octet-stream Fotoğraflar’ı açtırır.
-/// Android Chrome web: aynı accept Dosyalar/İndirilenler’e yönlendirir.
-const _trackAccept = '.gpx,.kml,.kmz';
+/// Uzantılı filtre — Fotoğraflar’ı azaltır ama Drive uzantısızını gizler.
+const _trackAcceptStrict = '.gpx,.kml,.kmz,.xml';
 
-Future<TrackPickResult?> pickTrackFiles() async {
+/// [allowAny]=true: uzantısız Drive GPX seçilebilir (içerik sniffer).
+/// iPhone’da Fotoğraflar da görünebilir — foto içerikle elenir.
+Future<TrackPickResult?> pickTrackFiles({bool allowAny = true}) async {
   final done = Completer<TrackPickResult?>();
   final input = web.HTMLInputElement()
     ..type = 'file'
-    ..multiple = true
-    ..accept = _trackAccept;
-  // Galeri/kamera tetikleyicisi olmasın.
+    ..multiple = true;
+  if (allowAny) {
+    input.removeAttribute('accept');
+  } else {
+    input.accept = _trackAcceptStrict;
+  }
   input.removeAttribute('capture');
   input.style
     ..position = 'fixed'
@@ -84,14 +89,20 @@ Future<TrackPickResult?> pickTrackFiles() async {
         continue;
       }
       final name = file.name.trim().isEmpty ? 'track_$i' : file.name;
-      if (!isAcceptableTrackFile(name: name, bytes: bytes)) {
+      final kind = detectTrackFormat(fileName: name, bytes: bytes);
+      if (kind == null) {
         wrongType++;
         if (looksLikeImageOrVideoName(name) || looksLikeImageBytes(bytes)) {
           sawMedia = true;
         }
         continue;
       }
-      out.add(PickedTrackFile(name: name, bytes: bytes));
+      out.add(
+        PickedTrackFile(
+          name: ensureTrackExtension(name, kind),
+          bytes: bytes,
+        ),
+      );
     }
     finish(
       TrackPickResult(
