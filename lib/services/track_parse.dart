@@ -8,7 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../models/map_track.dart';
 import 'geo.dart';
 
-const trackDisplayMaxPoints = 2500;
+const trackDisplayMaxPoints = 1600;
 
 bool isTrackFileName(String name) =>
     RegExp(r'\.(gpx|kml|kmz)$', caseSensitive: false).hasMatch(name);

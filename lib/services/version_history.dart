@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.46',
+    tr: 'Harita kaydır/zoom: izler pan sırasında yeniden çizilmez (RideAtlas gibi ANR yok).',
+    en: 'Map pan/zoom: tracks not rebuilt during gestures (no ANR, like RideAtlas).',
+    de: 'Karte schwenken/zoomen: Spuren nicht neu gebaut (kein ANR, wie RideAtlas).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.45',
     tr: 'GPS yeniden dene: arka planda (ANR yok); GoPro dosya sonu GPMF; tür chip’leriyle ayrı tara.',
     en: 'GPS retry: background (no ANR); GoPro end-of-file GPMF; per-kind via chips.',

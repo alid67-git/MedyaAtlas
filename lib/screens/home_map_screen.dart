@@ -3227,71 +3227,118 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
   }
 }
 
-/// Zoom’a göre kalınlaşan iz çizgisi — küçük haritada da medya pinlerinden ayrılır.
-class _TrackLinesLayer extends StatelessWidget {
+/// İz çizgileri — RideAtlas gibi pan/zoom’da yeniden kurulmaz (ANR yok).
+///
+/// [MapCamera] dinlenmez: zoom her karede tüm GPX noktalarını yeniden
+/// LatLng/Polyline yapınca Android «yanıt vermiyor» veriyordu.
+class _TrackLinesLayer extends StatefulWidget {
   const _TrackLinesLayer({required this.tracks});
 
   final List<MapTrack> tracks;
 
   @override
-  Widget build(BuildContext context) {
-    if (tracks.isEmpty) return const SizedBox.shrink();
-    final zoom = MapCamera.maybeOf(context)?.zoom ?? 3;
-    final stroke = zoom < 3.5
-        ? 11.0
-        : zoom < 5
-            ? 8.5
-            : zoom < 7
-                ? 6.0
-                : zoom < 10
-                    ? 4.5
-                    : 3.5;
-    final under = stroke + (zoom < 6 ? 4.0 : 2.5);
+  State<_TrackLinesLayer> createState() => _TrackLinesLayerState();
+}
+
+class _TrackLinesLayerState extends State<_TrackLinesLayer> {
+  List<Polyline> _polylines = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _rebuildPolylines();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrackLinesLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameTrackRefs(oldWidget.tracks, widget.tracks)) {
+      _rebuildPolylines();
+    }
+  }
+
+  bool _sameTrackRefs(List<MapTrack> a, List<MapTrack> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!identical(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  void _rebuildPolylines() {
     final polylines = <Polyline>[];
-    for (final track in tracks) {
+    for (final track in widget.tracks) {
       final pts = <LatLng>[
         for (final p in track.points)
           if (isValidGps(p.latitude, p.longitude)) p.latLng,
       ];
       if (pts.length < 2) continue;
-      // Koyu kontur — ısı lekeleri yanında turuncu iz okunur.
+      // Tek polyline + border — çift katman yerine (yarı maliyet).
       polylines.add(
         Polyline(
           points: pts,
-          strokeWidth: under,
-          color: const Color(0xE0121C28),
-        ),
-      );
-      polylines.add(
-        Polyline(
-          points: pts,
-          strokeWidth: stroke,
+          strokeWidth: 5.5,
           color: const Color(0xFFFFB020),
+          borderStrokeWidth: 3.5,
+          borderColor: const Color(0xE0121C28),
         ),
       );
     }
-    if (polylines.isEmpty) return const SizedBox.shrink();
-    return PolylineLayer(polylines: polylines);
+    _polylines = polylines;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_polylines.isEmpty) return const SizedBox.shrink();
+    return PolylineLayer(
+      polylines: _polylines,
+      cullingMargin: 28,
+      simplificationTolerance: 0.6,
+    );
   }
 }
 
-/// Her iz için orta nokta rozeti — dünya ölçeğinde bile “burada ride var”.
-class _TrackBadgeLayer extends StatelessWidget {
+/// İz rozetleri — sabit boyut; pan/zoom’da Marker listesi yeniden kurulmaz.
+class _TrackBadgeLayer extends StatefulWidget {
   const _TrackBadgeLayer({required this.tracks});
 
   final List<MapTrack> tracks;
 
   @override
-  Widget build(BuildContext context) {
-    if (tracks.isEmpty) return const SizedBox.shrink();
-    final zoom = MapCamera.maybeOf(context)?.zoom ?? 3;
-    final size = zoom < 4
-        ? 46.0
-        : zoom < 7
-            ? 38.0
-            : 30.0;
+  State<_TrackBadgeLayer> createState() => _TrackBadgeLayerState();
+}
+
+class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
+  List<Marker> _markers = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _rebuildMarkers();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrackBadgeLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameTrackRefs(oldWidget.tracks, widget.tracks)) {
+      _rebuildMarkers();
+    }
+  }
+
+  bool _sameTrackRefs(List<MapTrack> a, List<MapTrack> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!identical(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  void _rebuildMarkers() {
+    const size = 36.0;
     final markers = <Marker>[];
-    for (final track in tracks) {
+    for (final track in widget.tracks) {
       final center = _trackAnchor(track);
       if (center == null) continue;
       markers.add(
@@ -3299,30 +3346,20 @@ class _TrackBadgeLayer extends StatelessWidget {
           point: center,
           width: size,
           height: size,
-          child: DecoratedBox(
+          child: const DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0xF0FF8C12),
+              color: Color(0xF0FF8C12),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2.2),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x88000000),
-                  blurRadius: 6,
-                  offset: Offset(0, 2),
-                ),
-              ],
+              border: Border.fromBorderSide(
+                BorderSide(color: Colors.white, width: 2.2),
+              ),
             ),
-            child: Icon(
-              Icons.route,
-              color: Colors.white,
-              size: size * 0.48,
-            ),
+            child: Icon(Icons.route, color: Colors.white, size: 17),
           ),
         ),
       );
     }
-    if (markers.isEmpty) return const SizedBox.shrink();
-    return MarkerLayer(markers: markers);
+    _markers = markers;
   }
 
   LatLng? _trackAnchor(MapTrack track) {
@@ -3340,5 +3377,11 @@ class _TrackBadgeLayer extends StatelessWidget {
     ];
     if (pts.isEmpty) return null;
     return pts[pts.length ~/ 2];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_markers.isEmpty) return const SizedBox.shrink();
+    return MarkerLayer(markers: _markers);
   }
 }
