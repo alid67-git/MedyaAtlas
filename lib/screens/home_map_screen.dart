@@ -97,17 +97,54 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   /// Zorunlu/ indirme sırasında ekrandaki yüzde (null = indirmiyor).
   double? _updateDownloadProgress;
   var _updateDialogOpen = false;
+  /// APK indirme arka planda — harita kilitlenmez.
+  bool _updateDownloading = false;
 
   /// Tarama sırasında harita pinlerini dondur — ara notifyListeners NaN pin
   /// ile MarkerLayer'ı düşürmesin.
   List<LocationCluster> _mapClusters = const [];
 
+  /// Küme / filtre önbelleği (her build’de O(n²) yeniden kümeleme ANR).
+  List<LocationCluster>? _clusterCache;
+  int _clusterCacheEpoch = -1;
+  int _clusterCacheFilter = 0;
+  List<LibraryMedia>? _filteredCache;
+  int _filteredCacheEpoch = -1;
+  int _filteredCacheFilter = 0;
+  List<Marker> _markerCache = const [];
+  int _markerCacheClusterLen = -1;
+  String? _markerCacheSelectedId;
+
+  int _mapFilterSignature(TrackRepository tracks) => Object.hash(
+        Object.hashAll(_kinds.map((k) => k.index)),
+        _query,
+        _trackMediaFilter.index,
+        Object.hashAll([
+          for (final t in tracks.tracks) Object.hash(t.id, t.visible),
+        ]),
+      );
+
   List<LocationCluster> _safeClusters(MediaRepository repo) {
     try {
-      return [
+      final tracks = context.read<TrackRepository>();
+      final epoch = repo.mapEpoch;
+      final filter = _mapFilterSignature(tracks);
+      final cached = _clusterCache;
+      if (cached != null &&
+          epoch == _clusterCacheEpoch &&
+          filter == _clusterCacheFilter) {
+        return cached;
+      }
+      final built = [
         for (final c in _clustersOf(repo))
           if (c.latitude.isFinite && c.longitude.isFinite) c,
       ];
+      _clusterCache = built;
+      _clusterCacheEpoch = epoch;
+      _clusterCacheFilter = filter;
+      _markerCache = const [];
+      _markerCacheClusterLen = -1;
+      return built;
     } catch (_) {
       return const [];
     }
@@ -261,6 +298,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       return;
     }
 
+    if (_updateDownloading) {
+      if (mounted) {
+        setState(() => _status = 'Güncelleme zaten arka planda indiriliyor…');
+      }
+      return;
+    }
+
     if (info.platform == UpdatePlatform.android) {
       final installPerm = await Permission.requestInstallPackages.request();
       if (!installPerm.isGranted) {
@@ -275,32 +319,40 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
 
     if (!mounted) return;
-    _updateDialogOpen = true;
-    final progress = ValueNotifier<double>(0);
+    _updateDownloading = true;
+    _updateDialogOpen = onForceScreen;
+    var lastPct = -1;
     try {
-      if (onForceScreen) {
-        // Tam ekran yüzde — diyalog yok (GPX/RideAtlas tarzı).
-        setState(() => _updateDownloadProgress = 0);
-        progress.addListener(() {
-          if (mounted) {
-            setState(() => _updateDownloadProgress = progress.value);
-          }
-        });
-      } else {
-        showAppUpdateProgressDialog(
-          context: context,
-          progress: progress,
-          subtitle: info.assetName,
-        );
-      }
+      // Arka plan: kilitleyen diyalog yok — alt durum çubuğu + uyarı.
+      setState(() {
+        if (onForceScreen) {
+          _updateDownloadProgress = 0;
+        } else {
+          _updateDownloadProgress = null;
+          _status =
+              'Güncelleme arka planda indiriliyor… Haritayı kullanmaya devam edebilirsiniz.';
+        }
+      });
 
       final err = await downloadAndApplyUpdate(
         info,
-        onProgress: (p) => progress.value = p,
+        onProgress: (p) {
+          final pct = (p * 100).floor();
+          if (pct == lastPct) return;
+          // setState fırtınası ANR — en az %2 adım.
+          if (lastPct >= 0 && pct < 100 && pct - lastPct < 2) return;
+          lastPct = pct;
+          if (!mounted) return;
+          if (onForceScreen) {
+            setState(() => _updateDownloadProgress = p);
+          } else {
+            setState(
+              () => _status =
+                  'Güncelleme arka planda… %$pct — haritayı kullanabilirsiniz.',
+            );
+          }
+        },
       );
-      if (!onForceScreen && mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
       if (!mounted) return;
       setState(() {
         _updateDownloadProgress = null;
@@ -315,7 +367,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
       });
     } finally {
-      progress.dispose();
+      _updateDownloading = false;
       _updateDialogOpen = false;
       if (mounted && _updateDownloadProgress != null) {
         setState(() => _updateDownloadProgress = null);
@@ -1639,6 +1691,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     setState(() {
       _gpsBgRunning = true;
       _cancel = false;
+      // Pin kümesini dondur — her GPS bildiriminde yeniden kümeleme ANR.
+      _mapClusters = _safeClusters(repo);
       _status = skipped > 0
           ? 'Arka planda GPS ($kindHint): ${targets.length} · $skipped atlandı…'
           : 'Arka planda GPS ($kindHint)…';
@@ -1672,7 +1726,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 id: item.id,
                 kind: MediaKind.video,
                 persist: false,
-                notify: true,
+                notify: false,
               );
               item = item.copyWith(kind: MediaKind.video);
               reclassified++;
@@ -1819,7 +1873,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   id: item.id,
                   kind: MediaKind.gopro,
                   persist: false,
-                  notify: true,
+                  notify: false,
                 );
                 item = item.copyWith(kind: MediaKind.gopro);
               }
@@ -1843,10 +1897,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               lng: gps.longitude,
               takenAt: taken,
               persist: false,
-              notify: true,
+              notify: false,
             );
             found++;
             gotGps = true;
+            // Ara sıra pinleri yenile (her dosyada değil — ANR).
+            if (found % 8 == 0 && mounted) {
+              await repo.flush(notify: false);
+              setState(() {
+                _mapClusters = _safeClusters(repo);
+              });
+            }
           }
         } catch (_) {}
         if (_cancel) break;
@@ -2076,6 +2137,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   List<LibraryMedia> _filtered(MediaRepository repo) {
+    final tracks = context.read<TrackRepository>();
+    final epoch = repo.mapEpoch;
+    final filter = _mapFilterSignature(tracks);
+    final cached = _filteredCache;
+    if (cached != null &&
+        epoch == _filteredCacheEpoch &&
+        filter == _filteredCacheFilter) {
+      return cached;
+    }
+
     var items = repo.visibleItems.where((m) {
       if (!_kinds.contains(m.kind)) return false;
       final source = repo.sourceOf(m.sourceId);
@@ -2092,20 +2163,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         items = items.where((m) => !m.hasLocation);
         break;
       case _TrackMediaFilter.onTracks:
-        final tracks =
-            context.read<TrackRepository>().visibleTracks.toList();
-        if (tracks.isEmpty) {
+        final visible = tracks.visibleTracks.toList();
+        if (visible.isEmpty) {
           items = items.where((m) => !m.hasLocation);
         } else {
           items = items.where(
-            (m) => mediaMatchesTracks(m, tracks),
+            (m) => mediaMatchesTracks(m, visible),
           );
         }
         break;
       case _TrackMediaFilter.all:
         break;
     }
-    return items.toList();
+    final list = items.toList();
+    _filteredCache = list;
+    _filteredCacheEpoch = epoch;
+    _filteredCacheFilter = filter;
+    return list;
   }
 
   /// Harita pinleri — «iz üzerindeki» modunda GPS’siz medyayı zamana göre yerleştirir.
@@ -2338,8 +2412,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final repo = context.watch<MediaRepository>();
     final settings = context.watch<AppSettings>();
     final s = S.of(settings);
-    // Tarama sürerken dondurulmuş (sonlu) pinler; bitince taze liste.
-    final clusters = _busy ? _mapClusters : _safeClusters(repo);
+    // Tarama / arka plan GPS sürerken dondurulmuş pinler (ANR yok).
+    final clusters =
+        (_busy || _gpsBgRunning) ? _mapClusters : _safeClusters(repo);
     final missing = _missingOf(repo);
     final visible = _filtered(repo);
     final wide = MediaQuery.sizeOf(context).width >= 960;
@@ -2484,6 +2559,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ),
                 if (_busy ||
                     _gpsBgRunning ||
+                    _updateDownloading ||
                     (_status != null && _status!.isNotEmpty))
                   Positioned(
                     left: 12,
@@ -2502,6 +2578,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     right: 14,
                     bottom: (_busy ||
                             _gpsBgRunning ||
+                            _updateDownloading ||
                             (_status != null && _status!.isNotEmpty))
                         ? 78
                         : 20,
@@ -2771,7 +2848,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     required int missingCount,
   }) {
     final s = S.of(context.watch<AppSettings>());
-    final active = _busy || _gpsBgRunning;
+    final active = _busy || _gpsBgRunning || _updateDownloading;
+    final canCancel = _busy || _gpsBgRunning;
     final text = active
         ? (_status ?? 'Dosyalar aranıyor…')
         : (_status ??
@@ -2818,7 +2896,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ),
               ),
             ),
-            if (active)
+            if (canCancel)
               FilledButton(
                 onPressed: () {
                   _cancel = true;
@@ -3474,8 +3552,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     List<LocationCluster> clusters,
     MediaRepository repo,
   ) {
-    final out = <Marker>[];
     final selectedId = _panelCluster?.id;
+    if (_markerCache.isNotEmpty &&
+        _markerCacheClusterLen == clusters.length &&
+        _markerCacheSelectedId == selectedId &&
+        identical(clusters, _clusterCache)) {
+      return _markerCache;
+    }
+    final out = <Marker>[];
     // Önce ısı lekeleri, seçili foto pin en sonda → her zaman üstte.
     final ordered = [
       ...clusters.where((c) => c.id != selectedId),
@@ -3524,6 +3608,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
       }
     }
+    _markerCache = out;
+    _markerCacheClusterLen = clusters.length;
+    _markerCacheSelectedId = selectedId;
     return out;
   }
 }
@@ -3979,10 +4066,11 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
   void _rebuildPolylines() {
     final polylines = <Polyline>[];
     for (final track in widget.tracks) {
-      final pts = <LatLng>[
+      final raw = <LatLng>[
         for (final p in track.points)
           if (isValidGps(p.latitude, p.longitude)) p.latLng,
       ];
+      final pts = _downsampleTrackPoints(raw, maxPoints: 2500);
       if (pts.length < 2) continue;
       // Tek polyline + border — çift katman yerine (yarı maliyet).
       polylines.add(
@@ -3996,6 +4084,23 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
       );
     }
     _polylines = polylines;
+  }
+
+  /// Yoğun GPX — UI isolate’ta binlerce nokta ANR riski.
+  static List<LatLng> _downsampleTrackPoints(
+    List<LatLng> pts, {
+    required int maxPoints,
+  }) {
+    if (pts.length <= maxPoints) return pts;
+    final out = <LatLng>[pts.first];
+    final step = pts.length / maxPoints;
+    var cursor = step;
+    while (cursor < pts.length - 1) {
+      out.add(pts[cursor.floor()]);
+      cursor += step;
+    }
+    out.add(pts.last);
+    return out;
   }
 
   @override

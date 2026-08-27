@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.56',
+    tr: 'Güncelleme arka planda + uyarı; harita küme önbelleği / iz sadeleştirme (ANR).',
+    en: 'Background update + banner; map cluster cache / track downsample (ANR).',
+    de: 'Update im Hintergrund + Hinweis; Cluster-Cache / Track-Downsample (ANR).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.55',
     tr: 'GPS yeniden dene arka planda + rapor; GX telefon videosu (yanlış GoPro düzeltmesi); tarama hızlandı.',
     en: 'GPS retry in background + report; GX phone videos (not false GoPro); faster scan.',

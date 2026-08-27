@@ -348,6 +348,17 @@ class MediaRepository extends ChangeNotifier {
   List<LibraryMedia> get items => List.unmodifiable(_items);
   List<MediaSource> get sources => List.unmodifiable(_sources);
 
+  /// Harita küme önbelleği — öğe/kaynak görünürlüğü değişince artar.
+  int _mapEpoch = 0;
+  int get mapEpoch => _mapEpoch;
+
+  void _bumpMapEpoch() => _mapEpoch++;
+
+  void _notifyMapChanged() {
+    _bumpMapEpoch();
+    notifyListeners();
+  }
+
   Set<String> get hiddenSourceIds =>
       _sources.where((s) => s.hidden).map((s) => s.id).toSet();
 
@@ -383,7 +394,10 @@ class MediaRepository extends ChangeNotifier {
         changed = true;
       }
     }
-    if (changed && notify) notifyListeners();
+    if (changed && notify) {
+      _bumpMapEpoch();
+      notifyListeners();
+    }
     return changed;
   }
 
@@ -515,7 +529,7 @@ class MediaRepository extends ChangeNotifier {
             _sources[i] = s.copyWith(label: label, rootPath: normalizedRoot);
             await _persistSources();
             refreshMountStates(notify: false);
-            notifyListeners();
+            _notifyMapChanged();
             return _sources[i];
           }
           return s;
@@ -531,7 +545,7 @@ class MediaRepository extends ChangeNotifier {
             _sources[i] = s.copyWith(rootPath: normalizedRoot, label: label);
             await _persistSources();
             refreshMountStates(notify: false);
-            notifyListeners();
+            _notifyMapChanged();
             return _sources[i];
           }
           return s;
@@ -555,7 +569,7 @@ class MediaRepository extends ChangeNotifier {
     _sources.add(source);
     await _persistSources();
     refreshMountStates(notify: false);
-    notifyListeners();
+    _notifyMapChanged();
     return source;
   }
 
@@ -564,7 +578,7 @@ class MediaRepository extends ChangeNotifier {
     if (i < 0) return;
     _sources[i] = _sources[i].copyWith(hidden: hidden);
     await _persistSources();
-    notifyListeners();
+    _notifyMapChanged();
   }
 
   Future<void> removeSource(String id) async {
@@ -580,7 +594,7 @@ class MediaRepository extends ChangeNotifier {
     }
     await _persistIndex();
     await _persistSources();
-    notifyListeners();
+    _notifyMapChanged();
   }
 
   LibraryMedia? findByIndex({
@@ -668,7 +682,7 @@ class MediaRepository extends ChangeNotifier {
       await _persistIndex();
     }
     if (notify) {
-      notifyListeners();
+      _notifyMapChanged();
     }
     return media;
   }
@@ -704,6 +718,8 @@ class MediaRepository extends ChangeNotifier {
             locationMissing: true,
           );
     _itemJsonCache.remove(id);
+    // Konum değişti — harita önbelleği her zaman geçersiz.
+    _bumpMapEpoch();
     if (persist) {
       await _persistIndex();
     }
@@ -723,6 +739,7 @@ class MediaRepository extends ChangeNotifier {
     if (_items[i].kind == kind) return;
     _items[i] = _items[i].copyWith(kind: kind);
     _itemJsonCache.remove(id);
+    _bumpMapEpoch();
     if (persist) await _persistIndex();
     if (notify) notifyListeners();
   }
@@ -793,7 +810,7 @@ class MediaRepository extends ChangeNotifier {
 
   Future<void> flush({bool notify = true}) async {
     await _persistIndex();
-    if (notify) notifyListeners();
+    if (notify) _notifyMapChanged();
   }
 
   Future<void> remove(String id) async {
@@ -803,6 +820,6 @@ class MediaRepository extends ChangeNotifier {
     await _persistIndex();
     await _bytesBox?.delete(id);
     await _deletePayload(id);
-    notifyListeners();
+    _notifyMapChanged();
   }
 }
