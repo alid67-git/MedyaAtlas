@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.48',
+    tr: 'İz üstü medya: 2.5 km + segment; zaman (±2s) ile GPS’siz GoPro yerleştirilir.',
+    en: 'On-track media: 2.5 km + segments; time (±2h) places GPS-less GoPros.',
+    de: 'Medien auf Spur: 2,5 km + Segmente; Zeit (±2h) platziert GoPros ohne GPS.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.47',
     tr: 'İz kutusu=harita; Tümü yeterli; küçük net pinler; iz üzerindeki / gizle medya.',
     en: 'Track checkbox=map; All only; smaller pins; media on-track / hide filters.',
