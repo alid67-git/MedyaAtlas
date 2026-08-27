@@ -8,12 +8,9 @@ import 'track_file_types.dart';
 
 export 'track_file_types.dart';
 
-/// Safari-safe track picker. Document accept + content sniff for odd names.
-const _trackAccept = '.gpx,.kml,.kmz,.xml,'
-    'application/gpx+xml,'
-    'application/vnd.google-earth.kml+xml,'
-    'application/vnd.google-earth.kmz,'
-    'application/xml,text/xml,application/octet-stream';
+/// iPhone Safari: yalnızca uzantı — MIME/octet-stream Fotoğraflar’ı açtırır.
+/// Android Chrome web: aynı accept Dosyalar/İndirilenler’e yönlendirir.
+const _trackAccept = '.gpx,.kml,.kmz';
 
 Future<TrackPickResult?> pickTrackFiles() async {
   final done = Completer<TrackPickResult?>();
@@ -21,6 +18,8 @@ Future<TrackPickResult?> pickTrackFiles() async {
     ..type = 'file'
     ..multiple = true
     ..accept = _trackAccept;
+  // Galeri/kamera tetikleyicisi olmasın.
+  input.removeAttribute('capture');
   input.style
     ..position = 'fixed'
     ..left = '0'
@@ -46,12 +45,10 @@ Future<TrackPickResult?> pickTrackFiles() async {
   Future<Uint8List?> readFile(web.File file) async {
     try {
       if (file.size > trackFileMaxBytes) return null;
-      // Küçük dosya: tek seferde.
       if (file.size <= 32 * 1024 * 1024) {
         final buffer = await file.arrayBuffer().toDart;
         return buffer.toDart.asUint8List();
       }
-      // Büyük dosya: dilimli oku (iPhone’da tek arrayBuffer OOM verebilir).
       final out = BytesBuilder(copy: false);
       const chunk = 4 * 1024 * 1024;
       var offset = 0;
@@ -73,6 +70,7 @@ Future<TrackPickResult?> pickTrackFiles() async {
     var wrongType = 0;
     var unreadable = 0;
     var tooLarge = 0;
+    var sawMedia = false;
     for (var i = 0; i < list.length; i++) {
       final file = list.item(i);
       if (file == null) continue;
@@ -85,9 +83,12 @@ Future<TrackPickResult?> pickTrackFiles() async {
         unreadable++;
         continue;
       }
-      final name = file.name.trim().isEmpty ? 'track_$i.gpx' : file.name;
+      final name = file.name.trim().isEmpty ? 'track_$i' : file.name;
       if (!isAcceptableTrackFile(name: name, bytes: bytes)) {
         wrongType++;
+        if (looksLikeImageOrVideoName(name) || looksLikeImageBytes(bytes)) {
+          sawMedia = true;
+        }
         continue;
       }
       out.add(PickedTrackFile(name: name, bytes: bytes));
@@ -98,6 +99,7 @@ Future<TrackPickResult?> pickTrackFiles() async {
         skippedWrongType: wrongType,
         skippedUnreadable: unreadable,
         skippedTooLarge: tooLarge,
+        skippedSawMedia: sawMedia,
       ),
     );
   }

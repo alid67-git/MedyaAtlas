@@ -14,3 +14,11 @@ bool get hostIsDesktop =>
     (defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.macOS);
+
+/// iPhone / iPad Safari (PWA dahil) — Flutter web `defaultTargetPlatform` iOS olur.
+bool get hostIsAppleWeb =>
+    kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+/// Mobil telefon UI: native Android/iOS veya iPhone web.
+bool get hostIsPhoneUi =>
+    hostIsAndroid || hostIsIOS || hostIsAppleWeb;
