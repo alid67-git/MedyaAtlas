@@ -610,6 +610,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _importGoogleDrive() async {
+    if (hostIsAndroid && !hasGoogleServerClientId) {
+      setState(() => _status = googleDriveConfigHelp);
+      return;
+    }
     setState(() {
       _beginBusy();
       _status = 'Google Drive’a bağlanılıyor…';
@@ -629,7 +633,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       );
       if (!mounted) return;
       if (picked.items.isEmpty) {
-        setState(() => _status = 'Drive’da foto/video bulunamadı.');
+        setState(
+          () => _status =
+              'Drive’da foto/video yok. '
+              'Google Fotoğraflar için «Tüm telefon» kullanın.',
+        );
         return;
       }
       final repo = context.read<MediaRepository>();
@@ -2414,19 +2422,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 setState(_closeMenus);
                 _importGoogleDrive();
               },
-        child: const Text('Google Drive'),
+        child: const Text('Google Drive (dosya)'),
       ),
     ];
 
     final emptyHint = hostIsAndroid
-        ? 'Medya: Klasör, Galeri (foto/video) veya Tüm telefon. '
-              'GPX için üstteki rota (İzler) ikonu — Galeri değil.'
+        ? 'Google Foto medyası telefonda: Tüm telefon / Galeri. '
+              'Drive = drive.google.com dosyaları (Fotoğraflar değil). '
+              'GPX: üstteki rota (İzler) ikonu.'
         : (hostIsAppleWeb || hostIsIOS)
-        ? 'Medya: Galeri (foto/video) veya Google Drive. '
-              'GPX için üstteki rota (İzler) → Dosyalar uygulaması.'
+        ? 'Medya: Galeri veya Drive dosyaları. Google Foto bulutu ayrıdır. '
+              'GPX: rota ikonu → Dosyalar.'
         : (_isDesktop
-              ? 'Medya: Klasör veya Google Drive. GPX için üstteki rota ikonu.'
-              : 'Medya: Galeri veya Google Drive. GPX için üstteki rota ikonu.');
+              ? 'Medya: Klasör veya Drive dosyaları. GPX: rota ikonu.'
+              : 'Medya: Galeri veya Drive dosyaları. GPX: rota ikonu.');
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 340),

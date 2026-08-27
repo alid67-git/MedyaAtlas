@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.49',
+    tr: 'Drive ≠ Google Foto netleştirildi; OAuth yoksa kısa yardım; Foto için Tüm telefon.',
+    en: 'Clarify Drive ≠ Google Photos; short OAuth help; use Whole phone for Photos.',
+    de: 'Drive ≠ Google Fotos klar; kurze OAuth-Hilfe; Fotos = Ganzes Telefon.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.48',
     tr: 'İz üstü medya: 2.5 km + segment; zaman (±2s) ile GPS’siz GoPro yerleştirilir.',
     en: 'On-track media: 2.5 km + segments; time (±2h) places GPS-less GoPros.',
