@@ -224,29 +224,87 @@ MapTrack? parseTrackBytes({
   required Uint8List bytes,
   String sourceId = 'rides',
 }) {
-  final lower = fileName.toLowerCase();
+  final kind = detectTrackFormat(fileName: fileName, bytes: bytes);
+  if (kind == null) return null;
+  final displayName = ensureTrackExtension(fileName, kind);
   try {
-    if (lower.endsWith('.gpx')) {
-      return parseGpxText(
-        utf8.decode(bytes, allowMalformed: true),
-        name: fileName,
-        sourceId: sourceId,
-      );
-    }
-    if (lower.endsWith('.kml')) {
-      return parseKmlText(
-        utf8.decode(bytes, allowMalformed: true),
-        name: fileName,
-        sourceId: sourceId,
-      );
-    }
-    if (lower.endsWith('.kmz')) {
-      final kml = kmlTextFromKmzBytes(bytes);
-      if (kml == null) return null;
-      return parseKmlText(kml, name: fileName, sourceId: sourceId);
+    switch (kind) {
+      case TrackFormat.gpx:
+        return parseGpxText(
+          utf8.decode(bytes, allowMalformed: true),
+          name: displayName,
+          sourceId: sourceId,
+        );
+      case TrackFormat.kml:
+        return parseKmlText(
+          utf8.decode(bytes, allowMalformed: true),
+          name: displayName,
+          sourceId: sourceId,
+        );
+      case TrackFormat.kmz:
+        final kml = kmlTextFromKmzBytes(bytes);
+        if (kml == null) return null;
+        return parseKmlText(kml, name: displayName, sourceId: sourceId);
     }
   } catch (_) {
     return null;
   }
+}
+
+/// Dosya uzantısı veya içerik — Drive’da uzantısız GPX’ler için.
+enum TrackFormat { gpx, kml, kmz }
+
+TrackFormat? detectTrackFormat({
+  required String fileName,
+  required List<int> bytes,
+}) {
+  final lower = fileName.toLowerCase();
+  if (lower.endsWith('.gpx')) return TrackFormat.gpx;
+  if (lower.endsWith('.kml')) return TrackFormat.kml;
+  if (lower.endsWith('.kmz')) return TrackFormat.kmz;
+  if (bytes.isEmpty) return null;
+  // KMZ = zip
+  if (bytes.length >= 4 &&
+      bytes[0] == 0x50 &&
+      bytes[1] == 0x4b &&
+      (bytes[2] == 0x03 || bytes[2] == 0x05 || bytes[2] == 0x07)) {
+    return TrackFormat.kmz;
+  }
+  final n = bytes.length < 4096 ? bytes.length : 4096;
+  var head = utf8.decode(bytes.sublist(0, n), allowMalformed: true);
+  if (head.isNotEmpty && head.codeUnitAt(0) == 0xfeff) {
+    head = head.substring(1);
+  }
+  final low = head.toLowerCase();
+  if (low.contains('<gpx') ||
+      low.contains('topografix.com/gpx') ||
+      low.contains('<trkpt') ||
+      low.contains('<rtept') ||
+      low.contains(':trkpt') ||
+      low.contains(':rtept')) {
+    return TrackFormat.gpx;
+  }
+  if (low.contains('<kml') ||
+      low.contains('http://www.opengis.net/kml') ||
+      low.contains('<placemark') ||
+      low.contains('<linestring') ||
+      low.contains('<gx:track')) {
+    return TrackFormat.kml;
+  }
   return null;
+}
+
+String ensureTrackExtension(String fileName, TrackFormat kind) {
+  final base = trackFileDisplayName(fileName);
+  final lower = base.toLowerCase();
+  final ext = switch (kind) {
+    TrackFormat.gpx => '.gpx',
+    TrackFormat.kml => '.kml',
+    TrackFormat.kmz => '.kmz',
+  };
+  if (lower.endsWith(ext)) return base;
+  if (RegExp(r'\.(gpx|kml|kmz)$', caseSensitive: false).hasMatch(base)) {
+    return base;
+  }
+  return '$base$ext';
 }
