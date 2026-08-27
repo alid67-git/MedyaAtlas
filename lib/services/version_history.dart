@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.51',
+    tr: 'Android: telefon videoları content URI ile uygulama içinde; codec olmazsa sistem oynatıcı.',
+    en: 'Android: play phone videos in-app via content URI; system player if codec fails.',
+    de: 'Android: Telefonvideos per content URI in-App; Systemplayer bei Codec-Fehler.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.50',
     tr: 'Çoklu GPX; seçici already_active düzeltmesi; izler haritada adım adım; yinelenen rota uyarısı 1 sn.',
     en: 'Multi GPX; fix picker already_active; progressive map add; 1s duplicate toast.',

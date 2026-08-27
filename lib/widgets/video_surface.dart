@@ -62,29 +62,36 @@ class _VideoThumbState extends State<VideoThumb> {
   }
 
   Future<void> _open() async {
-    var path = widget.path;
-    // blob: URL'ler sekmeye özeldir — eski oturumdan kalma bir blob: yolu
-    // şekli hâlâ geçerli görünür, gerçekte ölüdür. Her zaman resolveUrl ile
-    // (mevcut oturumdan) doğrula/tazele.
-    if ((path == null ||
-            path.isEmpty ||
-            (kIsWeb && (!isWebPlayableUrl(path) || path.startsWith('blob:')))) &&
-        widget.resolveUrl != null) {
-      path = await widget.resolveUrl!();
+    // resolveUrl varsa önce onu dene (Android content://; web canlı blob).
+    String? primary = widget.path;
+    if (widget.resolveUrl != null) {
+      if (primary == null ||
+          primary.isEmpty ||
+          !kIsWeb ||
+          !isWebPlayableUrl(primary) ||
+          primary.startsWith('blob:')) {
+        final resolved = await widget.resolveUrl!();
+        if (resolved != null && resolved.isNotEmpty) {
+          primary = resolved;
+        }
+      }
     }
-    if (path == null ||
-        path.isEmpty ||
-        (kIsWeb && !isWebPlayableUrl(path))) {
+    if (primary == null ||
+        primary.isEmpty ||
+        (kIsWeb && !isWebPlayableUrl(primary))) {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final controller = await openVideoFileController(path);
+    final fallback = widget.path;
+    final controller = await openVideoControllerWithFallback(
+      primary: primary,
+      fallbackPath: fallback,
+    );
     if (controller == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
     try {
-      await controller.initialize();
       await controller.setVolume(0);
       await controller.pause();
       if (!mounted) {
@@ -187,7 +194,10 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   String? _status;
   var _loading = true;
   var _openedExternal = false;
+  /// Uygulama içi denenen birincil kaynak (content:// veya blob/path).
   String? _resolvedPath;
+  /// Sistem oynatıcı için dosya yolu (content:// değil).
+  String? _externalOpenPath;
 
   bool get _windowsExternalFirst =>
       widget.preferExternal && hostIsWindows;
@@ -208,6 +218,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       _loading = true;
       _openedExternal = false;
       _resolvedPath = null;
+      _externalOpenPath = null;
       _start();
     }
   }
@@ -216,8 +227,8 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
     // Web: önce uygulama içi player (blob). Safari popup async jest’te
     // engellenir; «Safari’de aç» yedek kalsın. Windows GoPro/DJI: dış oynatıcı.
     if (_windowsExternalFirst) {
-      final path = await _effectivePath();
-      if (path != null && path.isNotEmpty) {
+      await _resolveSources();
+      if ((_externalOpenPath ?? _resolvedPath) != null) {
         await _openExternally();
       }
       if (mounted) {
@@ -233,23 +244,45 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
     await _openInApp();
   }
 
-  Future<String?> _effectivePath() async {
-    var path = widget.path;
-    // blob: URL'ler sekmeye özeldir — eski oturumdan kalma bir blob: yolu
-    // şekli hâlâ geçerli görünür, gerçekte ölüdür. Her zaman resolveUrl ile
-    // (mevcut oturumdan) doğrula/tazele.
-    if ((path == null ||
-            path.isEmpty ||
-            (kIsWeb && (!isWebPlayableUrl(path) || path.startsWith('blob:')))) &&
-        widget.resolveUrl != null) {
-      path = await widget.resolveUrl!();
+  /// Android: resolveUrl → MediaStore content:// (file path’ten güvenilir).
+  /// Web: canlı blob. Widget.path her zaman yedek / dış oynatıcı.
+  Future<void> _resolveSources() async {
+    final filePath = widget.path;
+    if (filePath != null &&
+        filePath.isNotEmpty &&
+        !filePath.startsWith('content://') &&
+        !(kIsWeb && filePath.startsWith('blob:'))) {
+      _externalOpenPath = filePath;
     }
-    _resolvedPath = path;
-    return path;
+
+    String? primary = filePath;
+    if (widget.resolveUrl != null) {
+      // Android telefon medyası: localPath dolu olsa bile content URI dene.
+      // Web: blob ölü olabilir — her zaman tazele.
+      if (!kIsWeb ||
+          primary == null ||
+          primary.isEmpty ||
+          !isWebPlayableUrl(primary) ||
+          primary.startsWith('blob:')) {
+        try {
+          final resolved = await widget.resolveUrl!();
+          if (resolved != null && resolved.isNotEmpty) {
+            primary = resolved;
+          }
+        } catch (_) {}
+      }
+    }
+    _resolvedPath = primary;
+    if (_externalOpenPath == null &&
+        primary != null &&
+        !primary.startsWith('content://')) {
+      _externalOpenPath = primary;
+    }
   }
 
   Future<void> _openInApp() async {
-    final path = await _effectivePath();
+    await _resolveSources();
+    final path = _resolvedPath;
     if (path == null ||
         path.isEmpty ||
         (kIsWeb && !isWebPlayableUrl(path))) {
@@ -263,19 +296,32 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       }
       return;
     }
-    final controller = await openVideoFileController(path);
+
+    final controller = await openVideoControllerWithFallback(
+      primary: path,
+      fallbackPath: widget.path,
+    );
     if (controller == null) {
+      // Codec / erişim: sistem oynatıcıya düş (dosya yolu tercih).
+      await _openExternally();
       if (mounted) {
         setState(() {
           _loading = false;
-          _status = 'Dosya bulunamadı:\n$path';
+          _status = _openedExternal
+              ? (kIsWeb
+                  ? 'Safari’de açıldı (HEVC / GoPro).'
+                  : hostIsAndroid
+                      ? 'Uygulama içi oynatılamadı; telefon oynatıcısında açıldı.'
+                      : 'Sistem oynatıcısında açıldı.')
+              : (kIsWeb
+                  ? 'Uygulama içi oynatılamadı. «Safari’de aç» deneyin.'
+                  : 'Video açılamadı.');
         });
       }
       return;
     }
 
     try {
-      await controller.initialize();
       await controller.setLooping(true);
       if (!mounted) {
         await controller.dispose();
@@ -292,7 +338,6 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       await controller.play();
     } catch (_) {
       await controller.dispose();
-      // Codec (HEVC vb.) uygulama içinde yoksa telefon/sistem/Safari’ye düş.
       await _openExternally();
       if (mounted) {
         setState(() {
@@ -301,7 +346,7 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
               ? (kIsWeb
                   ? 'Safari’de açıldı (HEVC / GoPro).'
                   : hostIsAndroid
-                      ? 'Telefon oynatıcısında açıldı.'
+                      ? 'Uygulama içi oynatılamadı; telefon oynatıcısında açıldı.'
                       : 'Sistem oynatıcısında açıldı.')
               : (kIsWeb
                   ? 'Uygulama içi oynatılamadı. «Safari’de aç» deneyin.'
@@ -335,7 +380,8 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   }
 
   Future<void> _openExternally() async {
-    final path = _resolvedPath ?? widget.path;
+    // Sistem oynatıcı: dosya yolu; yoksa content:// / blob.
+    final path = _externalOpenPath ?? _resolvedPath ?? widget.path;
     if (path == null || path.isEmpty) return;
     try {
       if (kIsWeb && isWebPlayableUrl(path)) {

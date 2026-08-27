@@ -362,6 +362,17 @@ Future<Uint8List> _readFileRange(File file, int start, int length) async {
   }
 }
 
+/// Oynatma için MediaStore content URI (file path’ten daha güvenilir).
+Future<String?> phoneAssetPlayableUri(String assetId) async {
+  try {
+    final asset = await AssetEntity.fromId(assetId);
+    if (asset == null) return null;
+    final url = await asset.getMediaUrl();
+    if (url != null && url.isNotEmpty) return url;
+  } catch (_) {}
+  return null;
+}
+
 String _assetFileName(AssetEntity asset) {
   var title = (asset.title ?? '').trim();
   if (title.isEmpty) title = 'media_${asset.id}';

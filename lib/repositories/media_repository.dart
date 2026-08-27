@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/library_media.dart';
+import '../services/android_media_scan.dart';
 import '../services/geo.dart';
 import '../services/volume_mount.dart';
 import '../services/web_media_session.dart';
@@ -395,13 +396,22 @@ class MediaRepository extends ChangeNotifier {
     await _payloadBox?.delete(id);
   }
 
-  /// Oynatma: yerel yol, canlı blob veya web oturum File → lazy blob.
+  /// Oynatma: Android telefon medyasında content URI; yoksa yerel yol / web blob.
   Future<String?> resolvePlayableUrl(LibraryMedia item) async {
-    final path = item.localPath;
     if (!kIsWeb) {
+      // MediaStore content:// — file path’e göre ExoPlayer’da daha az hata.
+      final phoneId = phoneAssetIdFromRelativePath(item.relativePath);
+      if (phoneId != null) {
+        try {
+          final uri = await phoneAssetPlayableUri(phoneId);
+          if (uri != null && uri.isNotEmpty) return uri;
+        } catch (_) {}
+      }
+      final path = item.localPath;
       if (path != null && path.isNotEmpty) return path;
       return null;
     }
+    final path = item.localPath;
     // Önce bu oturumun File’ından taze blob.
     final fromSession = webSessionBlobUrl(item.name, item.sizeBytes ?? 0);
     if (fromSession != null) return fromSession;

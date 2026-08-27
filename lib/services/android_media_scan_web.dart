@@ -57,6 +57,8 @@ Future<
 }) async =>
     (lat: null, lng: null, path: null, head: null, tail: null);
 
+Future<String?> phoneAssetPlayableUri(String assetId) async => null;
+
 Future<Uint8List?> phoneAssetThumbnailBytes(
   String assetId, {
   int size = 360,
