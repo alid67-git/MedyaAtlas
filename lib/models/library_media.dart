@@ -64,6 +64,7 @@ class LibraryMedia {
   LatLng? get latLng => hasLocation ? LatLng(lat!, lng!) : null;
 
   LibraryMedia copyWith({
+    MediaKind? kind,
     double? lat,
     double? lng,
     DateTime? takenAt,
@@ -77,7 +78,7 @@ class LibraryMedia {
         id: id,
         name: name,
         addedAt: addedAt,
-        kind: kind,
+        kind: kind ?? this.kind,
         sourceId: sourceId,
         relativePath: relativePath,
         lat: clearLocation ? null : (lat ?? this.lat),

@@ -15,6 +15,10 @@ const videoGpsScanBytes = 24 * 1024 * 1024;
 /// GoPro `moov`/GPMF sıkça sonda — kuyruk taraması.
 const videoGpsTailBytes = 16 * 1024 * 1024;
 
+/// Telefon videosu / şüpheli GX: önce küçük sonda ara (hız).
+const videoGpsLightHeadBytes = 2 * 1024 * 1024;
+const videoGpsLightTailBytes = 2 * 1024 * 1024;
+
 /// Bu boyuttan büyük tamponlarda GPMF/ASCII ayrı isolate’ta (ANR önlemi).
 const _gpsIsolateThreshold = 256 * 1024;
 

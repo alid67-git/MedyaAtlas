@@ -40,6 +40,20 @@ LatLng? extractGpmfGps(Uint8List data) {
   return null;
 }
 
+/// Dosyada GoPro telemetri (GPMF/DEVC) imzası var mı — hızlı tarama.
+bool containsGpmfSignature(Uint8List data) {
+  if (data.length < 8) return false;
+  for (var i = 0; i + 4 <= data.length; i += 4) {
+    if (_fourCcEquals(data, i, 'GPMF') ||
+        _fourCcEquals(data, i, 'DEVC') ||
+        _fourCcEquals(data, i, 'GPS5') ||
+        _fourCcEquals(data, i, 'GPS9')) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool _fourCcEquals(Uint8List data, int i, String cc) {
   if (i + 4 > data.length) return false;
   return data[i] == cc.codeUnitAt(0) &&

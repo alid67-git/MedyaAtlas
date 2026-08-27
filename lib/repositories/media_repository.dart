@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../models/library_media.dart';
 import '../services/android_media_scan.dart';
 import '../services/geo.dart';
+import '../services/media_kind.dart';
 import '../services/volume_mount.dart';
 import '../services/web_media_session.dart';
 
@@ -17,8 +18,9 @@ const _payloadBoxName = 'medyaatlas_media_payload';
 const _sourcesBoxName = 'medyaatlas_sources';
 const _indexKey = 'index';
 const _gpsDeepAlgoKey = 'gps_deep_algo';
-/// GoPro kuyruk + isolate tarayıcı — eski «denenmiş» bayrağını bir kez temizle.
-const _gpsDeepAlgoVersion = '3';
+/// Hafif GPS + telefon GX yanlış GoPro düzeltmesi — eski «denenmiş» bayrağını temizle.
+const _gpsDeepAlgoVersion = '4';
+const _phoneWeakGoproKey = 'phone_weak_gopro_v1';
 const gallerySourceId = 'gallery';
 const phoneSourceId = 'phone_all';
 const favoritesSourceId = 'favorites';
@@ -107,6 +109,7 @@ class MediaRepository extends ChangeNotifier {
       if (mergedPhone) await _persistIndex();
     }
     await _migrateGpsDeepAlgoIfNeeded();
+    await _migratePhoneWeakGoproKinds();
     refreshMountStates(notify: false);
     _ready = true;
     notifyListeners();
@@ -122,6 +125,26 @@ class MediaRepository extends ChangeNotifier {
       MediaKind.video,
     }, persist: true);
     await box.put(_gpsDeepAlgoKey, _gpsDeepAlgoVersion);
+  }
+
+  /// Telefon kütüphanesinde GX/GH… isimleri GoPro değildi — video’ya çevir.
+  Future<void> _migratePhoneWeakGoproKinds() async {
+    final box = _indexBox;
+    if (box == null) return;
+    if (box.get(_phoneWeakGoproKey) == '1') return;
+    var changed = false;
+    for (var i = 0; i < _items.length; i++) {
+      final m = _items[i];
+      if (m.kind != MediaKind.gopro) continue;
+      if (!isPhoneAllSourceId(m.sourceId)) continue;
+      final next = detectKind(m.name, phoneLibrary: true);
+      if (next != MediaKind.video) continue;
+      _items[i] = m.copyWith(kind: MediaKind.video);
+      _itemJsonCache.remove(m.id);
+      changed = true;
+    }
+    if (changed) await _persistIndex();
+    await box.put(_phoneWeakGoproKey, '1');
   }
 
   /// «Telefon (tümü)» / rastgele UUID → tek [phoneSourceId]; çift satırları sil.
@@ -687,6 +710,21 @@ class MediaRepository extends ChangeNotifier {
     if (notify) {
       notifyListeners();
     }
+  }
+
+  Future<void> updateKind({
+    required String id,
+    required MediaKind kind,
+    bool persist = false,
+    bool notify = false,
+  }) async {
+    final i = _items.indexWhere((m) => m.id == id);
+    if (i < 0) return;
+    if (_items[i].kind == kind) return;
+    _items[i] = _items[i].copyWith(kind: kind);
+    _itemJsonCache.remove(id);
+    if (persist) await _persistIndex();
+    if (notify) notifyListeners();
   }
 
   /// Derin GPS denemesi bitti (bulunamadı) — sonraki «yeniden dene» atlansın.

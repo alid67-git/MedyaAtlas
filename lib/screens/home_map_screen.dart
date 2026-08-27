@@ -38,6 +38,7 @@ import '../services/search_text.dart';
 import '../services/track_file_pick.dart';
 import '../services/track_parse.dart';
 import '../services/track_media_match.dart';
+import '../services/gpmf_gps.dart';
 import '../services/video_gps.dart';
 import '../services/video_preview.dart';
 import '../services/photo_orient.dart';
@@ -72,6 +73,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   final _map = MapController();
   final _picker = ImagePicker();
   bool _busy = false;
+  /// GPS yeniden dene — harita/menü kilitlenmez; bitince rapor.
+  bool _gpsBgRunning = false;
   bool _cancel = false;
   bool _dropping = false;
   bool _locating = false;
@@ -510,8 +513,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     for (var i = 0; i < files.length; i++) {
       if (_cancel) break;
       final file = files[i];
+      final phoneLib = _isPhoneBulkSource(source);
       final kind =
-          detectKind(file.name) ??
+          detectKind(file.name, phoneLibrary: phoneLib) ??
           (file.isVideo ? MediaKind.video : MediaKind.photo);
       final rel = file.relativePath ?? file.name;
       try {
@@ -1226,7 +1230,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         continue;
       }
       final kind =
-          detectKind(file.name) ??
+          detectKind(file.name, phoneLibrary: _isPhoneBulkSource(source)) ??
           (file.isVideo ? MediaKind.video : MediaKind.photo);
       final needsDeepGps = kind == MediaKind.gopro || kind == MediaKind.drone;
       final videoLimit = needsDeepGps ? videoLimitGps : videoLimitGeneric;
@@ -1244,6 +1248,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
         if (existing != null) {
           var located = existing.hasLocation;
+          if (existing.kind != kind &&
+              _isPhoneBulkSource(source) &&
+              kind == MediaKind.video &&
+              existing.kind == MediaKind.gopro) {
+            await repo.updateKind(
+              id: existing.id,
+              kind: MediaKind.video,
+              persist: false,
+              notify: false,
+            );
+          }
           // Web: aynı oturumda yeni blob URL’yi kaydet (önizleme için).
           if (ephemeralWeb &&
               isWebPlayableUrl(file.localPath) &&
@@ -1594,6 +1609,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _retryMissingGps({bool forceAll = false}) async {
+    if (_busy || _gpsBgRunning) return;
     final repo = context.read<MediaRepository>();
     final allMissing = _missingOf(repo);
     if (allMissing.isEmpty) return;
@@ -1621,54 +1637,83 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         k: targets.where((m) => m.kind == k).length,
     });
     setState(() {
-      _beginBusy();
+      _gpsBgRunning = true;
+      _cancel = false;
       _status = skipped > 0
-          ? 'GPS yeniden ($kindHint): ${targets.length} · $skipped atlandı…'
-          : 'GPS yeniden ($kindHint)…';
+          ? 'Arka planda GPS ($kindHint): ${targets.length} · $skipped atlandı…'
+          : 'Arka planda GPS ($kindHint)…';
     });
     var found = 0;
     var checked = 0;
+    var reclassified = 0;
     try {
       for (var i = 0; i < targets.length; i++) {
         if (_cancel) break;
-        final item = targets[i];
-        // UI’ye nefes — ANR / «yanıt vermiyor» önlemi.
+        var item = targets[i];
+        // UI’ye nefes — harita / menü boyansın.
         await Future<void>.delayed(Duration.zero);
         if (mounted) {
           setState(
             () => _status =
                 'GPS ${_kindTitle(item.kind)}: ${i + 1}/${targets.length} · $found bulundu'
-                '${skipped > 0 ? ' · $skipped atlandı' : ''}',
+                '${skipped > 0 ? ' · $skipped atlandı' : ''}'
+                ' · arka plan',
           );
         }
         var gotGps = false;
         var couldRead = false;
         try {
+          // Telefon + zayıf GX/GH adı → GoPro değil, telefon videosu.
+          final phoneLib = isPhoneAllSourceId(item.sourceId);
+          if (phoneLib && item.kind == MediaKind.gopro) {
+            final byName = detectKind(item.name, phoneLibrary: true);
+            if (byName == MediaKind.video) {
+              await repo.updateKind(
+                id: item.id,
+                kind: MediaKind.video,
+                persist: false,
+                notify: true,
+              );
+              item = item.copyWith(kind: MediaKind.video);
+              reclassified++;
+            }
+          }
+
           LatLng? gps;
           DateTime? taken;
-          // Yeniden dene: tüm videolarda baş+kuyruk (GoPro GPMF sonda).
-          final needsDeep = item.kind != MediaKind.photo;
+          final isPhoto = item.kind == MediaKind.photo;
+          // Telefon videosu: hafif baş+kuyruk. Gerçek GoPro/DJI: derin.
+          final lightVideo = !isPhoto && item.kind == MediaKind.video;
+          final headLimit = isPhoto
+              ? photoHeadBytes
+              : (lightVideo ? videoGpsLightHeadBytes : videoGpsScanBytes);
+          final tailLimit = isPhoto
+              ? 0
+              : (lightVideo ? videoGpsLightTailBytes : videoGpsTailBytes);
           final phoneId = phoneAssetIdFromRelativePath(item.relativePath);
+          Uint8List? head;
+          Uint8List? tail;
+          String? path = item.localPath;
+
           if (phoneId != null && hostIsAndroid) {
             final got = await readPhoneAssetGpsDeep(
               assetId: phoneId,
-              isPhoto: item.kind == MediaKind.photo,
-              headLimit: item.kind == MediaKind.photo
-                  ? photoHeadBytes
-                  : videoGpsScanBytes,
-              tailLimit: needsDeep ? videoGpsTailBytes : 0,
+              isPhoto: isPhoto,
+              headLimit: headLimit,
+              tailLimit: tailLimit,
             );
             checked++;
-            couldRead = (got.head != null && got.head!.isNotEmpty) ||
-                (got.tail != null && got.tail!.isNotEmpty) ||
-                (got.path != null && got.path!.isNotEmpty) ||
+            head = got.head;
+            tail = got.tail;
+            path = got.path ?? path;
+            couldRead = (head != null && head.isNotEmpty) ||
+                (tail != null && tail.isNotEmpty) ||
+                (path != null && path.isNotEmpty) ||
                 (got.lat != null && got.lng != null);
             if (got.lat != null && got.lng != null) {
               gps = latLngOrNull(got.lat, got.lng);
             }
-            final path = got.path ?? item.localPath;
-            if (gps == null && item.kind == MediaKind.photo) {
-              final head = got.head;
+            if (gps == null && isPhoto) {
               if (head != null && head.isNotEmpty) {
                 gps = await extractExifGps(head);
                 taken = await extractExifTakenAt(head);
@@ -1676,26 +1721,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             } else if (gps == null) {
               gps = await extractVideoGps(
                 localPath: path,
-                head: got.head,
-                tail: got.tail,
+                head: head,
+                tail: tail,
                 relativePath: item.relativePath,
-                deepScan: needsDeep,
+                deepScan: !lightVideo,
+                maxScanBytes: headLimit,
+                maxTailBytes: tailLimit,
                 isCancelled: () => _cancel,
               );
             }
           } else {
-            Uint8List? head;
-            final path = item.localPath;
             if (path != null &&
                 path.isNotEmpty &&
                 await localFileExists(path)) {
               couldRead = true;
               final size = await localFileLength(path);
-              final limit = item.kind == MediaKind.photo
+              final limit = isPhoto
                   ? (size <= 0
                         ? photoHeadBytes
                         : (size <= previewStoreBytes ? size : photoHeadBytes))
-                  : videoGpsScanBytes;
+                  : headLimit;
               if (size > 0 && limit > 0) {
                 head = await readLocalFileHead(
                   path,
@@ -1704,9 +1749,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 );
                 if (_cancel) break;
               }
+              if (!isPhoto && tailLimit > 0 && size > limit) {
+                tail = await readLocalFileTail(
+                  path,
+                  math.min(tailLimit, size),
+                  isCancelled: () => _cancel,
+                );
+                if (_cancel) break;
+              }
             }
             if ((head == null || head.isEmpty) && item.sizeBytes != null) {
-              final limit = item.kind == MediaKind.photo
+              final limit = isPhoto
                   ? (item.sizeBytes! <= previewStoreBytes
                         ? item.sizeBytes!
                         : photoHeadBytes)
@@ -1721,7 +1774,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             head ??= await repo.bytesOf(item.id);
             if (head != null && head.isNotEmpty) couldRead = true;
             if (head == null || head.isEmpty) {
-              if (item.kind == MediaKind.photo) {
+              if (isPhoto) {
                 if (couldRead) {
                   await repo.markGpsDeepTried(id: item.id);
                 }
@@ -1731,32 +1784,58 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               gps = await extractVideoGps(
                 localPath: item.localPath,
                 relativePath: item.relativePath,
-                deepScan: needsDeep,
+                deepScan: !lightVideo,
+                maxScanBytes: headLimit,
+                maxTailBytes: tailLimit,
                 isCancelled: () => _cancel,
               );
-              if (gps == null) {
-                if (couldRead ||
-                    (item.localPath != null && item.localPath!.isNotEmpty)) {
-                  await repo.markGpsDeepTried(id: item.id);
-                }
-                continue;
-              }
             } else {
               checked++;
-              if (item.kind == MediaKind.photo) {
+              if (isPhoto) {
                 gps = await extractExifGps(head);
                 taken = await extractExifTakenAt(head);
               } else {
                 gps = await extractVideoGps(
                   localPath: item.localPath,
                   head: head,
+                  tail: tail,
                   relativePath: item.relativePath,
-                  deepScan: needsDeep,
+                  deepScan: !lightVideo,
+                  maxScanBytes: headLimit,
+                  maxTailBytes: tailLimit,
                   isCancelled: () => _cancel,
                 );
               }
             }
           }
+
+          // GPMF imzası: telefon videosunu GoPro’ya yükselt + derin tara.
+          if (!isPhoto && gps == null && !_cancel) {
+            final hasGpmf = (head != null && containsGpmfSignature(head)) ||
+                (tail != null && containsGpmfSignature(tail));
+            if (hasGpmf) {
+              if (item.kind == MediaKind.video) {
+                await repo.updateKind(
+                  id: item.id,
+                  kind: MediaKind.gopro,
+                  persist: false,
+                  notify: true,
+                );
+                item = item.copyWith(kind: MediaKind.gopro);
+              }
+              if (lightVideo || item.kind == MediaKind.gopro) {
+                gps = await extractVideoGps(
+                  localPath: path ?? item.localPath,
+                  relativePath: item.relativePath,
+                  deepScan: true,
+                  maxScanBytes: videoGpsScanBytes,
+                  maxTailBytes: videoGpsTailBytes,
+                  isCancelled: () => _cancel,
+                );
+              }
+            }
+          }
+
           if (gps != null) {
             await repo.updateLocation(
               id: item.id,
@@ -1764,7 +1843,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               lng: gps.longitude,
               takenAt: taken,
               persist: false,
-              notify: false,
+              notify: true,
             );
             found++;
             gotGps = true;
@@ -1775,22 +1854,50 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         if (!gotGps && couldRead) {
           await repo.markGpsDeepTried(id: item.id);
         }
-        // Her dosyadan sonra kısa nefes — harita/İptal boyansın.
         await Future<void>.delayed(const Duration(milliseconds: 1));
       }
       await repo.flush(notify: true);
     } finally {
+      final cancelled = _cancel;
       if (mounted) {
         setState(() {
-          _endBusy();
-          _status = _cancel
-              ? 'GPS durdu: $found konum bulundu'
-              : 'GPS yeniden: $found konum · $checked okundu'
-                    '${skipped > 0 ? ' · $skipped atlandı' : ''}';
+          _gpsBgRunning = false;
+          _status = null;
         });
         if (found > 0) _fitVisible();
+        await _showGpsRetryReportDialog(
+          checked: checked,
+          found: found,
+          skipped: skipped,
+          reclassified: reclassified,
+          cancelled: cancelled,
+          total: targets.length,
+        );
       }
     }
+  }
+
+  Future<void> _showGpsRetryReportDialog({
+    required int checked,
+    required int found,
+    required int skipped,
+    required int reclassified,
+    required bool cancelled,
+    required int total,
+  }) async {
+    if (!mounted) return;
+    final lines = <String>[
+      cancelled ? 'Tarama iptal edildi.' : 'Tarama tamamlandı.',
+      '$checked / $total medya okundu.',
+      found > 0 ? '$found konum bulundu.' : 'Yeni konum bulunamadı.',
+      if (skipped > 0) '$skipped daha önce denenmiş (atlandı).',
+      if (reclassified > 0)
+        '$reclassified dosya GoPro değil → telefon videosu olarak düzeltildi.',
+    ];
+    await _showImportSummaryDialog(
+      title: 'GPS tarama raporu',
+      message: lines.join('\n'),
+    );
   }
 
   int _gpsRetryKindOrder(MediaKind kind) => switch (kind) {
@@ -2375,7 +2482,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     ],
                   ),
                 ),
-                if (_busy || (_status != null && _status!.isNotEmpty))
+                if (_busy ||
+                    _gpsBgRunning ||
+                    (_status != null && _status!.isNotEmpty))
                   Positioned(
                     left: 12,
                     right: 12,
@@ -2392,6 +2501,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   Positioned(
                     right: 14,
                     bottom: (_busy ||
+                            _gpsBgRunning ||
                             (_status != null && _status!.isNotEmpty))
                         ? 78
                         : 20,
@@ -2661,7 +2771,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     required int missingCount,
   }) {
     final s = S.of(context.watch<AppSettings>());
-    final text = _busy
+    final active = _busy || _gpsBgRunning;
+    final text = active
         ? (_status ?? 'Dosyalar aranıyor…')
         : (_status ??
               _libraryStatus(
@@ -2676,17 +2787,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(
-          color: _busy
+          color: active
               ? const Color(0xFF2EC4B6)
               : Colors.white.withValues(alpha: 0.22),
-          width: _busy ? 1.5 : 1,
+          width: active ? 1.5 : 1,
         ),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
         child: Row(
           children: [
-            if (_busy) ...[
+            if (active) ...[
               const SizedBox(
                 width: 16,
                 height: 16,
@@ -2703,11 +2814,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 style: TextStyle(
                   fontSize: 13,
                   height: 1.25,
-                  color: Colors.white.withValues(alpha: _busy ? 0.95 : 0.88),
+                  color: Colors.white.withValues(alpha: active ? 0.95 : 0.88),
                 ),
               ),
             ),
-            if (_busy)
+            if (active)
               FilledButton(
                 onPressed: () {
                   _cancel = true;
@@ -3288,11 +3399,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   message:
                       'Chip’lerle tür seçin (yalnız GoPro vb.). Kısa: denenmemişler · Uzun: zorla',
                   child: GestureDetector(
-                    onLongPress: _busy
+                    onLongPress: (_busy || _gpsBgRunning)
                         ? null
                         : () => _retryMissingGps(forceAll: true),
                     child: TextButton.icon(
-                      onPressed: _busy
+                      onPressed: (_busy || _gpsBgRunning)
                           ? null
                           : () => _retryMissingGps(forceAll: false),
                       icon: const Icon(Icons.refresh, size: 18),

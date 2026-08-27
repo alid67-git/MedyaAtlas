@@ -16,6 +16,11 @@ final _goproName = RegExp(
   r'^(gopr|gpfr|g[xhslaf]\d{6}|gp\d{6}|go\d{6}|gopro)',
   caseSensitive: false,
 );
+/// GOPR/GPFR/GoPro — isimle kesin; GX/GH telefonda yanıltıcı olabilir.
+final _goproStrongName = RegExp(
+  r'^(gopr|gpfr|gopro)',
+  caseSensitive: false,
+);
 final _djiVideoName = RegExp(
   r'^(DJI[_-]|Osmo[_-]?|DJI)',
   caseSensitive: false,
@@ -41,14 +46,21 @@ bool isMediaName(String name) {
 /// Dosya seçici / rapor için birleşik uzantı listesi.
 List<String> get allMediaExtensions => [...photoExt, ...videoExt]..sort();
 
-MediaKind? detectKind(String name) {
+MediaKind? detectKind(String name, {bool phoneLibrary = false}) {
   final ext = extensionOf(name);
   if (ext == 'lrv') return null;
   if (photoExt.contains(ext)) return MediaKind.photo;
   if (videoExt.contains(ext)) {
     final stem = name.replaceFirst(RegExp(r'\.[^.]+$'), '');
     if (_djiVideoName.hasMatch(stem)) return MediaKind.drone;
-    if (_goproName.hasMatch(stem)) return MediaKind.gopro;
+    if (_goproName.hasMatch(stem)) {
+      // GX012489 gibi isimler GoPro’ya benzer; telefonda çoğu zaman
+      // telefon videosu. Kesin GoPro adı değilse video say.
+      if (phoneLibrary && !_goproStrongName.hasMatch(stem)) {
+        return MediaKind.video;
+      }
+      return MediaKind.gopro;
+    }
     return MediaKind.video;
   }
   return null;

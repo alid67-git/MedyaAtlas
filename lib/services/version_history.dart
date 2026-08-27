@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.55',
+    tr: 'GPS yeniden dene arka planda + rapor; GX telefon videosu (yanlış GoPro düzeltmesi); tarama hızlandı.',
+    en: 'GPS retry in background + report; GX phone videos (not false GoPro); faster scan.',
+    de: 'GPS-Retry im Hintergrund + Bericht; GX-Handyvideos (kein falsches GoPro); schneller Scan.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.54',
     tr: 'Güncelleme diyaloğu: Sizin / Güncel sürüm; uzun açıklama kaldırıldı.',
     en: 'Update dialog: Yours / Latest versions; drop long copy.',
