@@ -719,7 +719,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (!mounted) return;
       setState(() {
         _closeMenus();
-        _status = 'Dosya seçici açılamadı: $e';
+        _status = e is StateError
+            ? e.message
+            : 'Dosya seçici: $e';
       });
       return;
     }
@@ -728,7 +730,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       setState(() {
         _sourcesOpen = false;
         _kindMenu = null;
-        _tracksOpen = true;
+        _tracksOpen = false;
       });
       return;
     }
@@ -755,50 +757,85 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       return;
     }
 
+    // Haritayı hemen göster — izler adım adım eklenecek.
     setState(() {
       _sourcesOpen = false;
       _kindMenu = null;
-      _tracksOpen = true;
-      _beginBusy();
-      _status = 'İz dosyaları okunuyor…';
+      _tracksOpen = false;
+      _showMissing = false;
+      _panelCluster = null;
+      _status = 'İzler ekleniyor: 0/${picked!.files.length}…';
     });
-    final tracks = <MapTrack>[];
+
+    var added = 0;
+    var dup = 0;
     var failed = 0;
+    final total = picked.files.length;
     try {
-      for (final file in picked.files) {
-        final track = parseTrackBytes(fileName: file.name, bytes: file.bytes);
+      for (var i = 0; i < picked.files.length; i++) {
+        if (!mounted) return;
+        final file = picked.files[i];
+        if (mounted) {
+          setState(
+            () => _status =
+                'İz okunuyor ${i + 1}/$total: ${file.name}…',
+          );
+        }
+        // Ağır parse UI’yi kilitlemesin.
+        final track = await compute(
+          parseTrackIsolate,
+          <String, Object>{
+            'fileName': file.name,
+            'bytes': file.bytes,
+          },
+        );
         if (track == null) {
           failed++;
           continue;
         }
-        tracks.add(track);
-      }
-      if (tracks.isNotEmpty) {
-        await tracksRepo.addAll(tracks);
-        if (!mounted) return;
-        _fitVisible(includeTracks: true);
+        final isNew = await tracksRepo.addIfNew(track);
+        if (!isNew) {
+          dup++;
+          if (mounted) {
+            setState(() => _status = 'Bu rota zaten var: ${track.name}');
+            await Future<void>.delayed(const Duration(seconds: 1));
+          }
+          continue;
+        }
+        added++;
+        if (mounted) {
+          setState(
+            () => _status =
+                'İz eklendi $added/$total: ${track.name}',
+          );
+          // İlk izde haritayı sığdır; sonrakiler çizgi olarak birikir.
+          if (added == 1 || i == picked.files.length - 1) {
+            _fitVisible(includeTracks: true);
+          }
+        }
+        await Future<void>.delayed(Duration.zero);
       }
       if (!mounted) return;
       final skipHint = picked.skippedTotal > 0
           ? ' · ${picked.skippedTotal} atlandı'
           : '';
+      final dupHint = dup > 0 ? ' · $dup zaten vardı' : '';
+      final failHint = failed > 0 ? ' · $failed okunamadı' : '';
       setState(() {
-        _endBusy();
-        if (tracks.isEmpty) {
-          _status = failed > 0
-              ? 'Geçerli GPX/KML/KMZ yok ($failed dosya).'
-              : 'İz seçilmedi.';
+        if (added == 0 && dup > 0 && failed == 0) {
+          _status = 'Seçilen rotalar zaten yüklü$dupHint$skipHint';
+        } else if (added == 0) {
+          _status =
+              'Geçerli yeni iz yok$failHint$dupHint$skipHint';
         } else {
           _status =
-              '${tracks.length} iz eklendi${failed > 0 ? ' · $failed okunamadı' : ''}$skipHint';
+              '$added iz eklendi$failHint$dupHint$skipHint';
         }
       });
+      if (added > 0) _fitVisible(includeTracks: true);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _endBusy();
-        _status = 'İz yükleme: $e';
-      });
+      setState(() => _status = 'İz yükleme: $e');
     }
   }
 
@@ -966,34 +1003,49 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
     if (trackFiles.isNotEmpty && mounted) {
       setState(() {
-        _beginBusy();
-        _status = 'İz dosyaları okunuyor…';
+        _tracksOpen = false;
+        _showMissing = false;
+        _status = 'İzler ekleniyor: 0/${trackFiles.length}…';
       });
-      final tracks = <MapTrack>[];
+      final tracksRepo = context.read<TrackRepository>();
+      var added = 0;
+      var dup = 0;
       var failed = 0;
-      for (final f in trackFiles) {
-        final t = parseTrackBytes(fileName: f.name, bytes: f.bytes);
+      for (var i = 0; i < trackFiles.length; i++) {
+        if (!mounted) return;
+        final f = trackFiles[i];
+        setState(
+          () => _status = 'İz okunuyor ${i + 1}/${trackFiles.length}: ${f.name}…',
+        );
+        final t = await compute(
+          parseTrackIsolate,
+          <String, Object>{'fileName': f.name, 'bytes': f.bytes},
+        );
         if (t == null) {
           failed++;
-        } else {
-          tracks.add(t);
+          continue;
         }
+        final isNew = await tracksRepo.addIfNew(t);
+        if (!isNew) {
+          dup++;
+          setState(() => _status = 'Bu rota zaten var: ${t.name}');
+          await Future<void>.delayed(const Duration(seconds: 1));
+          continue;
+        }
+        added++;
+        setState(() => _status = 'İz eklendi $added/${trackFiles.length}: ${t.name}');
+        if (added == 1) _fitVisible(includeTracks: true);
+        await Future<void>.delayed(Duration.zero);
       }
-      try {
-        if (tracks.isNotEmpty) {
-          await context.read<TrackRepository>().addAll(tracks);
-          if (mounted) _fitVisible(includeTracks: true);
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _endBusy();
-            _status = tracks.isEmpty
-                ? 'Geçerli GPX/KML/KMZ yok.'
-                : '${tracks.length} iz eklendi${failed > 0 ? ' · $failed okunamadı' : ''}';
-          });
-        }
-      }
+      if (!mounted) return;
+      setState(() {
+        _status = added == 0 && dup > 0
+            ? 'Seçilen rotalar zaten yüklü'
+            : '$added iz eklendi'
+                '${failed > 0 ? ' · $failed okunamadı' : ''}'
+                '${dup > 0 ? ' · $dup zaten vardı' : ''}';
+      });
+      if (added > 0) _fitVisible(includeTracks: true);
     }
     if (loose.isEmpty || !mounted) return;
     await _ingestPick(
@@ -2708,7 +2760,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   alignment: Alignment.centerLeft,
                   child: FilledButton.tonal(
                     onPressed: _busy ? null : _importTracks,
-                    child: const Text('GPX / KML ekle'),
+                    child: const Text('GPX / KML ekle (çoklu)'),
                   ),
                 ),
               ],
