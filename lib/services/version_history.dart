@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.41',
+    tr: 'GPS yeniden dene: denenmişleri atlar (ANR yok); yeniden tara yalnızca yenileri; zorunlu güncelleme kapalı.',
+    en: 'GPS retry skips already-tried (no ANR); rescan only new files; force-update off.',
+    de: 'GPS-Retry überspringt schon Geprüfte (kein ANR); Neu-Scan nur neue Dateien; Zwangsupdate aus.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.40',
     tr: 'Uzantısız Drive GPX’leri tanır (iPhone+Android); içerikten parse.',
     en: 'Recognizes extensionless Drive GPX (iPhone+Android); parse by content.',

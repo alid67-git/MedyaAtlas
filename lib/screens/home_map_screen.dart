@@ -175,6 +175,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       setState(() => _forceUpdate = info);
       return;
     }
+    // Zorunlu kapalıyken eski kilit ekranını kaldır.
     if (_forceUpdate != null) setState(() => _forceUpdate = null);
     await _promptUpdate(info, force: false);
   }
@@ -803,7 +804,41 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         label: result.folderName,
         rootPath: result.rootPath,
       );
-      await _ingest(result.items, source: source, bulkMode: bulk);
+      var items = result.items;
+      if (bulk) {
+        final fresh = <FolderMediaRef>[];
+        var skippedKnown = 0;
+        for (final f in items) {
+          final rel = f.relativePath ?? f.name;
+          if (repo.findByIndex(
+                sourceId: source.id,
+                relativePath: rel,
+                size: f.size,
+              ) !=
+              null) {
+            skippedKnown++;
+            continue;
+          }
+          fresh.add(f);
+        }
+        if (fresh.isEmpty) {
+          if (mounted) {
+            setState(() {
+              _status =
+                  '"${source.label}": yeni yok · $skippedKnown kayıtlı atlandı';
+            });
+          }
+          return;
+        }
+        if (mounted && skippedKnown > 0) {
+          setState(
+            () => _status =
+                '"${source.label}": ${fresh.length} yeni · $skippedKnown atlandı…',
+          );
+        }
+        items = fresh;
+      }
+      await _ingest(items, source: source, bulkMode: bulk);
     } catch (e) {
       if (!mounted) return;
       final msg = '$e';
@@ -1250,13 +1285,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _fitVisible();
   }
 
-  Future<void> _retryMissingGps() async {
+  Future<void> _retryMissingGps({bool forceAll = false}) async {
     final repo = context.read<MediaRepository>();
-    final targets = _missingOf(repo);
-    if (targets.isEmpty) return;
+    final allMissing = _missingOf(repo);
+    if (allMissing.isEmpty) return;
+
+    if (forceAll) {
+      await repo.clearGpsDeepTriedForMissing(persist: true);
+    }
+    final targets = forceAll
+        ? allMissing
+        : allMissing.where((m) => !m.gpsDeepTried).toList();
+    final skipped = allMissing.length - targets.length;
+    if (targets.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _status =
+            'Hepsi daha önce denendi ($skipped). Uzun basınca zorla yeniden dener.';
+      });
+      return;
+    }
+
     setState(() {
       _beginBusy();
-      _status = 'GPS yeniden okunuyor…';
+      _status = skipped > 0
+          ? 'GPS yeniden: ${targets.length} yeni · $skipped atlandı…'
+          : 'GPS yeniden okunuyor…';
     });
     var found = 0;
     var checked = 0;
@@ -1264,15 +1318,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       for (var i = 0; i < targets.length; i++) {
         if (_cancel) break;
         final item = targets[i];
-        if (mounted && i % 3 == 0) {
+        // UI thread’i bırak — ANR / «yanıt vermiyor» önlemi.
+        await Future<void>.delayed(Duration.zero);
+        if (mounted && (i % 2 == 0 || i == targets.length - 1)) {
           setState(
             () => _status =
-                'GPS yeniden: ${i + 1}/${targets.length} · $found bulundu',
+                'GPS yeniden: ${i + 1}/${targets.length} · $found bulundu'
+                '${skipped > 0 ? ' · $skipped atlandı' : ''}',
           );
         }
+        var gotGps = false;
         try {
           LatLng? gps;
           DateTime? taken;
+          final needsDeep =
+              item.kind == MediaKind.gopro || item.kind == MediaKind.drone;
           final phoneId = phoneAssetIdFromRelativePath(item.relativePath);
           if (phoneId != null && hostIsAndroid) {
             final got = await readPhoneAssetGps(
@@ -1293,6 +1353,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       localPath: item.localPath,
                       head: got.head,
                       relativePath: item.relativePath,
+                      deepScan: needsDeep,
                     );
               if (item.kind == MediaKind.photo) {
                 taken = await extractExifTakenAt(got.head!);
@@ -1301,6 +1362,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               gps = await extractVideoGps(
                 localPath: item.localPath,
                 relativePath: item.relativePath,
+                deepScan: needsDeep,
               );
             }
           } else {
@@ -1319,8 +1381,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 head = await readLocalFileHead(path, limit);
               }
             }
-            // Web'de (iPhone Safari dahil) dosya yolu yok — seçim anında
-            // bellekte tutulan File referansından oku (webSessionRegister).
             if ((head == null || head.isEmpty) && item.sizeBytes != null) {
               final limit = item.kind == MediaKind.photo
                   ? (item.sizeBytes! <= previewStoreBytes
@@ -1335,13 +1395,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             }
             head ??= await repo.bytesOf(item.id);
             if (head == null || head.isEmpty) {
-              if (item.kind == MediaKind.photo) continue;
+              if (item.kind == MediaKind.photo) {
+                await repo.markGpsDeepTried(id: item.id);
+                continue;
+              }
               checked++;
               gps = await extractVideoGps(
                 localPath: item.localPath,
                 relativePath: item.relativePath,
+                deepScan: needsDeep,
               );
-              if (gps == null) continue;
+              if (gps == null) {
+                await repo.markGpsDeepTried(id: item.id);
+                continue;
+              }
             } else {
               checked++;
               gps = item.kind == MediaKind.photo
@@ -1350,24 +1417,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       localPath: item.localPath,
                       head: head,
                       relativePath: item.relativePath,
+                      deepScan: needsDeep,
                     );
               if (item.kind == MediaKind.photo) {
                 taken = await extractExifTakenAt(head);
               }
             }
-            if (gps == null) continue;
           }
-          if (gps == null) continue;
-          await repo.updateLocation(
-            id: item.id,
-            lat: gps.latitude,
-            lng: gps.longitude,
-            takenAt: taken,
-            persist: false,
-            notify: false,
-          );
-          found++;
+          if (gps != null) {
+            await repo.updateLocation(
+              id: item.id,
+              lat: gps.latitude,
+              lng: gps.longitude,
+              takenAt: taken,
+              persist: false,
+              notify: false,
+            );
+            found++;
+            gotGps = true;
+          }
         } catch (_) {}
+        if (!gotGps) {
+          await repo.markGpsDeepTried(id: item.id);
+        }
       }
       await repo.flush(notify: true);
     } finally {
@@ -1376,7 +1448,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           _endBusy();
           _status = _cancel
               ? 'GPS durdu: $found konum bulundu'
-              : 'GPS yeniden: $found konum bulundu · $checked dosya okundu';
+              : 'GPS yeniden: $found konum · $checked okundu'
+                  '${skipped > 0 ? ' · $skipped atlandı' : ''}';
         });
         if (found > 0) _fitVisible();
       }
@@ -2055,8 +2128,36 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           label: source.label,
           rootPath: root,
         );
+        // Kayıtlı dosyaları atla — yalnızca yeni / boyut değişmiş olanları oku.
+        final fresh = <FolderMediaRef>[];
+        var skippedKnown = 0;
+        for (final f in result.items) {
+          final rel = f.relativePath ?? f.name;
+          final existing = repo.findByIndex(
+            sourceId: source.id,
+            relativePath: rel,
+            size: f.size,
+          );
+          if (existing != null) {
+            skippedKnown++;
+            continue;
+          }
+          fresh.add(f);
+        }
+        if (fresh.isEmpty) {
+          setState(() {
+            _endBusy();
+            _status =
+                '"${source.label}": yeni yok · $skippedKnown kayıtlı atlandı';
+          });
+          return;
+        }
+        setState(
+          () => _status =
+              '"${source.label}": ${fresh.length} yeni · $skippedKnown atlandı…',
+        );
         await _ingest(
-          result.items,
+          fresh,
           source: source,
           bulkMode: true,
         );
@@ -2494,10 +2595,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ),
           if (!located && missingItems.isNotEmpty) ...[
             const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: _busy ? null : _retryMissingGps,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: Text(S.of(context.read<AppSettings>()).retryMissing),
+            Builder(
+              builder: (context) {
+                final pending =
+                    missingItems.where((m) => !m.gpsDeepTried).length;
+                final tried = missingItems.length - pending;
+                final label = pending == 0 && tried > 0
+                    ? 'Yeniden dene (hepsi denenmiş — uzun bas)'
+                    : tried > 0
+                        ? 'Konum yokları yeniden dene ($pending yeni · $tried atlanır)'
+                        : S.of(context.read<AppSettings>()).retryMissing;
+                return Tooltip(
+                  message: 'Kısa: yalnızca denenmemişler · Uzun bas: hepsini zorla',
+                  child: GestureDetector(
+                    onLongPress: _busy
+                        ? null
+                        : () => _retryMissingGps(forceAll: true),
+                    child: TextButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => _retryMissingGps(forceAll: false),
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: Text(label),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ],

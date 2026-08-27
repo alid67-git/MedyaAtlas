@@ -481,6 +481,7 @@ class MediaRepository extends ChangeNotifier {
             lng: lng,
             takenAt: takenAt,
             locationMissing: false,
+            gpsDeepTried: true,
           )
         : _items[i].copyWith(
             clearLocation: true,
@@ -494,6 +495,37 @@ class MediaRepository extends ChangeNotifier {
     if (notify) {
       notifyListeners();
     }
+  }
+
+  /// Derin GPS denemesi bitti (bulunamadı) — sonraki «yeniden dene» atlansın.
+  Future<void> markGpsDeepTried({
+    required String id,
+    bool persist = false,
+    bool notify = false,
+  }) async {
+    final i = _items.indexWhere((m) => m.id == id);
+    if (i < 0) return;
+    if (_items[i].gpsDeepTried) return;
+    _items[i] = _items[i].copyWith(gpsDeepTried: true);
+    _itemJsonCache.remove(id);
+    if (persist) await _persistIndex();
+    if (notify) notifyListeners();
+  }
+
+  /// Tüm konum-yok kayıtlarında derin deneme bayrağını temizle (zorla yeniden).
+  Future<void> clearGpsDeepTriedForMissing({bool persist = true}) async {
+    var changed = false;
+    for (var i = 0; i < _items.length; i++) {
+      final m = _items[i];
+      if (!m.hasLocation && m.gpsDeepTried) {
+        _items[i] = m.copyWith(gpsDeepTried: false);
+        _itemJsonCache.remove(m.id);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    if (persist) await _persistIndex();
+    notifyListeners();
   }
 
   Future<void> updateLocalPath({
