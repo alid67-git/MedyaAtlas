@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.39',
+    tr: 'GPX: Galeri değil Dosyalar; Android/iPhone medya butonları ayrıldı; net hata metni.',
+    en: 'GPX: Files not Gallery; Android/iPhone media buttons split; clearer errors.',
+    de: 'GPX: Dateien statt Galerie; Android/iPhone-Medien getrennt; klare Fehler.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.38',
     tr: 'İzler menüsü: çoklu seçim (biri/hepsi); büyük GPX okuma + doğru hata mesajı.',
     en: 'Tracks menu: multi-select (one/all); large GPX read + honest error messages.',

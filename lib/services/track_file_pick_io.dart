@@ -7,19 +7,36 @@ import 'track_file_types.dart';
 
 export 'track_file_types.dart';
 
-/// Native: filtre yok → uzantı + içerik sniffer; büyük dosyalar diskten okunur.
+/// Native: mümkünse uzantı filtresi (sistem Galeri’yi öne çıkarmaz).
+/// gpx MIME yoksa FileType.any’ye düşülür — yine de içerik doğrulanır.
 Future<TrackPickResult?> pickTrackFiles() async {
-  final picked = await FilePicker.platform.pickFiles(
-    allowMultiple: true,
-    type: FileType.any,
-    withData: false,
-  );
+  FilePickerResult? picked;
+  var customOk = false;
+  try {
+    picked = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: const ['gpx', 'kml', 'kmz', 'xml'],
+      withData: false,
+    );
+    customOk = true; // iptal de olsa ikinci seçici açma
+  } catch (_) {
+    customOk = false;
+  }
+  if (!customOk) {
+    picked = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.any,
+      withData: false,
+    );
+  }
   if (picked == null || picked.files.isEmpty) return null;
 
   final out = <PickedTrackFile>[];
   var wrongType = 0;
   var unreadable = 0;
   var tooLarge = 0;
+  var sawMedia = false;
 
   for (final file in picked.files) {
     Uint8List? bytes = file.bytes;
@@ -48,6 +65,9 @@ Future<TrackPickResult?> pickTrackFiles() async {
     }
     if (!isAcceptableTrackFile(name: file.name, bytes: bytes)) {
       wrongType++;
+      if (looksLikeImageOrVideoName(file.name) || looksLikeImageBytes(bytes)) {
+        sawMedia = true;
+      }
       continue;
     }
     out.add(PickedTrackFile(name: file.name, bytes: bytes));
@@ -58,5 +78,6 @@ Future<TrackPickResult?> pickTrackFiles() async {
     skippedWrongType: wrongType,
     skippedUnreadable: unreadable,
     skippedTooLarge: tooLarge,
+    skippedSawMedia: sawMedia,
   );
 }

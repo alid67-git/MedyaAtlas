@@ -715,8 +715,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           _status =
               'Dosya okunamadı (büyük GPX telefonda bellek sınırına takılabilir).';
         } else if (picked.skippedWrongType > 0) {
-          _status =
-              'GPX/KML/KMZ değil. Uzantı .gpx / .kml / .kmz olmalı.';
+          _status = trackWrongTypeMessage(
+            count: picked.skippedWrongType,
+            sawMedia: picked.skippedSawMedia,
+          );
         } else {
           _status = 'İz seçilmedi.';
         }
@@ -2097,8 +2099,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Widget _sourcesPanel(MediaRepository repo) {
+    // Platforma göre medya ekleme — GPX bu panelde yok (İzler menüsü).
     final addButtons = <Widget>[
-      if (!kIsWeb)
+      if (hostIsAndroid) ...[
         FilledButton.tonal(
           onPressed: _busy
               ? null
@@ -2108,7 +2111,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 },
           child: const Text('Klasör'),
         ),
-      if (kIsWeb)
         FilledButton.tonal(
           onPressed: _busy
               ? null
@@ -2116,19 +2118,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   setState(_closeMenus);
                   _importGallery();
                 },
-          child: const Text('Galeri'),
+          child: const Text('Galeri (foto/video)'),
         ),
-      if (!kIsWeb && !_isDesktop)
-        FilledButton.tonal(
-          onPressed: _busy
-              ? null
-              : () {
-                  setState(_closeMenus);
-                  _importGallery();
-                },
-          child: const Text('Galeri'),
-        ),
-      if (!kIsWeb && !_isDesktop)
         FilledButton.tonal(
           onPressed: _busy
               ? null
@@ -2138,6 +2129,47 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 },
           child: const Text('Tüm telefon'),
         ),
+      ] else if (hostIsAppleWeb || hostIsIOS) ...[
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importGallery();
+                },
+          child: const Text('Galeri (foto/video)'),
+        ),
+      ] else if (kIsWeb) ...[
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importGallery();
+                },
+          child: const Text('Galeri (foto/video)'),
+        ),
+      ] else if (_isDesktop) ...[
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importFolder();
+                },
+          child: const Text('Klasör'),
+        ),
+      ] else if (!kIsWeb) ...[
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(_closeMenus);
+                  _importGallery();
+                },
+          child: const Text('Galeri (foto/video)'),
+        ),
+      ],
       FilledButton.tonal(
         onPressed: _busy
             ? null
@@ -2149,6 +2181,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       ),
     ];
 
+    final emptyHint = hostIsAndroid
+        ? 'Medya: Klasör, Galeri (foto/video) veya Tüm telefon. '
+            'GPX için üstteki rota (İzler) ikonu — Galeri değil.'
+        : (hostIsAppleWeb || hostIsIOS)
+            ? 'Medya: Galeri (foto/video) veya Google Drive. '
+                'GPX için üstteki rota (İzler) → Dosyalar uygulaması.'
+            : (_isDesktop
+                ? 'Medya: Klasör veya Google Drive. GPX için üstteki rota ikonu.'
+                : 'Medya: Galeri veya Google Drive. GPX için üstteki rota ikonu.');
+
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 340),
       child: ListView(
@@ -2157,11 +2199,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         children: [
           if (repo.sources.isEmpty)
             Text(
-              kIsWeb
-                  ? 'Kaynak yok — Galeri veya Google Drive. İzler için üstteki rota ikonu.'
-                  : (_isDesktop
-                      ? 'Kaynak yok — Klasör veya Google Drive (Ctrl+O). İzler için rota ikonu.'
-                      : 'Kaynak yok — Galeri, Tüm telefon veya Google Drive. İzler için rota ikonu.'),
+              emptyHint,
               style: TextStyle(
                 fontSize: 13,
                 color: Colors.white.withValues(alpha: 0.6),
@@ -2206,7 +2244,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
           const SizedBox(height: 8),
           Text(
-            'Ekle',
+            hostIsAndroid
+                ? 'Ekle (medya — GPX değil)'
+                : (hostIsAppleWeb || hostIsIOS)
+                    ? 'Ekle (foto/video — GPX değil)'
+                    : 'Ekle',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -2328,8 +2370,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ? Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                     child: Text(
-                      'Henüz iz yok. GPX, KML veya KMZ ekleyin. '
-                      'Birini, birkaçını veya tümünü seçip haritada gösterebilirsiniz.',
+                      hostIsAppleWeb || hostIsIOS
+                          ? 'GPX/KML ekleyin. iPhone’da «Dosyalar» / İndirilenler’den seçin — '
+                              'Fotoğraflar/Galeri değil.'
+                          : hostIsAndroid
+                              ? 'GPX/KML ekleyin. Dosya yöneticisi veya İndirilenler’den seçin — '
+                                  'Galeri (foto) değil. Galeri yalnızca foto/video içindir.'
+                              : 'GPX, KML veya KMZ ekleyin. Birini, birkaçını veya tümünü '
+                                  'seçip haritada gösterebilirsiniz.',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.white.withValues(alpha: 0.6),
@@ -2377,13 +2425,30 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.tonal(
-                // Safari: pick öncesi setState yok.
-                onPressed: _busy ? null : _importTracks,
-                child: const Text('GPX / KML ekle'),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  hostIsAppleWeb || hostIsIOS
+                      ? 'Seçicide «Dosyalar» / «Browse» kullanın (Fotoğraflar değil).'
+                      : hostIsAndroid
+                          ? 'Seçicide İndirilenler / Dosyalar — Galeri değil.'
+                          : 'Yalnızca .gpx / .kml / .kmz dosyaları.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.tonal(
+                    // Safari: pick öncesi setState yok.
+                    onPressed: _busy ? null : _importTracks,
+                    child: const Text('GPX / KML ekle'),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
