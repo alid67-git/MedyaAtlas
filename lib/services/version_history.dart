@@ -23,23 +23,16 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
-<<<<<<< HEAD
     version: '1.0.52',
-    tr: 'Tüm telefon: kayıtlı atla + GPS; özet Tamam diyalogu; izler dışarı tık; GPX≠galeri.',
-    en: 'Whole phone: skip known + GPS; OK summary dialog; tracks outside-tap; GPX≠gallery.',
-    de: 'Ganzes Telefon: Bekannte+GPS; OK-Dialog; Spuren Außentipp; GPX≠Galerie.',
+    tr: 'Tüm telefon: kayıtlı atla + GPS; özet Tamam; izler dışarı tık; GPX≠galeri; konumum butonu.',
+    en: 'Whole phone skip+GPS; OK dialog; tracks outside-tap; GPX≠gallery; my-location button.',
+    de: 'Telefon skip+GPS; OK-Dialog; Spuren Außentipp; GPX≠Galerie; Mein-Standort-Button.',
   ),
   VersionHistoryEntry(
     version: '1.0.51',
     tr: 'Android: telefon videoları content URI ile uygulama içinde; codec olmazsa sistem oynatıcı.',
     en: 'Android: play phone videos in-app via content URI; system player if codec fails.',
     de: 'Android: Telefonvideos per content URI in-App; Systemplayer bei Codec-Fehler.',
-=======
-    version: '1.0.51',
-    tr: 'Harita sağ alt: konumum — son ~5 gün medyayı kapsayan orta zoom.',
-    en: 'Map bottom-right: my location — mid zoom covering ~5 days of media.',
-    de: 'Karte unten rechts: Mein Standort — mittlerer Zoom (~5 Tage Medien).',
->>>>>>> origin/cursor/map-my-location-6bc2
   ),
   VersionHistoryEntry(
     version: '1.0.50',
