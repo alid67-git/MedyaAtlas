@@ -402,10 +402,18 @@ class MediaRepository extends ChangeNotifier {
       relativePath: relativePath,
       size: size,
     );
+    LibraryMedia? byPath;
     for (final item in _items) {
       if (item.id == id) return item;
+      // Eski UUID id’li kayıtlar — yeniden taramada çift eklemeyi önle.
+      if (byPath == null &&
+          item.sourceId == sourceId &&
+          (item.sizeBytes ?? 0) == size &&
+          (item.relativePath ?? item.name) == relativePath) {
+        byPath = item;
+      }
     }
-    return null;
+    return byPath;
   }
 
   Future<LibraryMedia> add({
@@ -425,9 +433,18 @@ class MediaRepository extends ChangeNotifier {
     final rel = relativePath ?? name;
     final size = sizeBytes ?? 0;
     final id = mediaIndexId(sourceId: sourceId, relativePath: rel, size: size);
-    final existing = _items.indexWhere((m) => m.id == id);
-    if (existing >= 0) {
-      return _items[existing];
+    final existingIdx = _items.indexWhere((m) => m.id == id);
+    if (existingIdx >= 0) {
+      return _items[existingIdx];
+    }
+    // Aynı kaynak+yol+boyut, farklı id (eski indeks) → yeni satır açma.
+    final dup = findByIndex(
+      sourceId: sourceId,
+      relativePath: rel,
+      size: size,
+    );
+    if (dup != null) {
+      return dup;
     }
     final hasGps = isValidGps(lat, lng);
     final media = LibraryMedia(

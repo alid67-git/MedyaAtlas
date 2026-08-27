@@ -358,6 +358,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         });
         return;
       }
+      if (_cancel) {
+        setState(() {
+          _endBusy();
+          _status = 'Tarama iptal edildi.';
+        });
+        return;
+      }
       await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
     } catch (e) {
       if (!mounted) return;
@@ -804,6 +811,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         label: result.folderName,
         rootPath: result.rootPath,
       );
+      if (_cancel) {
+        if (mounted) {
+          setState(() => _status = 'Tarama iptal edildi.');
+        }
+        return;
+      }
       var items = result.items;
       if (bulk) {
         final fresh = <FolderMediaRef>[];
@@ -2061,10 +2074,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
             if (_busy)
               TextButton(
-                onPressed: () => setState(() {
+                onPressed: () {
+                  // setState beklemeden bayrak — döngü bir sonraki await’te çıksın.
                   _cancel = true;
-                  _status = 'İptal ediliyor…';
-                }),
+                  if (mounted) {
+                    setState(() => _status = 'İptal ediliyor…');
+                  }
+                },
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFFFF7A59),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -2108,10 +2124,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           isCancelled: () => _cancel,
         );
         if (!mounted) return;
-        if (_cancel && result.items.isEmpty) {
+        if (_cancel) {
           setState(() {
             _endBusy();
-            _status = 'Tarama iptal edildi.';
+            _status = result.items.isEmpty
+                ? 'Tarama iptal edildi.'
+                : 'Tarama iptal · ${result.items.length} bulundu, eklenmedi';
           });
           return;
         }

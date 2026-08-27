@@ -47,7 +47,7 @@ Future<FolderPickResult> scanMediaDirectory(
     final subdirs = <Directory>[];
     for (final entity in children) {
       seen++;
-      if (seen % 40 == 0) {
+      if (seen % 10 == 0) {
         if (isCancelled?.call() == true) break;
         await Future<void>.delayed(Duration.zero);
       }
