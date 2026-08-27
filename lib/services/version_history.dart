@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.52',
+    tr: 'Tüm telefon: kayıtlıları atla + MediaStore GPS; GoPro/DJI GPS yeniden; GPX galeriye foto olmaz.',
+    en: 'Whole phone: skip known + MediaStore GPS; GoPro/DJI GPS retry; GPX not gallery photos.',
+    de: 'Ganzes Telefon: Bekannte überspringen + MediaStore-GPS; GoPro/DJI erneut; GPX nicht Galerie.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.50',
     tr: 'Çoklu GPX; seçici already_active düzeltmesi; izler haritada adım adım; yinelenen rota uyarısı 1 sn.',
     en: 'Multi GPX; fix picker already_active; progressive map add; 1s duplicate toast.',

@@ -13,11 +13,11 @@ const videoExt = {
 };
 
 final _goproName = RegExp(
-  r'^(gopr|gpfr|g[xhslaf]\d{6}|gp\d{6}|go\d{6})',
+  r'^(gopr|gpfr|g[xhslaf]\d{6}|gp\d{6}|go\d{6}|gopro)',
   caseSensitive: false,
 );
 final _djiVideoName = RegExp(
-  r'^(DJI[_-]|Osmo[_-]?)',
+  r'^(DJI[_-]|Osmo[_-]?|DJI)',
   caseSensitive: false,
 );
 
