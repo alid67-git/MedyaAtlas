@@ -1,8 +1,25 @@
 # Google Drive bağlantısı (MedyaAtlas)
 
-Uygulamada **Kaynaklar → + Google Drive** ile Google hesabına giriş yapılır;
-Drive’daki foto/videolar listelenir. Konumlu fotoğraflarda Drive’ın
-`imageMediaMetadata` konumu kullanılır (dosyanın tamamı indirilmez).
+## Google Drive ≠ Google Fotoğraflar
+
+| | Google Drive | Google Fotoğraflar |
+|---|---|---|
+| Nerede | [drive.google.com](https://drive.google.com) dosyaları | photos.google.com / Fotoğraflar uygulaması |
+| MedyaAtlas | **+ Google Drive** (OAuth gerekir) | Telefonda senkron ise **Tüm telefon** / Galeri |
+| API | Drive API | Photos Library API (ayrı, bu sürümde yok) |
+
+Telefonunuzda Google Fotoğraflar’dan inmiş / senkron medya zaten cihazda:
+**Kaynaklar → Tüm telefon** (veya Galeri). Drive butonu bunları açmaz.
+
+Drive yalnızca Drive’da tuttuğunuz veya Drive’a yedeklediğiniz dosyalar içindir.
+
+---
+
+## Uygulamada Drive
+
+**Kaynaklar → + Google Drive** → Google hesabı → Drive’daki foto/video listelenir.
+Konumlu fotoğraflarda Drive `imageMediaMetadata` konumu kullanılır (tam dosya
+indirilmez).
 
 ## Neden `serverClientId` hatası?
 
@@ -10,7 +27,7 @@ Android’de Google Sign-In **Web uygulaması** OAuth istemci kimliğini ister.
 Bu kimlik APK’ya `--dart-define=GOOGLE_SERVER_CLIENT_ID=...` ile gömülür.
 GitHub Actions’ta secret yoksa yayınlanan APK’da Drive girişi çalışmaz.
 
-## Google Cloud kurulumu (zorunlu)
+## Google Cloud kurulumu (Drive için zorunlu)
 
 1. [Google Cloud Console](https://console.cloud.google.com/) → proje oluştur  
 2. **API’ler** → **Google Drive API** → Etkinleştir  
@@ -54,8 +71,6 @@ flutter build apk --release --dart-define=GOOGLE_SERVER_CLIENT_ID=123456789-xxxx
 
 ## Kullanım
 
-1. MedyaAtlas’ta **+ Google Drive**  
+1. MedyaAtlas’ta **+ Google Drive (dosya)**  
 2. Google hesabı seç → Drive izni ver  
 3. Tarama biter → GPS’li fotoğraflar haritada  
-
-**Not:** Google Fotoğraflar “bulut albümü” ayrı üründür; bu bağlantı **Google Drive dosyaları** içindir. Fotoğrafları Drive’a yedeklediysen veya Drive’da tutuyorsan görünür.

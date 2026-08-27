@@ -22,8 +22,16 @@ const googleOAuthClientId = String.fromEnvironment(
 
 bool get hasGoogleServerClientId => googleOAuthServerClientId.trim().isNotEmpty;
 
+/// Kullanıcıya gösterilen kısa yardım (Drive ≠ Google Fotoğraflar).
 const googleDriveConfigHelp =
-    'Google Drive için Web OAuth istemci kimliği (serverClientId) gerekli. '
-    'Google Cloud → Kimlik bilgileri → “Web uygulaması” oluşturun; '
-    'kimliği GitHub secret GOOGLE_SERVER_CLIENT_ID olarak ekleyip APK’yı '
-    'yeniden yayınlayın. Ayrıntı: GOOGLE_DRIVE.md';
+    'Google Drive girişi için OAuth kimliği eksik (APK’da yok). '
+    'Bu Google Fotoğraflar değil — drive.google.com dosyaları. '
+    'Telefondaki Google Foto medyası için: Kaynaklar → Tüm telefon. '
+    'Drive dosyaları için: Google Cloud’da Web OAuth istemcisi oluşturup '
+    'GitHub secret GOOGLE_SERVER_CLIENT_ID ekleyin, APK’yı yeniden yayınlayın. '
+    'Ayrıntı: GOOGLE_DRIVE.md';
+
+const googleDriveNotPhotosHint =
+    'Google Drive ≠ Google Fotoğraflar. '
+    'Fotoğraflar uygulamasındaki medya genelde telefonda; «Tüm telefon» ile alın. '
+    'Drive yalnızca drive.google.com’daki dosyalar içindir.';
