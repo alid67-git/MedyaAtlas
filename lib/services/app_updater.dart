@@ -57,39 +57,11 @@ class AppUpdateInfo {
   bool get isForceRequired =>
       isForceUpdateRequired(current: appVersion, latest: latestVersion);
 
-  String get dialogBody {
-    switch (platform) {
-      case UpdatePlatform.android:
-        return 'Şu an v$appVersion.\n'
-            'Tek dokunuşla en son $assetName indirilir (ara sürüm yok).';
-      case UpdatePlatform.windows:
-        return 'Şu an v$appVersion.\n'
-            'Tek dokunuşla en son $assetName indirilir; klasör açılınca yeni '
-            'medyaatlas.exe ile çalıştırın.';
-      case UpdatePlatform.web:
-        return 'Şu an v$appVersion.\n'
-            'Sayfa en son sürüme yenilenecek.';
-    }
-  }
+  String get dialogBody =>
+      'Sizin: v$appVersion\nGüncel: v$latestVersion';
 
-  String get forceDialogBody {
-    switch (platform) {
-      case UpdatePlatform.android:
-        return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
-            'Tek tuşla en son sürüme güncelleyin '
-            '(kaç sürüm geride olursa olsun).';
-      case UpdatePlatform.windows:
-        return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
-            'Tek tuşla en son zip indirilir; yeni medyaatlas.exe ile açın.';
-      case UpdatePlatform.web:
-        return 'Bu sürüm (v$appVersion) artık desteklenmiyor.\n'
-            'Tek tuşla en son sürüme geçilir.\n\n'
-            'İşe yaramazsa Safari’de açın:\n'
-            'alid67-git.github.io/MedyaAtlas/\n'
-            'Sonra: Paylaş → Ana Ekrana Ekle\n'
-            '(Eski Ana Ekran ikonunu silin.)';
-    }
-  }
+  String get forceDialogBody =>
+      'Sizin: v$appVersion\nGüncel: v$latestVersion';
 }
 
 /// Android / Windows indirme veya web sayfa yenileme.

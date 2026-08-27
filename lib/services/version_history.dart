@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.54',
+    tr: 'Güncelleme diyaloğu: Sizin / Güncel sürüm; uzun açıklama kaldırıldı.',
+    en: 'Update dialog: Yours / Latest versions; drop long copy.',
+    de: 'Update-Dialog: Ihre / Aktuelle Version; langer Text weg.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.53',
     tr: 'Birleşik: uygulama içi video; hızlı telefon tarama; Tamam özeti; konumum; kümede yana kaydırma.',
     en: 'Combined: in-app video; fast phone scan; OK summary; my location; cluster swipe.',
