@@ -23,17 +23,16 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
-<<<<<<< HEAD
+    version: '1.0.52',
+    tr: 'Tüm telefon: kayıtlı atla + GPS; özet Tamam diyalogu; izler dışarı tık; GPX≠galeri.',
+    en: 'Whole phone: skip known + GPS; OK summary dialog; tracks outside-tap; GPX≠gallery.',
+    de: 'Ganzes Telefon: Bekannte+GPS; OK-Dialog; Spuren Außentipp; GPX≠Galerie.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.51',
     tr: 'Android: telefon videoları content URI ile uygulama içinde; codec olmazsa sistem oynatıcı.',
     en: 'Android: play phone videos in-app via content URI; system player if codec fails.',
     de: 'Android: Telefonvideos per content URI in-App; Systemplayer bei Codec-Fehler.',
-=======
-    version: '1.0.52',
-    tr: 'Tüm telefon: kayıtlıları atla + MediaStore GPS; GoPro/DJI GPS yeniden; GPX galeriye foto olmaz.',
-    en: 'Whole phone: skip known + MediaStore GPS; GoPro/DJI GPS retry; GPX not gallery photos.',
-    de: 'Ganzes Telefon: Bekannte überspringen + MediaStore-GPS; GoPro/DJI erneut; GPX nicht Galerie.',
->>>>>>> origin/cursor/phone-rescan-gps-gpx-6bc2
   ),
   VersionHistoryEntry(
     version: '1.0.50',

@@ -930,6 +930,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           '"${result.folderName}" okunuyor… ($photoCount foto · $videoCount video)'
           '${bulk ? ' · hızlı tarama' : ''}';
     });
+    String? phoneSummary;
+    String phoneTitle = result.folderName;
     try {
       final repo = context.read<MediaRepository>();
       final stableId = preferSourceId ??
@@ -943,6 +945,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         label: result.folderName,
         rootPath: result.rootPath,
       );
+      phoneTitle = source.label;
       if (_cancel) {
         if (mounted) {
           setState(() => _status = 'Tarama iptal edildi.');
@@ -988,26 +991,42 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
         if (fresh.isEmpty) {
           if (mounted) {
-            setState(() {
-              _status = gpsFilled > 0
-                  ? '"${source.label}": $gpsFilled GPS güncellendi · '
-                      '$skippedKnown kayıtlı'
-                  : '"${source.label}": yeni yok · $skippedKnown kayıtlı atlandı';
-            });
+            if (_isPhoneBulkSource(source)) {
+              setState(() => _status = null);
+              phoneSummary = gpsFilled > 0
+                  ? '$gpsFilled GPS güncellendi\n$skippedKnown kayıtlı'
+                  : 'Yeni medya yok\n$skippedKnown kayıtlı';
+            } else {
+              setState(() {
+                _status = gpsFilled > 0
+                    ? '"${source.label}": $gpsFilled GPS güncellendi · '
+                        '$skippedKnown kayıtlı'
+                    : '"${source.label}": yeni yok · $skippedKnown kayıtlı atlandı';
+              });
+            }
           }
-          return;
+        } else {
+          if (mounted && (skippedKnown > 0 || gpsFilled > 0)) {
+            setState(
+              () => _status =
+                  '"${source.label}": ${fresh.length} yeni'
+                  '${skippedKnown > 0 ? ' · $skippedKnown atlandı' : ''}'
+                  '${gpsFilled > 0 ? ' · $gpsFilled GPS' : ''}…',
+            );
+          }
+          items = fresh;
+          final stats = await _ingest(items, source: source, bulkMode: bulk);
+          if (_isPhoneBulkSource(source) && !stats.cancelled) {
+            final fail =
+                stats.failed > 0 ? ' · ${stats.failed} okunamadı' : '';
+            phoneSummary =
+                '${stats.added} medya bulundu\n'
+                '${stats.withGps} GPS’li · ${stats.missing} GPS’siz$fail';
+          }
         }
-        if (mounted && (skippedKnown > 0 || gpsFilled > 0)) {
-          setState(
-            () => _status =
-                '"${source.label}": ${fresh.length} yeni'
-                '${skippedKnown > 0 ? ' · $skippedKnown atlandı' : ''}'
-                '${gpsFilled > 0 ? ' · $gpsFilled GPS' : ''}…',
-          );
-        }
-        items = fresh;
+      } else {
+        await _ingest(items, source: source, bulkMode: bulk);
       }
-      await _ingest(items, source: source, bulkMode: bulk);
     } catch (e) {
       if (!mounted) return;
       final msg = '$e';
@@ -1018,6 +1037,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       });
     } finally {
       if (mounted) setState(_endBusy);
+    }
+    if (phoneSummary != null && mounted) {
+      await _showImportSummaryDialog(
+        title: phoneTitle,
+        message: phoneSummary,
+      );
     }
   }
 
@@ -1151,7 +1176,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     );
   }
 
-  Future<void> _ingest(
+  Future<
+      ({
+        int added,
+        int withGps,
+        int missing,
+        int failed,
+        bool cancelled,
+      })> _ingest(
     List<FolderMediaRef> files, {
     required MediaSource source,
     bool bulkMode = false,
@@ -1470,7 +1502,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
     }
     await repo.flush(notify: true);
-    if (!mounted) return;
+    if (!mounted) {
+      return (
+        added: added,
+        withGps: withGps,
+        missing: missing,
+        failed: failed,
+        cancelled: _cancel,
+      );
+    }
     final kindsText = kindCountsLabel(kindCounts);
     final failText = failed > 0 ? ' · $failed okunamadı' : '';
     final tip = bulkMode && missing > 0
@@ -1478,16 +1518,77 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         : (kIsWeb && missing > 0
               ? ' · iPhone foto GPS’i gizleyebilir; GoPro için yeniden dene'
               : '');
+    final phoneBulk = _isPhoneBulkSource(source);
     setState(() {
       _showMissing = false;
       _panelCluster = null;
       // Yeni eklenen türler haritada görünsün diye filtreyi aç.
       _kinds.addAll(MediaKind.values);
-      _status = _cancel
-          ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip'
-          : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip';
+      if (phoneBulk && !_cancel) {
+        // Alt çubuk yerine ortada kısa özet diyalogu (_ingestPick’te).
+        _status = null;
+      } else {
+        _status = _cancel
+            ? 'Tarama durdu: $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip'
+            : '"${source.label}": $added medya ($kindsText) · $withGps GPS · $missing konum yok$failText$tip';
+      }
     });
     _fitVisible();
+    return (
+      added: added,
+      withGps: withGps,
+      missing: missing,
+      failed: failed,
+      cancelled: _cancel,
+    );
+  }
+
+  bool _isPhoneBulkSource(MediaSource source) =>
+      source.id == phoneSourceId || isPhoneAllSourceLabel(source.label);
+
+  /// Tüm telefon tarama özeti — ortada, Tamam ile kapanır.
+  Future<void> _showImportSummaryDialog({
+    required String title,
+    required String message,
+  }) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0A1C28),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          title: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.4,
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Tamam'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _retryMissingGps({bool forceAll = false}) async {
@@ -1994,6 +2095,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           ],
                         ),
                 ),
+                // İzler paneli açıkken dışarı tıklayınca kapat (çarpı da durur).
+                if (_tracksOpen)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setState(() => _tracksOpen = false),
+                      child: const ColoredBox(color: Color(0x33000000)),
+                    ),
+                  ),
                 Positioned(
                   top: 0,
                   left: 0,
@@ -2031,7 +2141,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             color: const Color(0xFF0A1C28),
                             borderRadius: BorderRadius.circular(12),
                             clipBehavior: Clip.antiAlias,
-                            child: _tracksPanel(),
+                            // Panel içi tıklamalar bariyere gitmesin.
+                            child: GestureDetector(
+                              onTap: () {},
+                              child: _tracksPanel(),
+                            ),
                           ),
                         ),
                       if (_kindMenu != null)
