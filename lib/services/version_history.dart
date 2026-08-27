@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.53',
+    tr: 'Birleşik: uygulama içi video; hızlı telefon tarama; Tamam özeti; konumum; kümede yana kaydırma.',
+    en: 'Combined: in-app video; fast phone scan; OK summary; my location; cluster swipe.',
+    de: 'Kombi: In-App-Video; schneller Telefonscan; OK-Zusammenfassung; Standort; Cluster-Wischen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.52',
     tr: 'Tüm telefon: kayıtlı atla + GPS; özet Tamam; izler dışarı tık; GPX≠galeri; konumum butonu.',
     en: 'Whole phone skip+GPS; OK dialog; tracks outside-tap; GPX≠gallery; my-location button.',
