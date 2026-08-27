@@ -356,9 +356,9 @@ int versionsBehind({required String current, required String latest}) {
   return l[2] - c[2];
 }
 
-/// 2+ sürüm geride → uygulama kullanılamaz, güncelleme zorunlu.
+/// Zorunlu güncelleme şimdilik kapalı — yalnızca isteğe bağlı diyalog.
 bool isForceUpdateRequired({
   required String current,
   required String latest,
 }) =>
-    versionsBehind(current: current, latest: latest) >= 2;
+    false;

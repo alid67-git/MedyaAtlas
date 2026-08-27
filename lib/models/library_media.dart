@@ -27,6 +27,7 @@ class LibraryMedia {
     this.locationMissing = false,
     this.localPath,
     this.sizeBytes,
+    this.gpsDeepTried = false,
   });
 
   final String id;
@@ -41,6 +42,8 @@ class LibraryMedia {
   final bool locationMissing;
   final String? localPath;
   final int? sizeBytes;
+  /// «Konum yokları yeniden dene» derin taraması bir kez yapıldı → tekrar atla.
+  final bool gpsDeepTried;
 
   bool get isVideo => kind != MediaKind.photo;
   bool get hasLocation =>
@@ -53,6 +56,7 @@ class LibraryMedia {
     DateTime? takenAt,
     bool? locationMissing,
     String? localPath,
+    bool? gpsDeepTried,
     bool clearLocation = false,
     bool clearLocalPath = false,
   }) =>
@@ -69,6 +73,7 @@ class LibraryMedia {
         locationMissing: locationMissing ?? this.locationMissing,
         localPath: clearLocalPath ? null : (localPath ?? this.localPath),
         sizeBytes: sizeBytes,
+        gpsDeepTried: gpsDeepTried ?? this.gpsDeepTried,
       );
 
   Map<String, dynamic> toJson() => {
@@ -87,6 +92,7 @@ class LibraryMedia {
         // blob: URL'ler sekmeye özel — Hive'a yazılırsa sonraki açılışta ölür.
         'localPath': _persistableLocalPath(localPath),
         'sizeBytes': sizeBytes,
+        'gpsDeepTried': gpsDeepTried,
       };
 
   static String? _persistableLocalPath(String? path) {
@@ -115,6 +121,7 @@ class LibraryMedia {
       locationMissing: json['locationMissing'] as bool? ?? false,
       localPath: json['localPath'] as String?,
       sizeBytes: json['sizeBytes'] as int?,
+      gpsDeepTried: json['gpsDeepTried'] as bool? ?? false,
     );
   }
 }

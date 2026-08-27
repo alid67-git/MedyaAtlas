@@ -402,10 +402,18 @@ class MediaRepository extends ChangeNotifier {
       relativePath: relativePath,
       size: size,
     );
+    LibraryMedia? byPath;
     for (final item in _items) {
       if (item.id == id) return item;
+      // Eski UUID id’li kayıtlar — yeniden taramada çift eklemeyi önle.
+      if (byPath == null &&
+          item.sourceId == sourceId &&
+          (item.sizeBytes ?? 0) == size &&
+          (item.relativePath ?? item.name) == relativePath) {
+        byPath = item;
+      }
     }
-    return null;
+    return byPath;
   }
 
   Future<LibraryMedia> add({
@@ -425,9 +433,18 @@ class MediaRepository extends ChangeNotifier {
     final rel = relativePath ?? name;
     final size = sizeBytes ?? 0;
     final id = mediaIndexId(sourceId: sourceId, relativePath: rel, size: size);
-    final existing = _items.indexWhere((m) => m.id == id);
-    if (existing >= 0) {
-      return _items[existing];
+    final existingIdx = _items.indexWhere((m) => m.id == id);
+    if (existingIdx >= 0) {
+      return _items[existingIdx];
+    }
+    // Aynı kaynak+yol+boyut, farklı id (eski indeks) → yeni satır açma.
+    final dup = findByIndex(
+      sourceId: sourceId,
+      relativePath: rel,
+      size: size,
+    );
+    if (dup != null) {
+      return dup;
     }
     final hasGps = isValidGps(lat, lng);
     final media = LibraryMedia(
@@ -481,6 +498,7 @@ class MediaRepository extends ChangeNotifier {
             lng: lng,
             takenAt: takenAt,
             locationMissing: false,
+            gpsDeepTried: true,
           )
         : _items[i].copyWith(
             clearLocation: true,
@@ -494,6 +512,37 @@ class MediaRepository extends ChangeNotifier {
     if (notify) {
       notifyListeners();
     }
+  }
+
+  /// Derin GPS denemesi bitti (bulunamadı) — sonraki «yeniden dene» atlansın.
+  Future<void> markGpsDeepTried({
+    required String id,
+    bool persist = false,
+    bool notify = false,
+  }) async {
+    final i = _items.indexWhere((m) => m.id == id);
+    if (i < 0) return;
+    if (_items[i].gpsDeepTried) return;
+    _items[i] = _items[i].copyWith(gpsDeepTried: true);
+    _itemJsonCache.remove(id);
+    if (persist) await _persistIndex();
+    if (notify) notifyListeners();
+  }
+
+  /// Tüm konum-yok kayıtlarında derin deneme bayrağını temizle (zorla yeniden).
+  Future<void> clearGpsDeepTriedForMissing({bool persist = true}) async {
+    var changed = false;
+    for (var i = 0; i < _items.length; i++) {
+      final m = _items[i];
+      if (!m.hasLocation && m.gpsDeepTried) {
+        _items[i] = m.copyWith(gpsDeepTried: false);
+        _itemJsonCache.remove(m.id);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    if (persist) await _persistIndex();
+    notifyListeners();
   }
 
   Future<void> updateLocalPath({
