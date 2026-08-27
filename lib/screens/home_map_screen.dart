@@ -80,8 +80,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   LocationCluster? _panelCluster;
   final Set<MediaKind> _kinds = {...MediaKind.values};
   Timer? _mountTimer;
+
   /// Zorunlu güncelleme — harita kullanılmaz.
   AppUpdateInfo? _forceUpdate;
+
   /// Zorunlu/ indirme sırasında ekrandaki yüzde (null = indirmiyor).
   double? _updateDownloadProgress;
   var _updateDialogOpen = false;
@@ -180,10 +182,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     await _promptUpdate(info, force: false);
   }
 
-  Future<void> _promptUpdate(
-    AppUpdateInfo info, {
-    required bool force,
-  }) async {
+  Future<void> _promptUpdate(AppUpdateInfo info, {required bool force}) async {
     if (!mounted || _updateDialogOpen) return;
     _updateDialogOpen = true;
     try {
@@ -193,11 +192,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         builder: (ctx) => PopScope(
           canPop: !force,
           child: AlertDialog(
-            title: Text(
-              force
-                  ? 'Zorunlu güncelleme'
-                  : 'Güncelleme var',
-            ),
+            title: Text(force ? 'Zorunlu güncelleme' : 'Güncelleme var'),
             content: Text(force ? info.forceDialogBody : info.dialogBody),
             actions: [
               if (!force)
@@ -487,7 +482,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     for (var i = 0; i < files.length; i++) {
       if (_cancel) break;
       final file = files[i];
-      final kind = detectKind(file.name) ??
+      final kind =
+          detectKind(file.name) ??
           (file.isVideo ? MediaKind.video : MediaKind.photo);
       final rel = file.relativePath ?? file.name;
       try {
@@ -607,7 +603,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     try {
       session = await connectGoogleDrive();
       if (!mounted) return;
-      setState(() => _status = 'Drive: ${session!.email} — medya listeleniyor…');
+      setState(
+        () => _status = 'Drive: ${session!.email} — medya listeleniyor…',
+      );
       final picked = await listDriveMedia(
         session,
         onProgress: (s) {
@@ -913,8 +911,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         if (maybeTrackBytes != null &&
             maybeTrackBytes.isNotEmpty &&
             isAcceptableTrackFile(name: name, bytes: maybeTrackBytes)) {
-          final kind =
-              detectTrackFormat(fileName: name, bytes: maybeTrackBytes)!;
+          final kind = detectTrackFormat(
+            fileName: name,
+            bytes: maybeTrackBytes,
+          )!;
           trackFiles.add(
             PickedTrackFile(
               name: ensureTrackExtension(name, kind),
@@ -970,7 +970,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (loose.isEmpty || !mounted) return;
     await _ingestPick(
       FolderPickResult(
-        folderName: loose.length == 1 ? loose.first.name : '${loose.length} dosya',
+        folderName: loose.length == 1
+            ? loose.first.name
+            : '${loose.length} dosya',
         items: loose,
       ),
     );
@@ -994,7 +996,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         : (bulkMode ? bulkGpsVideoHeadBytes : videoHeadBytes);
     final progressEvery = kIsWeb ? 1 : (bulkMode ? 40 : 8);
     final persistEvery = bulkMode ? 64 : 8;
-    final yieldEvery = kIsWeb ? 1 : (bulkMode ? 20 : 8);
+    // Her dosyada nefes — İptal tuşu bir sonraki dosyada işlensin.
+    const yieldEvery = 1;
 
     // Tür filtresi yalnızca harita/liste görünümünü etkiler — tarama her
     // zaman foto + video + GoPro + drone ekler.
@@ -1003,20 +1006,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final file = files[i];
       if (mounted && i % progressEvery == 0) {
         setState(
-          () => _status =
-              '${source.label}: ${i + 1}/${files.length} · $withGps GPS · $missing yok · ${kindCountsLabel(kindCounts)}',
+          () => _status = _cancel
+              ? 'İptal ediliyor…'
+              : '${source.label}: ${i + 1}/${files.length} · $withGps GPS · $missing yok · ${kindCountsLabel(kindCounts)}',
         );
       }
-      if (i % yieldEvery == 0) {
-        await Future<void>.delayed(Duration.zero);
-      }
-      final kind = detectKind(file.name) ??
+      await Future<void>.delayed(Duration.zero);
+      if (_cancel) break;
+      final kind =
+          detectKind(file.name) ??
           (file.isVideo ? MediaKind.video : MediaKind.photo);
-      final needsDeepGps =
-          kind == MediaKind.gopro || kind == MediaKind.drone;
+      final needsDeepGps = kind == MediaKind.gopro || kind == MediaKind.drone;
       final videoLimit = needsDeepGps ? videoLimitGps : videoLimitGeneric;
       final rel = file.relativePath ?? file.name;
-      final ephemeralWeb = kIsWeb ||
+      final ephemeralWeb =
+          kIsWeb ||
           file.localPath == null ||
           file.localPath!.isEmpty ||
           isWebPlayableUrl(file.localPath);
@@ -1040,7 +1044,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
           // Web: eski kayıtta bayt/blob yoksa aynı dosyadan doldur (ağır; toplu değil).
           if (ephemeralWeb && !bulkMode) {
-            final hasPreview = repo.cachedBytes(existing.id) != null ||
+            final hasPreview =
+                repo.cachedBytes(existing.id) != null ||
                 await repo.bytesOf(existing.id) != null;
             if (existing.isVideo) {
               if (!hasPreview) {
@@ -1075,7 +1080,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   head: head,
                   relativePath: file.relativePath,
                   deepScan: needsDeepGps,
-                  maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
+                  maxScanBytes: needsDeepGps
+                      ? videoLimitGps
+                      : videoGpsScanBytes,
+                  isCancelled: () => _cancel,
                 );
                 if (gps != null) {
                   await repo.updateLocation(
@@ -1118,7 +1126,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               } catch (_) {}
             }
           } else if (!bulkMode && existing.isVideo) {
-            final hasPreview = repo.cachedBytes(existing.id) != null ||
+            final hasPreview =
+                repo.cachedBytes(existing.id) != null ||
                 await repo.bytesOf(existing.id) != null;
             if (!hasPreview) {
               Uint8List? head;
@@ -1146,18 +1155,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
         final isPhoto = kind == MediaKind.photo;
         // Web / blob: disk yolu yok — blob URL + küçük head (tam dosya yazma).
-        final ephemeral = kIsWeb ||
+        final ephemeral =
+            kIsWeb ||
             file.localPath == null ||
             file.localPath!.isEmpty ||
             isWebPlayableUrl(file.localPath);
         final headLimit = isPhoto
             ? (ephemeral && file.size > 0
-                ? math.min(file.size, webStorePhotoBytes)
-                : (file.size <= 0
-                    ? photoLimit
-                    : (file.size <= previewStoreBytes
-                        ? file.size
-                        : photoLimit)))
+                  ? math.min(file.size, webStorePhotoBytes)
+                  : (file.size <= 0
+                        ? photoLimit
+                        : (file.size <= previewStoreBytes
+                              ? file.size
+                              : photoLimit)))
             : videoLimit;
 
         LatLng? gps;
@@ -1167,7 +1177,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
 
         Uint8List? head;
-        final needHead = gps == null ||
+        final needHead =
+            gps == null ||
             (isPhoto && ephemeral && file.size > 0) ||
             (!bulkMode &&
                 isPhoto &&
@@ -1175,7 +1186,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 file.size <= previewStoreBytes);
         if (needHead) {
           try {
-            final limit = gps != null &&
+            final limit =
+                gps != null &&
                     isPhoto &&
                     file.size > 0 &&
                     !bulkMode &&
@@ -1200,6 +1212,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 relativePath: file.relativePath,
                 deepScan: !bulkMode || needsDeepGps,
                 maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
+                isCancelled: () => _cancel,
               );
             }
           } catch (_) {
@@ -1213,12 +1226,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               relativePath: file.relativePath,
               deepScan: !bulkMode || needsDeepGps,
               maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
+              isCancelled: () => _cancel,
             );
           } catch (_) {}
         }
         // NaN/Infinity asla Hive/jsonEncode veya MarkerLayer'a girmesin.
-        if (gps != null &&
-            !(gps.latitude.isFinite && gps.longitude.isFinite)) {
+        if (gps != null && !(gps.latitude.isFinite && gps.longitude.isFinite)) {
           gps = null;
         }
 
@@ -1268,7 +1281,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           lat: gps?.latitude,
           lng: gps?.longitude,
           takenAt: taken,
-          persist: i == files.length - 1 || i % persistEvery == persistEvery - 1,
+          persist:
+              i == files.length - 1 || i % persistEvery == persistEvery - 1,
           notify: false,
         );
         added++;
@@ -1284,8 +1298,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final tip = bulkMode && missing > 0
         ? ' · GPS eksikler için “yeniden dene”'
         : (kIsWeb && missing > 0
-            ? ' · iPhone foto GPS’i gizleyebilir; GoPro için yeniden dene'
-            : '');
+              ? ' · iPhone foto GPS’i gizleyebilir; GoPro için yeniden dene'
+              : '');
     setState(() {
       _showMissing = false;
       _panelCluster = null;
@@ -1367,6 +1381,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       head: got.head,
                       relativePath: item.relativePath,
                       deepScan: needsDeep,
+                      isCancelled: () => _cancel,
                     );
               if (item.kind == MediaKind.photo) {
                 taken = await extractExifTakenAt(got.head!);
@@ -1376,6 +1391,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 localPath: item.localPath,
                 relativePath: item.relativePath,
                 deepScan: needsDeep,
+                isCancelled: () => _cancel,
               );
             }
           } else {
@@ -1387,18 +1403,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               final size = await localFileLength(path);
               final limit = item.kind == MediaKind.photo
                   ? (size <= 0
-                      ? photoHeadBytes
-                      : (size <= previewStoreBytes ? size : photoHeadBytes))
+                        ? photoHeadBytes
+                        : (size <= previewStoreBytes ? size : photoHeadBytes))
                   : videoHeadBytes;
               if (size > 0 && limit > 0) {
-                head = await readLocalFileHead(path, limit);
+                head = await readLocalFileHead(
+                  path,
+                  limit,
+                  isCancelled: () => _cancel,
+                );
+                if (_cancel) break;
               }
             }
             if ((head == null || head.isEmpty) && item.sizeBytes != null) {
               final limit = item.kind == MediaKind.photo
                   ? (item.sizeBytes! <= previewStoreBytes
-                      ? item.sizeBytes!
-                      : photoHeadBytes)
+                        ? item.sizeBytes!
+                        : photoHeadBytes)
                   : videoHeadBytes;
               head = await webSessionReadHead(
                 item.name,
@@ -1417,6 +1438,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 localPath: item.localPath,
                 relativePath: item.relativePath,
                 deepScan: needsDeep,
+                isCancelled: () => _cancel,
               );
               if (gps == null) {
                 await repo.markGpsDeepTried(id: item.id);
@@ -1431,6 +1453,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       head: head,
                       relativePath: item.relativePath,
                       deepScan: needsDeep,
+                      isCancelled: () => _cancel,
                     );
               if (item.kind == MediaKind.photo) {
                 taken = await extractExifTakenAt(head);
@@ -1450,6 +1473,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             gotGps = true;
           }
         } catch (_) {}
+        if (_cancel) break;
         if (!gotGps) {
           await repo.markGpsDeepTried(id: item.id);
         }
@@ -1462,7 +1486,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           _status = _cancel
               ? 'GPS durdu: $found konum bulundu'
               : 'GPS yeniden: $found konum · $checked okundu'
-                  '${skipped > 0 ? ' · $skipped atlandı' : ''}';
+                    '${skipped > 0 ? ' · $skipped atlandı' : ''}';
         });
         if (found > 0) _fitVisible();
       }
@@ -1553,7 +1577,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   List<LocationCluster> _clustersOf(MediaRepository repo) {
-    return groupByLocation(_filtered(repo).where((m) => m.hasLocation).toList());
+    return groupByLocation(
+      _filtered(repo).where((m) => m.hasLocation).toList(),
+    );
   }
 
   List<LibraryMedia> _missingOf(MediaRepository repo) {
@@ -1587,11 +1613,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             repo: live,
             onOpen: (items, index) {
               Navigator.pop(ctx);
-              openMediaViewer(
-                context,
-                items: items,
-                initialIndex: index,
-              );
+              openMediaViewer(context, items: items, initialIndex: index);
             },
           ),
         );
@@ -1601,11 +1623,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   String _kindTitle(MediaKind kind) => switch (kind) {
-        MediaKind.photo => 'Fotoğraflar',
-        MediaKind.video => 'Telefon videoları',
-        MediaKind.gopro => 'GoPro',
-        MediaKind.drone => 'DJI / Drone videoları',
-      };
+    MediaKind.photo => 'Fotoğraflar',
+    MediaKind.video => 'Telefon videoları',
+    MediaKind.gopro => 'GoPro',
+    MediaKind.drone => 'DJI / Drone videoları',
+  };
 
   String _libraryStatus({
     required MediaRepository repo,
@@ -1656,8 +1678,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     final body = CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyO, control: true):
-            _busy ? () {} : _importFolder,
+        const SingleActivator(LogicalKeyboardKey.keyO, control: true): _busy
+            ? () {}
+            : _importFolder,
         const SingleActivator(LogicalKeyboardKey.escape): () {
           setState(() {
             _panelCluster = null;
@@ -1708,8 +1731,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   right: 0,
                   bottom: _showMissing ? 0 : null,
                   child: Column(
-                    mainAxisSize:
-                        _showMissing ? MainAxisSize.max : MainAxisSize.min,
+                    mainAxisSize: _showMissing
+                        ? MainAxisSize.max
+                        : MainAxisSize.min,
                     children: [
                       _mapTopBar(
                         s: s,
@@ -1751,8 +1775,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             clipBehavior: Clip.antiAlias,
                             child: _kindsPanel(
                               located: _kindMenu == 'located',
-                              locatedItems:
-                                  visible.where((m) => m.hasLocation),
+                              locatedItems: visible.where((m) => m.hasLocation),
                               missingItems: missing,
                             ),
                           ),
@@ -1912,11 +1935,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   onPressed: _busy
                       ? null
                       : () => openSettingsSheet(
-                            context,
-                            onCheckUpdate: supportsInAppUpdate
-                                ? () => _checkForUpdates(manual: true)
-                                : null,
-                          ),
+                          context,
+                          onCheckUpdate: supportsInAppUpdate
+                              ? () => _checkForUpdates(manual: true)
+                              : null,
+                        ),
                 ),
               ],
             ),
@@ -1997,7 +2020,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   _TopIcon(
                     tooltip: s.fitAll,
                     icon: Icons.zoom_out_map,
-                    onPressed: hasPins ||
+                    onPressed:
+                        hasPins ||
                             context
                                 .read<TrackRepository>()
                                 .visibleTracks
@@ -2029,12 +2053,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final text = _busy
         ? (_status ?? 'Dosyalar aranıyor…')
         : (_status ??
-            _libraryStatus(
-              repo: repo,
-              visible: visible,
-              clusterCount: clusterCount,
-              missingCount: missingCount,
-            ));
+              _libraryStatus(
+                repo: repo,
+                visible: visible,
+                clusterCount: clusterCount,
+                missingCount: missingCount,
+              ));
     return Material(
       elevation: 8,
       color: const Color(0xF00A1C28),
@@ -2073,18 +2097,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
             if (_busy)
-              TextButton(
+              FilledButton(
                 onPressed: () {
-                  // setState beklemeden bayrak — döngü bir sonraki await’te çıksın.
                   _cancel = true;
                   if (mounted) {
                     setState(() => _status = 'İptal ediliyor…');
                   }
                 },
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFFF7A59),
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  minimumSize: const Size(56, 36),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF7A59),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  minimumSize: const Size(72, 40),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(s.cancel),
@@ -2174,11 +2198,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           () => _status =
               '"${source.label}": ${fresh.length} yeni · $skippedKnown atlandı…',
         );
-        await _ingest(
-          fresh,
-          source: source,
-          bulkMode: true,
-        );
+        await _ingest(fresh, source: source, bulkMode: true);
       } catch (e) {
         if (!mounted) return;
         setState(() {
@@ -2302,13 +2322,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     final emptyHint = hostIsAndroid
         ? 'Medya: Klasör, Galeri (foto/video) veya Tüm telefon. '
-            'GPX için üstteki rota (İzler) ikonu — Galeri değil.'
+              'GPX için üstteki rota (İzler) ikonu — Galeri değil.'
         : (hostIsAppleWeb || hostIsIOS)
-            ? 'Medya: Galeri (foto/video) veya Google Drive. '
-                'GPX için üstteki rota (İzler) → Dosyalar uygulaması.'
-            : (_isDesktop
-                ? 'Medya: Klasör veya Google Drive. GPX için üstteki rota ikonu.'
-                : 'Medya: Galeri veya Google Drive. GPX için üstteki rota ikonu.');
+        ? 'Medya: Galeri (foto/video) veya Google Drive. '
+              'GPX için üstteki rota (İzler) → Dosyalar uygulaması.'
+        : (_isDesktop
+              ? 'Medya: Klasör veya Google Drive. GPX için üstteki rota ikonu.'
+              : 'Medya: Galeri veya Google Drive. GPX için üstteki rota ikonu.');
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 340),
@@ -2332,8 +2352,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 !repo.isSourceMounted(source)
                     ? Icons.usb_off_outlined
                     : source.hidden
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
               ),
               title: Text(source.label, overflow: TextOverflow.ellipsis),
               subtitle: Text(
@@ -2354,8 +2374,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   ),
                   IconButton(
                     tooltip: 'Sil',
-                    onPressed:
-                        _busy ? null : () => repo.removeSource(source.id),
+                    onPressed: _busy
+                        ? null
+                        : () => repo.removeSource(source.id),
                     icon: const Icon(Icons.delete_outline),
                   ),
                 ],
@@ -2366,8 +2387,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             hostIsAndroid
                 ? 'Ekle (medya — GPX değil)'
                 : (hostIsAppleWeb || hostIsIOS)
-                    ? 'Ekle (foto/video — GPX değil)'
-                    : 'Ekle',
+                ? 'Ekle (foto/video — GPX değil)'
+                : 'Ekle',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -2375,11 +2396,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
           ),
           const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: addButtons,
-          ),
+          Wrap(spacing: 8, runSpacing: 8, children: addButtons),
         ],
       ),
     );
@@ -2388,8 +2405,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Widget _tracksPanel() {
     final tracksRepo = context.watch<TrackRepository>();
     final tracks = tracksRepo.tracks;
-    final selected =
-        _trackSelection.intersection(tracks.map((t) => t.id).toSet());
+    final selected = _trackSelection.intersection(
+      tracks.map((t) => t.id).toSet(),
+    );
     final allSelected = tracks.isNotEmpty && selected.length == tracks.length;
 
     return ConstrainedBox(
@@ -2491,11 +2509,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     child: Text(
                       hostIsAppleWeb || hostIsIOS
                           ? 'GPX ekleyin: Dosyalar → Browse → Google Drive. '
-                              'Uzantı (.gpx) olmasa da yüklenir. Fotoğraflar değil.'
+                                'Uzantı (.gpx) olmasa da yüklenir. Fotoğraflar değil.'
                           : hostIsAndroid
-                              ? 'GPX ekleyin: Dosyalar / Drive / İndirilenler. '
-                                  'Uzantı olmasa da içerik tanınır. Galeri (foto) değil.'
-                              : 'GPX, KML veya KMZ ekleyin. Uzantı olmasa da GPX içeriği tanınır.',
+                          ? 'GPX ekleyin: Dosyalar / Drive / İndirilenler. '
+                                'Uzantı olmasa da içerik tanınır. Galeri (foto) değil.'
+                          : 'GPX, KML veya KMZ ekleyin. Uzantı olmasa da GPX içeriği tanınır.',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.white.withValues(alpha: 0.6),
@@ -2511,7 +2529,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       final isSel = selected.contains(t.id);
                       return CheckboxListTile(
                         dense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                        ),
                         value: isSel,
                         secondary: Icon(
                           t.visible
@@ -2550,8 +2570,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   hostIsAppleWeb || hostIsIOS
                       ? 'Dosyalar → Browse → Drive. Uzantısız kayıtlar da olur (Fotoğraflar değil).'
                       : hostIsAndroid
-                          ? 'Drive / İndirilenler — uzantı olmasa da GPX tanınır (Galeri değil).'
-                          : 'Uzantı olmasa da GPX/KML içeriği tanınır.',
+                      ? 'Drive / İndirilenler — uzantı olmasa da GPX tanınır (Galeri değil).'
+                      : 'Uzantı olmasa da GPX/KML içeriği tanınır.',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.5),
@@ -2615,16 +2635,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
-                final pending =
-                    missingItems.where((m) => !m.gpsDeepTried).length;
+                final pending = missingItems
+                    .where((m) => !m.gpsDeepTried)
+                    .length;
                 final tried = missingItems.length - pending;
                 final label = pending == 0 && tried > 0
                     ? 'Yeniden dene (hepsi denenmiş — uzun bas)'
                     : tried > 0
-                        ? 'Konum yokları yeniden dene ($pending yeni · $tried atlanır)'
-                        : S.of(context.read<AppSettings>()).retryMissing;
+                    ? 'Konum yokları yeniden dene ($pending yeni · $tried atlanır)'
+                    : S.of(context.read<AppSettings>()).retryMissing;
                 return Tooltip(
-                  message: 'Kısa: yalnızca denenmemişler · Uzun bas: hepsini zorla',
+                  message:
+                      'Kısa: yalnızca denenmemişler · Uzun bas: hepsini zorla',
                   child: GestureDetector(
                     onLongPress: _busy
                         ? null
@@ -2678,9 +2700,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               userAgentPackageName: 'com.medyaatlas.app',
             ),
             if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
-            MarkerLayer(
-              markers: _markersFor(clusters, repo),
-            ),
+            MarkerLayer(markers: _markersFor(clusters, repo)),
           ],
         ),
         if (_places.isNotEmpty)
@@ -2740,8 +2760,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
       } else {
         final n = cluster.items.length;
-        final size =
-            math.min(88.0, 36 + math.sqrt(n.clamp(1, 200).toDouble()) * 9);
+        final size = math.min(
+          88.0,
+          36 + math.sqrt(n.clamp(1, 200).toDouble()) * 9,
+        );
         out.add(
           Marker(
             point: LatLng(lat, lng),
@@ -2814,10 +2836,7 @@ class _MissingList extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Text(
             'GPS yok · ${items.length} medya',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
         ),
         const Divider(height: 1),
@@ -2944,16 +2963,17 @@ class _ClusterSheet extends StatelessWidget {
                       physics: const NeverScrollableScrollPhysics(),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        mainAxisSpacing: 6,
-                        crossAxisSpacing: 6,
-                      ),
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 6,
+                            crossAxisSpacing: 6,
+                          ),
                       itemCount: g.items.length,
                       itemBuilder: (context, i) {
                         final item = g.items[i];
                         final flatIndex = flat.indexOf(item);
                         return GestureDetector(
-                          onTap: () => onOpen(flat, flatIndex < 0 ? 0 : flatIndex),
+                          onTap: () =>
+                              onOpen(flat, flatIndex < 0 ? 0 : flatIndex),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(6),
                             child: _Thumb(item: item, repo: repo),
@@ -2992,8 +3012,7 @@ class _Thumb extends StatelessWidget {
           if (snap.connectionState != ConnectionState.done) {
             return const ColoredBox(color: Color(0xFF1A2A36));
           }
-          final fromSession =
-              photoFromPath(snap.data, fit: BoxFit.cover);
+          final fromSession = photoFromPath(snap.data, fit: BoxFit.cover);
           if (fromSession != null) return fromSession;
           return _thumbBytesFallback(item: item, repo: repo);
         },
@@ -3084,7 +3103,8 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final cached = widget.repo.cachedBytes(widget.item.id) ??
+    final cached =
+        widget.repo.cachedBytes(widget.item.id) ??
         await widget.repo.bytesOf(widget.item.id);
     if (cached != null && cached.isNotEmpty && looksLikeJpeg(cached)) {
       if (mounted) {
@@ -3159,10 +3179,7 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
       return ColoredBox(
         color: const Color(0xFF1A2A36),
         child: Center(
-          child: Icon(
-            kindVideoIcon(widget.item.kind),
-            color: Colors.white54,
-          ),
+          child: Icon(kindVideoIcon(widget.item.kind), color: Colors.white54),
         ),
       );
     }

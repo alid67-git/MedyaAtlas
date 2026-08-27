@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.42',
+    tr: 'İptal tuşu: dilimli okuma + sık kontrol — gecikme azalır; belirgin İptal butonu.',
+    en: 'Cancel: chunked reads + frequent checks — less delay; clearer Cancel button.',
+    de: 'Abbruch: stückweises Lesen + häufige Checks — weniger Verzögerung.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.41',
     tr: 'GPS yeniden dene: denenmişleri atlar (ANR yok); yeniden tara yalnızca yenileri; iptal hızlı; zorunlu güncelleme kapalı.',
     en: 'GPS retry skips already-tried (no ANR); rescan only new; faster cancel; force-update off.',

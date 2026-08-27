@@ -79,7 +79,9 @@ Future<LatLng?> extractVideoGps({
   String? relativePath,
   bool deepScan = true,
   int maxScanBytes = videoGpsScanBytes,
+  bool Function()? isCancelled,
 }) async {
+  if (isCancelled?.call() == true) return null;
   LatLng? point;
 
   if (head != null && head.isNotEmpty) {
@@ -89,21 +91,30 @@ Future<LatLng?> extractVideoGps({
     if (point != null) return point;
   }
 
+  if (isCancelled?.call() == true) return null;
   point = await extractDjiSidecarGps(localPath);
   if (point != null) return point;
 
   if (!deepScan) return null;
   if (kIsWeb || localPath == null || localPath.isEmpty) return null;
+  if (isCancelled?.call() == true) return null;
   try {
     if (!await localFileExists(localPath)) return null;
+    if (isCancelled?.call() == true) return null;
     final size = await localFileLength(localPath);
     if (size <= 0) return null;
     final limit = math.min(maxScanBytes, size);
     // head zaten yeterince büyükse tekrar okuma.
     if (head != null && head.length >= limit) {
+      if (isCancelled?.call() == true) return null;
       return extractGpmfGps(head) ?? extractAsciiGpsHints(head);
     }
-    final bytes = await readLocalFileHead(localPath, limit);
+    final bytes = await readLocalFileHead(
+      localPath,
+      limit,
+      isCancelled: isCancelled,
+    );
+    if (isCancelled?.call() == true || bytes.isEmpty) return null;
     point = extractHeaderGps(bytes);
     point ??= extractGpmfGps(bytes);
     point ??= extractAsciiGpsHints(bytes);

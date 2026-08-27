@@ -12,14 +12,17 @@ Future<int> localFileLength(String path) async => 0;
 
 Future<DateTime?> localFileModified(String path) async => null;
 
-Future<Uint8List> readLocalFileHead(String path, int maxBytes) async =>
-    Uint8List(0);
+Future<Uint8List> readLocalFileHead(
+  String path,
+  int maxBytes, {
+  bool Function()? isCancelled,
+}) async => Uint8List(0);
 
 Future<Uint8List?> readLocalTextFileLimited(
   String path, {
   int maxBytes = 8 * 1024 * 1024,
-}) async =>
-    null;
+  bool Function()? isCancelled,
+}) async => null;
 
 /// Web’de dosya yolu yok.
 Never localFile(String path) =>
