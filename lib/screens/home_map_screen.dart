@@ -1337,9 +1337,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (forceAll) {
       await repo.clearGpsDeepTriedForMissing(persist: true);
     }
-    final targets = forceAll
-        ? allMissing
-        : allMissing.where((m) => !m.gpsDeepTried).toList();
+    // Seçili türler (_kinds) zaten _missingOf’ta; GoPro/DJI önce.
+    final targets = (forceAll
+            ? allMissing
+            : allMissing.where((m) => !m.gpsDeepTried).toList())
+        ..sort((a, b) => _gpsRetryKindOrder(a.kind) - _gpsRetryKindOrder(b.kind));
     final skipped = allMissing.length - targets.length;
     if (targets.isEmpty) {
       if (!mounted) return;
@@ -1350,11 +1352,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       return;
     }
 
+    final kindHint = kindCountsLabel({
+      for (final k in MediaKind.values)
+        k: targets.where((m) => m.kind == k).length,
+    });
     setState(() {
       _beginBusy();
       _status = skipped > 0
-          ? 'GPS yeniden: ${targets.length} yeni · $skipped atlandı…'
-          : 'GPS yeniden okunuyor…';
+          ? 'GPS yeniden ($kindHint): ${targets.length} · $skipped atlandı…'
+          : 'GPS yeniden ($kindHint)…';
     });
     var found = 0;
     var checked = 0;
@@ -1362,12 +1368,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       for (var i = 0; i < targets.length; i++) {
         if (_cancel) break;
         final item = targets[i];
-        // UI thread’i bırak — ANR / «yanıt vermiyor» önlemi.
+        // UI’ye nefes — ANR / «yanıt vermiyor» önlemi.
         await Future<void>.delayed(Duration.zero);
-        if (mounted && (i % 2 == 0 || i == targets.length - 1)) {
+        if (mounted) {
           setState(
             () => _status =
-                'GPS yeniden: ${i + 1}/${targets.length} · $found bulundu'
+                'GPS ${_kindTitle(item.kind)}: ${i + 1}/${targets.length} · $found bulundu'
                 '${skipped > 0 ? ' · $skipped atlandı' : ''}',
           );
         }
@@ -1379,33 +1385,30 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               item.kind == MediaKind.gopro || item.kind == MediaKind.drone;
           final phoneId = phoneAssetIdFromRelativePath(item.relativePath);
           if (phoneId != null && hostIsAndroid) {
-            final got = await readPhoneAssetGps(
+            final got = await readPhoneAssetGpsDeep(
               assetId: phoneId,
               isPhoto: item.kind == MediaKind.photo,
               headLimit: item.kind == MediaKind.photo
                   ? photoHeadBytes
-                  : videoHeadBytes,
+                  : (needsDeep ? videoGpsScanBytes : videoHeadBytes),
+              tailLimit: needsDeep ? videoGpsTailBytes : 0,
             );
             checked++;
             if (got.lat != null && got.lng != null) {
               gps = latLngOrNull(got.lat, got.lng);
             }
-            if (gps == null && got.head != null && got.head!.isNotEmpty) {
-              gps = item.kind == MediaKind.photo
-                  ? await extractExifGps(got.head!)
-                  : await extractVideoGps(
-                      localPath: item.localPath,
-                      head: got.head,
-                      relativePath: item.relativePath,
-                      deepScan: needsDeep,
-                      isCancelled: () => _cancel,
-                    );
-              if (item.kind == MediaKind.photo) {
-                taken = await extractExifTakenAt(got.head!);
+            final path = got.path ?? item.localPath;
+            if (gps == null && item.kind == MediaKind.photo) {
+              final head = got.head;
+              if (head != null && head.isNotEmpty) {
+                gps = await extractExifGps(head);
+                taken = await extractExifTakenAt(head);
               }
-            } else if (gps == null && item.kind != MediaKind.photo) {
+            } else if (gps == null) {
               gps = await extractVideoGps(
-                localPath: item.localPath,
+                localPath: path,
+                head: got.head,
+                tail: got.tail,
                 relativePath: item.relativePath,
                 deepScan: needsDeep,
                 isCancelled: () => _cancel,
@@ -1422,7 +1425,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   ? (size <= 0
                         ? photoHeadBytes
                         : (size <= previewStoreBytes ? size : photoHeadBytes))
-                  : videoHeadBytes;
+                  : (needsDeep ? videoGpsScanBytes : videoHeadBytes);
               if (size > 0 && limit > 0) {
                 head = await readLocalFileHead(
                   path,
@@ -1463,17 +1466,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               }
             } else {
               checked++;
-              gps = item.kind == MediaKind.photo
-                  ? await extractExifGps(head)
-                  : await extractVideoGps(
-                      localPath: item.localPath,
-                      head: head,
-                      relativePath: item.relativePath,
-                      deepScan: needsDeep,
-                      isCancelled: () => _cancel,
-                    );
               if (item.kind == MediaKind.photo) {
+                gps = await extractExifGps(head);
                 taken = await extractExifTakenAt(head);
+              } else {
+                gps = await extractVideoGps(
+                  localPath: item.localPath,
+                  head: head,
+                  relativePath: item.relativePath,
+                  deepScan: needsDeep,
+                  isCancelled: () => _cancel,
+                );
               }
             }
           }
@@ -1494,6 +1497,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         if (!gotGps) {
           await repo.markGpsDeepTried(id: item.id);
         }
+        // Her dosyadan sonra kısa nefes — harita/İptal boyansın.
+        await Future<void>.delayed(const Duration(milliseconds: 1));
       }
       await repo.flush(notify: true);
     } finally {
@@ -1509,6 +1514,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
     }
   }
+
+  int _gpsRetryKindOrder(MediaKind kind) => switch (kind) {
+        MediaKind.gopro => 0,
+        MediaKind.drone => 1,
+        MediaKind.video => 2,
+        MediaKind.photo => 3,
+      };
 
   void _closeMenus() {
     _sourcesOpen = false;
@@ -2666,14 +2678,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     .where((m) => !m.gpsDeepTried)
                     .length;
                 final tried = missingItems.length - pending;
+                final kindBits = <String>[
+                  for (final k in MediaKind.values)
+                    if (_kinds.contains(k))
+                      '${missingItems.where((m) => m.kind == k && !m.gpsDeepTried).length} ${_kindTitle(k)}',
+                ];
+                final scope = kindBits.where((s) => !s.startsWith('0 ')).join(' · ');
                 final label = pending == 0 && tried > 0
-                    ? 'Yeniden dene (hepsi denenmiş — uzun bas)'
+                    ? 'Yeniden dene (seçili türler denenmiş — uzun bas)'
                     : tried > 0
-                    ? 'Konum yokları yeniden dene ($pending yeni · $tried atlanır)'
-                    : S.of(context.read<AppSettings>()).retryMissing;
+                    ? 'Seçili türlerde GPS dene ($scope · $tried atlanır)'
+                    : scope.isEmpty
+                    ? S.of(context.read<AppSettings>()).retryMissing
+                    : 'Seçili türlerde GPS dene ($scope)';
                 return Tooltip(
                   message:
-                      'Kısa: yalnızca denenmemişler · Uzun bas: hepsini zorla',
+                      'Chip’lerle tür seçin (yalnız GoPro vb.). Kısa: denenmemişler · Uzun: zorla',
                   child: GestureDetector(
                     onLongPress: _busy
                         ? null

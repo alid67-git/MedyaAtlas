@@ -42,6 +42,21 @@ Future<({double? lat, double? lng, Uint8List? head})> readPhoneAssetGps({
 }) async =>
     (lat: null, lng: null, head: null);
 
+Future<
+    ({
+      double? lat,
+      double? lng,
+      String? path,
+      Uint8List? head,
+      Uint8List? tail,
+    })> readPhoneAssetGpsDeep({
+  required String assetId,
+  required bool isPhoto,
+  int headLimit = 0,
+  int tailLimit = 0,
+}) async =>
+    (lat: null, lng: null, path: null, head: null, tail: null);
+
 Future<Uint8List?> phoneAssetThumbnailBytes(
   String assetId, {
   int size = 360,

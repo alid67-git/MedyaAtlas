@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.45',
+    tr: 'GPS yeniden dene: arka planda (ANR yok); GoPro dosya sonu GPMF; tür chip’leriyle ayrı tara.',
+    en: 'GPS retry: background (no ANR); GoPro end-of-file GPMF; per-kind via chips.',
+    de: 'GPS-Retry: Hintergrund (kein ANR); GoPro GPMF am Dateiende; je Typ per Chip.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.44',
     tr: 'Sığdır: kuzey yukarı + tam ekran; izler küçük zoom’da kalın çizgi + rozet.',
     en: 'Fit-all: north-up + fill screen; tracks thick + badge at low zoom.',

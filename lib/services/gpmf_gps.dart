@@ -7,14 +7,14 @@ import 'geo.dart';
 /// GoPro GPMF (GPS5 / GPS9) — MP4 içindeki telemetri izinden ilk geçerli konum.
 LatLng? extractGpmfGps(Uint8List data) {
   if (data.length < 28) return null;
-  // Önce yapılandırılmış DEVC yürüyüşü; olmazsa GPS5/GPS9 FourCC tara.
-  for (var i = 0; i < data.length - 8; i++) {
+  // GPMF FourCC genelde 4-byte hizalı — adım 4 (UI ANR / hız).
+  for (var i = 0; i + 8 <= data.length; i += 4) {
     if (_fourCcEquals(data, i, 'DEVC')) {
       final point = _walkGpmf(data, i, data.length, null);
       if (point != null) return point;
     }
   }
-  for (var i = 0; i < data.length - 28; i++) {
+  for (var i = 0; i + 28 <= data.length; i += 4) {
     if (_fourCcEquals(data, i, 'GPS5') || _fourCcEquals(data, i, 'GPS9')) {
       final key = _fourCc(data, i);
       final type = data[i + 4];
@@ -141,7 +141,7 @@ List<double>? _parseScal(
 
 List<double>? _findNearbyScal(Uint8List data, int gpsOffset) {
   final from = (gpsOffset - 256).clamp(0, data.length);
-  for (var i = gpsOffset - 8; i >= from; i--) {
+  for (var i = gpsOffset - 8; i >= from; i -= 4) {
     if (!_fourCcEquals(data, i, 'SCAL')) continue;
     final type = data[i + 4];
     final size = data[i + 5];

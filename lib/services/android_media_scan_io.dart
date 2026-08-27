@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -275,9 +276,32 @@ Future<({double? lat, double? lng, Uint8List? head})> readPhoneAssetGps({
   required bool isPhoto,
   int headLimit = photoHeadBytes,
 }) async {
+  final deep = await readPhoneAssetGpsDeep(
+    assetId: assetId,
+    isPhoto: isPhoto,
+    headLimit: headLimit,
+    tailLimit: 0,
+  );
+  return (lat: deep.lat, lng: deep.lng, head: deep.head);
+}
+
+/// GoPro/DJI yeniden dene: taze dosya yolu + baş + kuyruk.
+Future<
+    ({
+      double? lat,
+      double? lng,
+      String? path,
+      Uint8List? head,
+      Uint8List? tail,
+    })> readPhoneAssetGpsDeep({
+  required String assetId,
+  required bool isPhoto,
+  int headLimit = photoHeadBytes,
+  int tailLimit = 0,
+}) async {
   final asset = await AssetEntity.fromId(assetId);
   if (asset == null) {
-    return (lat: null, lng: null, head: null);
+    return (lat: null, lng: null, path: null, head: null, tail: null);
   }
   double? lat;
   double? lng;
@@ -289,13 +313,53 @@ Future<({double? lat, double? lng, Uint8List? head})> readPhoneAssetGps({
     }
   } catch (_) {}
 
+  String? path;
   Uint8List? head;
-  if (lat == null || isPhoto) {
-    try {
-      head = await _readAssetHead(asset, headLimit);
-    } catch (_) {}
+  Uint8List? tail;
+  try {
+    final file = await asset.originFile ?? await asset.file;
+    if (file != null) {
+      path = file.path;
+      final size = await file.length();
+      if (lat == null || isPhoto || headLimit > 0) {
+        final n = math.min(size, headLimit <= 0 ? photoHeadBytes : headLimit);
+        if (n > 0) {
+          head = await _readFileRange(file, 0, n);
+        }
+      }
+      if (lat == null && !isPhoto && tailLimit > 0 && size > 0) {
+        final n = math.min(size, tailLimit);
+        if (n > 0 && (head == null || head.length < size)) {
+          tail = await _readFileRange(file, size - n, n);
+        }
+      }
+    }
+  } catch (_) {}
+
+  return (lat: lat, lng: lng, path: path, head: head, tail: tail);
+}
+
+Future<Uint8List> _readFileRange(File file, int start, int length) async {
+  if (length <= 0) return Uint8List(0);
+  final raf = await file.open();
+  try {
+    await raf.setPosition(start);
+    const chunk = 512 * 1024;
+    if (length <= chunk) {
+      return await raf.read(length);
+    }
+    final out = BytesBuilder(copy: false);
+    var remaining = length;
+    while (remaining > 0) {
+      final take = remaining > chunk ? chunk : remaining;
+      out.add(await raf.read(take));
+      remaining -= take;
+      await Future<void>.delayed(Duration.zero);
+    }
+    return out.takeBytes();
+  } finally {
+    await raf.close();
   }
-  return (lat: lat, lng: lng, head: head);
 }
 
 String _assetFileName(AssetEntity asset) {

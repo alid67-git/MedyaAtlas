@@ -107,4 +107,39 @@ Future<Uint8List?> readLocalTextFileLimited(
   return bytes;
 }
 
+/// Dosya sonundan oku (GoPro `moov` / GPMF çoğu zaman sonda).
+Future<Uint8List> readLocalFileTail(
+  String path,
+  int maxBytes, {
+  bool Function()? isCancelled,
+}) async {
+  final file = File(path);
+  final size = await file.length();
+  final n = math.min(size, maxBytes);
+  if (n <= 0) return Uint8List(0);
+  if (isCancelled?.call() == true) return Uint8List(0);
+
+  const chunk = 512 * 1024;
+  final raf = await file.open();
+  try {
+    await raf.setPosition(size - n);
+    if (n <= chunk || isCancelled == null) {
+      if (isCancelled?.call() == true) return Uint8List(0);
+      return await raf.read(n);
+    }
+    final out = BytesBuilder(copy: false);
+    var remaining = n;
+    while (remaining > 0) {
+      if (isCancelled()) return Uint8List(0);
+      final take = remaining > chunk ? chunk : remaining;
+      out.add(await raf.read(take));
+      remaining -= take;
+      await Future<void>.delayed(Duration.zero);
+    }
+    return out.takeBytes();
+  } finally {
+    await raf.close();
+  }
+}
+
 File localFile(String path) => File(path);
