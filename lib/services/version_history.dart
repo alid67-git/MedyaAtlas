@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.51',
+    tr: 'Tüm telefon özeti ortada Tamam ile; izler paneli dışarı tıklayınca kapanır.',
+    en: 'Phone scan summary centered with OK; tracks panel closes on outside tap.',
+    de: 'Telefon-Scan-Zusammenfassung mittig mit OK; Spuren schließen bei Außentipp.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.50',
     tr: 'Çoklu GPX; seçici already_active düzeltmesi; izler haritada adım adım; yinelenen rota uyarısı 1 sn.',
     en: 'Multi GPX; fix picker already_active; progressive map add; 1s duplicate toast.',
