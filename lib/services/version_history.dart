@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.57',
+    tr: 'İzler listesi: en son kayıt edilen üstte.',
+    en: 'Tracks list: newest registered first.',
+    de: 'Track-Liste: neueste Registrierung oben.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.56',
     tr: 'Güncelleme arka planda + uyarı; harita küme önbelleği / iz sadeleştirme (ANR).',
     en: 'Background update + banner; map cluster cache / track downsample (ANR).',
