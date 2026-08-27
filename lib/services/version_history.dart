@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.51',
+    tr: 'Kümede foto yana kaydırma; açılışta harita küme + zoom’daki medyayı gösterir.',
+    en: 'Swipe photos in a cluster; map fits cluster and viewport media for paging.',
+    de: 'Fotos in Cluster wischen; Karte zeigt Cluster + Viewport-Medien.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.50',
     tr: 'Çoklu GPX; seçici already_active düzeltmesi; izler haritada adım adım; yinelenen rota uyarısı 1 sn.',
     en: 'Multi GPX; fix picker already_active; progressive map add; 1s duplicate toast.',

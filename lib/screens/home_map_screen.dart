@@ -1743,6 +1743,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _openCluster(LocationCluster cluster) async {
+    _fitCluster(cluster);
     setState(() {
       _panelCluster = cluster;
       _showMissing = false;
@@ -1769,13 +1770,116 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             repo: live,
             onOpen: (items, index) {
               Navigator.pop(ctx);
-              openMediaViewer(context, items: items, initialIndex: index);
+              _openMapMediaViewer(
+                clusterItems: items,
+                tappedIndex: index,
+              );
             },
           ),
         );
       },
     );
     if (mounted) setState(() => _panelCluster = null);
+  }
+
+  /// Kümedeki tüm medya haritada görünsün (sokak dip zoom değil).
+  void _fitCluster(LocationCluster cluster) {
+    final points = <LatLng>[
+      for (final m in cluster.items)
+        if (m.latLng != null) m.latLng!,
+    ];
+    if (points.isEmpty) {
+      final c = cluster.latLng;
+      if (c.latitude.isFinite && c.longitude.isFinite) {
+        points.add(c);
+      }
+    }
+    if (points.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        _map.rotate(0);
+        if (points.length == 1) {
+          _map.moveAndRotate(points.first, 15, 0);
+          return;
+        }
+        var bounds = LatLngBounds.fromPoints(points);
+        final latSpan = (bounds.north - bounds.south).abs();
+        final lngSpan = (bounds.east - bounds.west).abs();
+        // Aynı noktaya yakın küme: biraz aç ki tüm pinler görünsün.
+        if (latSpan < 0.0008 || lngSpan < 0.0008) {
+          const pad = 0.002;
+          bounds = LatLngBounds(
+            LatLng(bounds.south - pad, bounds.west - pad),
+            LatLng(bounds.north + pad, bounds.east + pad),
+          );
+        }
+        _map.fitCamera(
+          CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.fromLTRB(48, 140, 48, 200),
+            maxZoom: 16,
+          ),
+        );
+        _map.rotate(0);
+      } catch (_) {}
+    });
+  }
+
+  /// Mevcut harita zoom’undaki GPS’li medya (yeniden eskiye).
+  List<LibraryMedia> _mediaInMapViewport(MediaRepository repo) {
+    try {
+      final bounds = _map.camera.visibleBounds;
+      final out = <LibraryMedia>[
+        for (final m in _locatedForMap(repo))
+          if (m.latLng != null && bounds.contains(m.latLng!)) m,
+      ];
+      out.sort((a, b) {
+        final ta = a.takenAt ?? a.addedAt;
+        final tb = b.takenAt ?? b.addedAt;
+        return tb.compareTo(ta);
+      });
+      return out;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Küme / pin’den aç: önce küme, zoom’da görünen tüm medya ile kaydır.
+  void _openMapMediaViewer({
+    required List<LibraryMedia> clusterItems,
+    required int tappedIndex,
+  }) {
+    if (clusterItems.isEmpty) return;
+    final safeIndex = tappedIndex.clamp(0, clusterItems.length - 1);
+    final tapped = clusterItems[safeIndex];
+    final repo = context.read<MediaRepository>();
+
+    // Frame sonrası: fit bittiyse viewport’taki komşular da listeye girer.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      var list = _mediaInMapViewport(repo);
+      if (list.isEmpty || !list.any((m) => m.id == tapped.id)) {
+        list = List<LibraryMedia>.from(clusterItems);
+      } else {
+        // Kümedekiler viewport dışındaysa (padding) yine ekle.
+        final ids = {for (final m in list) m.id};
+        for (final m in clusterItems) {
+          if (!ids.contains(m.id)) list.add(m);
+        }
+        list.sort((a, b) {
+          final ta = a.takenAt ?? a.addedAt;
+          final tb = b.takenAt ?? b.addedAt;
+          return tb.compareTo(ta);
+        });
+      }
+      final start = list.indexWhere((m) => m.id == tapped.id);
+      openMediaViewer(
+        context,
+        items: list,
+        initialIndex: start < 0 ? 0 : start,
+      );
+    });
   }
 
   String _kindTitle(MediaKind kind) => switch (kind) {
@@ -1870,10 +1974,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                                   repo: repo,
                                   onClose: () =>
                                       setState(() => _panelCluster = null),
-                                  onOpen: (items, index) => openMediaViewer(
-                                    context,
-                                    items: items,
-                                    initialIndex: index,
+                                  onOpen: (items, index) => _openMapMediaViewer(
+                                    clusterItems: items,
+                                    tappedIndex: index,
                                   ),
                                 ),
                               ),

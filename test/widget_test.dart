@@ -315,25 +315,21 @@ void main() {
       1,
     );
     expect(
-      isForceUpdateRequired(current: '1.0.4', latest: '1.0.5'),
-      isFalse,
-    );
-    expect(
       versionsBehind(current: '1.0.3', latest: '1.0.5'),
       2,
     );
     expect(
-      isForceUpdateRequired(current: '1.0.3', latest: '1.0.5'),
-      isTrue,
+      versionsBehind(current: '0.8.1', latest: '1.0.5'),
+      999,
     );
+    // Zorunlu güncelleme şimdilik kapalı (isteğe bağlı diyalog).
     expect(
-      isForceUpdateRequired(current: '0.8.1', latest: '1.0.5'),
-      isTrue,
+      isForceUpdateRequired(current: '1.0.3', latest: '1.0.5'),
+      isFalse,
     );
-    // Telefon 1.0.23, canlı/release 1.0.26+ → zorunlu uyarı
     expect(
       isForceUpdateRequired(current: '1.0.23', latest: '1.0.26'),
-      isTrue,
+      isFalse,
     );
   });
 

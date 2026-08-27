@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -97,6 +95,8 @@ class _MediaViewerState extends State<MediaViewer> {
             child: PageView.builder(
               controller: _pages,
               itemCount: widget.items.length,
+              // Ölçek 1 iken yatay kaydırma sayfalar arası geçsin.
+              allowImplicitScrolling: false,
               onPageChanged: (i) => setState(() => _index = i),
               itemBuilder: (context, i) => _Page(
                 media: widget.items[i],
@@ -145,9 +145,8 @@ class _Page extends StatelessWidget {
     final repo = context.read<MediaRepository>();
 
     // Web: kalıcı olan tek yol tarayıcının o oturumda tuttuğu File — sayfa
-    // kapanınca kaybolur. Eskiden kalma blob: yolunu doğrudan güvenmek
-    // (şekli hâlâ geçerli görünüyor) sessizce kırık resme düşüyordu;
-    // resolvePlayableUrl oturumda File var mı diye gerçekten kontrol eder.
+    // kapanınca kaybolur. Eskiden kalma blob: yolu şekli hâlâ geçerli görünür,
+    // gerçekte ölüdür. resolvePlayableUrl oturumda File var mı diye kontrol eder.
     if (kIsWeb) {
       return FutureBuilder<String?>(
         future: repo.resolvePlayableUrl(media),
@@ -157,11 +156,7 @@ class _Page extends StatelessWidget {
           }
           final fromSession = photoFromPath(snap.data);
           if (fromSession != null) {
-            return InteractiveViewer(
-              minScale: 1,
-              maxScale: 5,
-              child: Center(child: fromSession),
-            );
+            return _ZoomablePhoto(child: Center(child: fromSession));
           }
           return _missingPhotoFallback(context, repo, media);
         },
@@ -170,11 +165,7 @@ class _Page extends StatelessWidget {
 
     final fromDisk = photoFromPath(media.localPath);
     if (fromDisk != null) {
-      return InteractiveViewer(
-        minScale: 1,
-        maxScale: 5,
-        child: Center(child: fromDisk),
-      );
+      return _ZoomablePhoto(child: Center(child: fromDisk));
     }
     return _missingPhotoFallback(context, repo, media);
   }
@@ -188,7 +179,11 @@ class _Page extends StatelessWidget {
     if (cached != null &&
         looksLikeJpeg(cached) &&
         !looksLikeHeic(cached)) {
-      return _ZoomPhoto(bytes: cached);
+      return _ZoomablePhoto(
+        child: Center(
+          child: OrientedMemoryImage(cached, fit: BoxFit.contain),
+        ),
+      );
     }
     return FutureBuilder<Uint8List?>(
       future: repo.bytesOf(media.id),
@@ -211,8 +206,66 @@ class _Page extends StatelessWidget {
             ),
           );
         }
-        return _ZoomPhoto(bytes: bytes);
+        return _ZoomablePhoto(
+          child: Center(
+            child: OrientedMemoryImage(bytes, fit: BoxFit.contain),
+          ),
+        );
       },
+    );
+  }
+}
+
+/// Ölçek ≈1 iken pan kapalı → PageView yatay kaydırmayı alır (foto geçişi).
+class _ZoomablePhoto extends StatefulWidget {
+  const _ZoomablePhoto({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ZoomablePhoto> createState() => _ZoomablePhotoState();
+}
+
+class _ZoomablePhotoState extends State<_ZoomablePhoto> {
+  final _transform = TransformationController();
+  var _zoomed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _transform.addListener(_onTransform);
+  }
+
+  void _onTransform() {
+    final s = _transform.value.getMaxScaleOnAxis();
+    final next = s > 1.02;
+    if (next != _zoomed && mounted) setState(() => _zoomed = next);
+  }
+
+  @override
+  void dispose() {
+    _transform.removeListener(_onTransform);
+    _transform.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InteractiveViewer(
+      transformationController: _transform,
+      minScale: 1,
+      maxScale: 5,
+      // Zoom yokken pan PageView ile çakışmasın.
+      panEnabled: _zoomed,
+      scaleEnabled: true,
+      onInteractionEnd: (_) {
+        final s = _transform.value.getMaxScaleOnAxis();
+        if (s <= 1.02 && _transform.value != Matrix4.identity()) {
+          _transform.value = Matrix4.identity();
+          if (_zoomed && mounted) setState(() => _zoomed = false);
+        }
+      },
+      child: widget.child,
     );
   }
 }
@@ -292,23 +345,6 @@ class _VideoPageState extends State<_VideoPage> {
       preferExternal: hostIsWindows &&
           (widget.media.kind == MediaKind.gopro ||
               widget.media.kind == MediaKind.drone),
-    );
-  }
-}
-
-class _ZoomPhoto extends StatelessWidget {
-  const _ZoomPhoto({required this.bytes});
-
-  final Uint8List bytes;
-
-  @override
-  Widget build(BuildContext context) {
-    return InteractiveViewer(
-      minScale: 1,
-      maxScale: 5,
-      child: Center(
-        child: OrientedMemoryImage(bytes, fit: BoxFit.contain),
-      ),
     );
   }
 }
