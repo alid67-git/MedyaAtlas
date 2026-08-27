@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.51',
+    tr: 'Harita sağ alt: konumum — son ~5 gün medyayı kapsayan orta zoom.',
+    en: 'Map bottom-right: my location — mid zoom covering ~5 days of media.',
+    de: 'Karte unten rechts: Mein Standort — mittlerer Zoom (~5 Tage Medien).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.50',
     tr: 'Çoklu GPX; seçici already_active düzeltmesi; izler haritada adım adım; yinelenen rota uyarısı 1 sn.',
     en: 'Multi GPX; fix picker already_active; progressive map add; 1s duplicate toast.',

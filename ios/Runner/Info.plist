@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Haritada göstermek için galerinizdeki fotoğraf ve videolara erişim gerekiyor.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Haritada bulunduğunuz yere gitmek için konum izni gerekir.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Seçtiğiniz medyayı bu cihazda saklamak için galeri erişimi gerekiyor.</string>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
