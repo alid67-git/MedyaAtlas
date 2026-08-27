@@ -360,7 +360,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         });
         return;
       }
-      await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
+      await _ingestPick(
+        picked,
+        alreadyBusy: true,
+        bulkMode: true,
+        preferSourceId: phoneSourceId,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -410,7 +415,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         });
         return;
       }
-      await _ingestPick(picked, alreadyBusy: true, bulkMode: true);
+      await _ingestPick(
+        picked,
+        alreadyBusy: true,
+        bulkMode: true,
+        preferSourceId: favoritesSourceId,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -786,6 +796,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     FolderPickResult result, {
     bool alreadyBusy = false,
     bool? bulkMode,
+    String? preferSourceId,
   }) async {
     if (result.items.isEmpty) {
       setState(() {
@@ -805,7 +816,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
     try {
       final repo = context.read<MediaRepository>();
+      final stableId = preferSourceId ??
+          (isPhoneAllSourceLabel(result.folderName)
+              ? phoneSourceId
+              : result.folderName == 'Galeri'
+                  ? gallerySourceId
+                  : (result.folderName == 'Favoriler' ? favoritesSourceId : null));
       final source = await repo.ensureSource(
+        id: stableId,
         label: result.folderName,
         rootPath: result.rootPath,
       );
@@ -2218,7 +2236,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       await _importFavorites();
       return;
     }
-    if (source.label == 'Telefon (tümü)' || source.label == 'Tüm telefon') {
+    if (source.id == phoneSourceId ||
+        source.label == 'Telefon (tümü)' ||
+        source.label == 'Tüm telefon') {
       await _importEntirePhone();
       return;
     }

@@ -16,6 +16,15 @@ const _payloadBoxName = 'medyaatlas_media_payload';
 const _sourcesBoxName = 'medyaatlas_sources';
 const _indexKey = 'index';
 const gallerySourceId = 'gallery';
+const phoneSourceId = 'phone_all';
+const favoritesSourceId = 'favorites';
+
+/// Eski «Telefon (tümü)» vb. etiketleri tek sabit id’ye bağla.
+bool isPhoneAllSourceLabel(String label) =>
+    label == 'Tüm telefon' || label == 'Telefon (tümü)';
+
+bool isPhoneAllSourceId(String id) =>
+    id == phoneSourceId || id == 'phone' || id.startsWith('phone_');
 
 /// Bu cihazdaki kütüphane. Dosyalar **kopyalanmaz** — yalnızca indeks
 /// (ad, yol/blob, GPS, tarih). Önizleme baytları varsa yalnızca oturum belleğinde.
@@ -88,12 +97,124 @@ class MediaRepository extends ChangeNotifier {
     _sanitizeLoadedGps();
     final sourceCount = _sources.length;
     _ensureOrphanSources();
-    if (_sources.length != sourceCount) {
+    final mergedPhone = _mergeLegacyPhoneSourcesInMemory();
+    if (_sources.length != sourceCount || mergedPhone) {
       await _persistSources();
+      if (mergedPhone) await _persistIndex();
     }
     refreshMountStates(notify: false);
     _ready = true;
     notifyListeners();
+  }
+
+  /// «Telefon (tümü)» / rastgele UUID → tek [phoneSourceId]; çift satırları sil.
+  bool _mergeLegacyPhoneSourcesInMemory() {
+    final phoneishIds = <String>{};
+    for (final s in _sources) {
+      if (s.id == phoneSourceId || isPhoneAllSourceLabel(s.label)) {
+        phoneishIds.add(s.id);
+      }
+    }
+    // phone/… yolu olan öğelerin kaynağı da telefona çekilsin.
+    for (final m in _items) {
+      if (phoneAssetIdFromRelativePath(m.relativePath) != null) {
+        phoneishIds.add(m.sourceId);
+      }
+    }
+    if (phoneishIds.isEmpty) return false;
+
+    var changed = false;
+    final keepHidden = _sources.any(
+      (s) => phoneishIds.contains(s.id) && s.hidden,
+    );
+    final oldest = _sources
+        .where((s) => phoneishIds.contains(s.id))
+        .map((s) => s.addedAt)
+        .fold<DateTime?>(null, (a, b) => a == null || b.isBefore(a) ? b : a);
+
+    _sources.removeWhere((s) => phoneishIds.contains(s.id));
+    _sources.add(
+      MediaSource(
+        id: phoneSourceId,
+        label: 'Tüm telefon',
+        addedAt: oldest ?? DateTime.now(),
+        hidden: keepHidden,
+      ),
+    );
+    changed = true;
+
+    LibraryMedia remap(LibraryMedia m, String assetId) {
+      final rel = phoneRelativePath(assetId);
+      return LibraryMedia(
+        id: mediaIndexId(
+          sourceId: phoneSourceId,
+          relativePath: rel,
+          size: m.sizeBytes ?? 0,
+        ),
+        name: m.name,
+        addedAt: m.addedAt,
+        kind: m.kind,
+        sourceId: phoneSourceId,
+        relativePath: rel,
+        lat: m.lat,
+        lng: m.lng,
+        takenAt: m.takenAt,
+        locationMissing: m.locationMissing,
+        localPath: m.localPath,
+        sizeBytes: m.sizeBytes,
+        gpsDeepTried: m.gpsDeepTried,
+      );
+    }
+
+    for (var i = 0; i < _items.length; i++) {
+      final m = _items[i];
+      final assetId = phoneAssetIdFromRelativePath(m.relativePath);
+      if (assetId == null && !phoneishIds.contains(m.sourceId)) continue;
+      if (assetId == null) continue; // etiket kaynaklı ama phone yolu yok
+      final next = remap(m, assetId);
+      if (next.id != m.id ||
+          next.sourceId != m.sourceId ||
+          next.relativePath != m.relativePath) {
+        _itemJsonCache.remove(m.id);
+        _items[i] = next;
+        changed = true;
+      }
+    }
+
+    // Aynı asset → tek satır (GPS’li / daha büyük olanı tut).
+    final bestByAsset = <String, LibraryMedia>{};
+    final nonPhone = <LibraryMedia>[];
+    for (final m in _items) {
+      final pid = phoneAssetIdFromRelativePath(m.relativePath);
+      if (pid == null) {
+        nonPhone.add(m);
+        continue;
+      }
+      final prev = bestByAsset[pid];
+      if (prev == null) {
+        bestByAsset[pid] = m;
+        continue;
+      }
+      final preferNew = (!prev.hasLocation && m.hasLocation) ||
+          ((m.sizeBytes ?? 0) > (prev.sizeBytes ?? 0) &&
+              prev.hasLocation == m.hasLocation);
+      if (preferNew) {
+        _itemJsonCache.remove(prev.id);
+        bestByAsset[pid] = m;
+      } else {
+        _itemJsonCache.remove(m.id);
+      }
+      changed = true;
+    }
+    if (bestByAsset.length + nonPhone.length != _items.length) {
+      _items
+        ..clear()
+        ..addAll(nonPhone)
+        ..addAll(bestByAsset.values);
+      changed = true;
+    }
+
+    return changed;
   }
 
   /// Eski kayıtlardaki NaN/Infinity GPS → jsonEncode ve harita çökmesin.
@@ -171,7 +292,13 @@ class MediaRepository extends ChangeNotifier {
       _sources.add(
         MediaSource(
           id: entry.key,
-          label: entry.key == gallerySourceId ? 'Galeri' : 'Kaynak',
+          label: entry.key == gallerySourceId
+              ? 'Galeri'
+              : entry.key == phoneSourceId
+                  ? 'Tüm telefon'
+                  : entry.key == favoritesSourceId
+                      ? 'Favoriler'
+                      : 'Kaynak',
           addedAt: entry.value,
         ),
       );
@@ -310,6 +437,21 @@ class MediaRepository extends ChangeNotifier {
     required String label,
     String? rootPath,
   }) async {
+    // Telefon / galeri / favoriler — sabit id (yeniden tara çift kaynak açmasın).
+    if (id == null && isPhoneAllSourceLabel(label)) {
+      id = phoneSourceId;
+      label = 'Tüm telefon';
+    } else if (id == null && label == 'Galeri') {
+      id = gallerySourceId;
+    } else if (id == null && (label == 'Favoriler' || label == 'favorites_web')) {
+      id = favoritesSourceId;
+      label = 'Favoriler';
+    }
+    if (id == phoneSourceId || isPhoneAllSourceLabel(label)) {
+      id = phoneSourceId;
+      label = 'Tüm telefon';
+    }
+
     final normalizedRoot =
         rootPath == null || rootPath.trim().isEmpty
             ? null
@@ -402,10 +544,17 @@ class MediaRepository extends ChangeNotifier {
       relativePath: relativePath,
       size: size,
     );
+    final phoneId = phoneAssetIdFromRelativePath(relativePath);
     LibraryMedia? byPath;
+    LibraryMedia? byPhone;
     for (final item in _items) {
       if (item.id == id) return item;
-      // Eski UUID id’li kayıtlar — yeniden taramada çift eklemeyi önle.
+      // Telefon: asset id aynıysa boyut/başlık fark etmez.
+      if (phoneId != null && byPhone == null) {
+        if (phoneAssetIdFromRelativePath(item.relativePath) == phoneId) {
+          byPhone = item;
+        }
+      }
       if (byPath == null &&
           item.sourceId == sourceId &&
           (item.sizeBytes ?? 0) == size &&
@@ -413,7 +562,7 @@ class MediaRepository extends ChangeNotifier {
         byPath = item;
       }
     }
-    return byPath;
+    return byPhone ?? byPath;
   }
 
   Future<LibraryMedia> add({
