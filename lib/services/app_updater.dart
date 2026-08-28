@@ -282,6 +282,9 @@ Future<String?> _downloadWindowsZip(
     return unzipErr;
   }
 
+  if (await launchWindowsUpdate(extractPath)) {
+    return null;
+  }
   await OpenFilex.open(extractPath);
   return null;
 }

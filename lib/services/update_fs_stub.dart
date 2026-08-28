@@ -13,3 +13,5 @@ Future<String?> downloadUrlToPath(
 
 Future<String?> unzipWindowsUpdate(String zipPath, String extractPath) async =>
     'Web’de zip açma yok.';
+
+Future<bool> launchWindowsUpdate(String extractPath) async => false;

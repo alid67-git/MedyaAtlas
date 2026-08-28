@@ -91,3 +91,23 @@ Future<String?> unzipWindowsUpdate(String zipPath, String extractPath) async {
   }
   return null;
 }
+
+/// Yeni exe’yi başlat; başarılıysa eski süreci kapat.
+Future<bool> launchWindowsUpdate(String extractPath) async {
+  try {
+    final root = Directory(extractPath);
+    if (!await root.exists()) return false;
+    await for (final entity in root.list(recursive: true)) {
+      if (entity is! File) continue;
+      if (!entity.path.toLowerCase().endsWith('.exe')) continue;
+      await Process.start(
+        entity.path,
+        const [],
+        mode: ProcessStartMode.detached,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      exit(0);
+    }
+  } catch (_) {}
+  return false;
+}

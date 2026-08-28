@@ -339,8 +339,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           _updateDownloadProgress = 0;
         } else {
           _updateDownloadProgress = null;
-          _status =
-              'Güncelleme arka planda indiriliyor… Haritayı kullanmaya devam edebilirsiniz.';
+          _status = 'Güncelleme yapılıyor… %0';
         }
       });
 
@@ -349,17 +348,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         onProgress: (p) {
           final pct = (p * 100).floor();
           if (pct == lastPct) return;
-          // setState fırtınası ANR — en az %2 adım.
           if (lastPct >= 0 && pct < 100 && pct - lastPct < 2) return;
           lastPct = pct;
           if (!mounted) return;
           if (onForceScreen) {
             setState(() => _updateDownloadProgress = p);
           } else {
-            setState(
-              () => _status =
-                  'Güncelleme arka planda… %$pct — haritayı kullanabilirsiniz.',
-            );
+            setState(() => _status = 'Güncelleme yapılıyor… %$pct');
           }
         },
       );
@@ -369,11 +364,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         if (err != null) {
           _status = err;
         } else if (info.platform == UpdatePlatform.android) {
-          _status =
-              'Kurulum ekranı açıldı — Güncelle’ye basın (silmeden üzerine kurar).';
+          _status = 'Kurulum ekranı açıldı.';
+        } else if (info.platform == UpdatePlatform.windows) {
+          _status = 'Yeni sürüm açılıyor…';
         } else {
-          _status =
-              'İndirme bitti. Bu uygulamayı kapatıp yeni medyaatlas.exe ile açın.';
+          _status = null;
         }
       });
     } finally {
@@ -1131,10 +1126,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
     }
     if (phoneSummary != null && mounted) {
-      await _showImportSummaryDialog(
-        title: phoneTitle,
-        message: phoneSummary,
-      );
+      final trimmed = phoneSummary.trim();
+      final noNewMedia = trimmed.startsWith('Yeni medya yok') ||
+          trimmed.startsWith('0 yeni medya');
+      if (!noNewMedia) {
+        await _showImportSummaryDialog(
+          title: phoneTitle,
+          message: phoneSummary,
+        );
+      }
     }
   }
 
@@ -2064,6 +2064,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         setState(() {
           _gpsBgRunning = false;
           _status = null;
+          _mapClusters = _safeClusters(context.read<MediaRepository>());
         });
         if (found > 0) _fitVisible();
         await _showGpsRetryReportDialog(
@@ -2563,8 +2564,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final repo = context.watch<MediaRepository>();
     final settings = context.watch<AppSettings>();
     final s = S.of(settings);
-    // Tarama / arka plan GPS / açılış taraması sürerken dondurulmuş pinler.
-    final clusters = (_busy || _gpsBgRunning || _autoScanRunning)
+    // Tarama / açılış taraması sürerken dondurulmuş pinler (GPS arka planda canlı).
+    final clusters = (_busy || _autoScanRunning)
         ? _mapClusters
         : _safeClusters(repo);
     final missing = _missingOf(repo);
@@ -2794,12 +2795,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        if (_updateDownloadProgress != null) ...[
+                        if (_updateDownloadProgress != null)
                           AppUpdateProgressPanel(
                             progress: _updateDownloadProgress!,
-                            subtitle: _forceUpdate!.assetName,
-                          ),
-                        ] else ...[
+                            title: 'Güncelleme yapılıyor',
+                          )
+                        else ...[
                           const Icon(
                             Icons.system_update_alt,
                             size: 56,

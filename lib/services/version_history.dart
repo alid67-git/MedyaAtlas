@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.63',
+    tr: 'Web deploy düzeltmesi; GPS arka planda harita açık; güncelleme metni sade; eski sürüm kapanır.',
+    en: 'Web deploy fix; map live during GPS retry; simpler update text; old app exits.',
+    de: 'Web-Deploy-Fix; Karte bei GPS-Retry live; kürzerer Update-Text; alte App beendet.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.62',
     tr: 'İz sırası yalnızca GPX/KML rota zamanına göre; yükleme tarihi kullanılmaz.',
     en: 'Track order uses GPX/KML route time only; import date ignored.',

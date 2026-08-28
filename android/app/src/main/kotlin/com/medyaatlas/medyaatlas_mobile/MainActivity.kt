@@ -99,5 +99,11 @@ class MainActivity : FlutterActivity() {
             )
         }
         startActivity(intent)
+        // Kurulum ekranı açıldıktan sonra eski sürümü kapat.
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (!isFinishing) {
+                finishAffinity()
+            }
+        }, 400)
     }
 }
