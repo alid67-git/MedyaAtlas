@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.61',
+    tr: 'Eski yumuşak ısı haritası geri; rota rozeti küçük ve lekelerin üstünde.',
+    en: 'Restored soft heat blobs; smaller route badge above heat markers.',
+    de: 'Weiche Heat-Blobs zurück; kleineres Routen-Badge über Heat-Markern.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.60',
     tr: 'İzler listesi: rota tarihine göre yeniden eskiye (GPX saati).',
     en: 'Tracks list: newest-to-oldest by route date (GPX time).',

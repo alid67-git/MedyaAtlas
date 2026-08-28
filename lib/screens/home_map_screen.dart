@@ -115,7 +115,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   List<LibraryMedia>? _filteredCache;
   int _filteredCacheEpoch = -1;
   int _filteredCacheFilter = 0;
-  List<Marker> _markerCache = const [];
+  List<Marker> _heatMarkerCache = const [];
+  List<Marker> _selectedPinCache = const [];
   int _markerCacheClusterLen = -1;
   String? _markerCacheSelectedId;
 
@@ -146,7 +147,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _clusterCache = built;
       _clusterCacheEpoch = epoch;
       _clusterCacheFilter = filter;
-      _markerCache = const [];
+      _heatMarkerCache = const [];
+      _selectedPinCache = const [];
       _markerCacheClusterLen = -1;
       return built;
     } catch (_) {
@@ -3669,6 +3671,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     MediaRepository repo,
   ) {
     final trackRepo = context.watch<TrackRepository>();
+    final mapMarkers = _mapMarkersFor(clusters, repo);
     return Stack(
       children: [
         FlutterMap(
@@ -3683,9 +3686,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               userAgentPackageName: 'com.medyaatlas.app',
             ),
             _TrackLinesLayer(tracks: trackRepo.visibleTracks.toList()),
+            MarkerLayer(markers: mapMarkers.heat),
             _TrackBadgeLayer(tracks: trackRepo.visibleTracks.toList()),
-            // Medya pinleri en üstte — iz rozetinin altında kalmasın.
-            MarkerLayer(markers: _markersFor(clusters, repo)),
+            MarkerLayer(markers: mapMarkers.selected),
           ],
         ),
         if (_places.isNotEmpty)
@@ -3714,31 +3717,27 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     );
   }
 
-  List<Marker> _markersFor(
+  ({List<Marker> heat, List<Marker> selected}) _mapMarkersFor(
     List<LocationCluster> clusters,
     MediaRepository repo,
   ) {
     final selectedId = _panelCluster?.id;
-    if (_markerCache.isNotEmpty &&
+    if (_heatMarkerCache.isNotEmpty &&
         _markerCacheClusterLen == clusters.length &&
         _markerCacheSelectedId == selectedId &&
         identical(clusters, _clusterCache)) {
-      return _markerCache;
+      return (heat: _heatMarkerCache, selected: _selectedPinCache);
     }
-    final out = <Marker>[];
-    // Önce ısı lekeleri, seçili foto pin en sonda → her zaman üstte.
-    final ordered = [
-      ...clusters.where((c) => c.id != selectedId),
-      ...clusters.where((c) => c.id == selectedId),
-    ];
-    for (final cluster in ordered) {
+    final heat = <Marker>[];
+    final selected = <Marker>[];
+    for (final cluster in clusters) {
       final lat = cluster.latitude;
       final lng = cluster.longitude;
       if (!lat.isFinite || !lng.isFinite) continue;
       if (lat.abs() > 90 || lng.abs() > 180) continue;
-      final selected = cluster.id == selectedId;
-      if (selected) {
-        out.add(
+      final isSelected = cluster.id == selectedId;
+      if (isSelected) {
+        selected.add(
           Marker(
             point: LatLng(lat, lng),
             width: 56,
@@ -3754,30 +3753,28 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
           ),
         );
-      } else {
-        final n = cluster.items.length;
-        final size = math.min(
-          36.0,
-          16 + math.sqrt(n.clamp(1, 200).toDouble()) * 2.8,
-        );
-        out.add(
-          Marker(
-            point: LatLng(lat, lng),
-            width: size,
-            height: size,
-            child: GestureDetector(
-              onTap: () => _openCluster(cluster),
-              behavior: HitTestBehavior.opaque,
-              child: HeatBlob(count: n),
-            ),
-          ),
-        );
+        continue;
       }
+      final n = cluster.items.length;
+      final markerSize = HeatBlob.markerSizeFor(n);
+      heat.add(
+        Marker(
+          point: LatLng(lat, lng),
+          width: markerSize,
+          height: markerSize,
+          child: GestureDetector(
+            onTap: () => _openCluster(cluster),
+            behavior: HitTestBehavior.opaque,
+            child: HeatBlob(count: n),
+          ),
+        ),
+      );
     }
-    _markerCache = out;
+    _heatMarkerCache = heat;
+    _selectedPinCache = selected;
     _markerCacheClusterLen = clusters.length;
     _markerCacheSelectedId = selectedId;
-    return out;
+    return (heat: heat, selected: selected);
   }
 }
 
@@ -4317,7 +4314,7 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
   }
 
   void _rebuildMarkers() {
-    const size = 28.0;
+    const size = 18.0;
     final markers = <Marker>[];
     for (final track in widget.tracks) {
       final center = _trackAnchor(track);
@@ -4327,15 +4324,20 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
           point: center,
           width: size,
           height: size,
-          child: const DecoratedBox(
+          child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Color(0xF0FF8C12),
+              color: const Color(0xE8FF8C12),
               shape: BoxShape.circle,
-              border: Border.fromBorderSide(
-                BorderSide(color: Colors.white, width: 2),
-              ),
+              border: Border.all(color: Colors.white, width: 1.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x44000000),
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
+              ],
             ),
-            child: Icon(Icons.route, color: Colors.white, size: 14),
+            child: const Icon(Icons.route, color: Colors.white, size: 10),
           ),
         ),
       );
