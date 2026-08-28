@@ -4,12 +4,15 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:photo_manager/photo_manager.dart';
+import 'package:photo_manager/photo_manager.dart' hide LatLng;
 
 import 'folder_types.dart';
 import 'geo.dart';
+import 'local_fs.dart';
+import 'video_gps.dart';
 import '../models/library_media.dart' show phoneRelativePath;
 
 export '../models/library_media.dart'
@@ -251,7 +254,7 @@ Future<FolderPickResult> _scanAlbumAssets(
       }
       if (onlyFavorites && !asset.isFavorite) continue;
 
-      final name = _assetFileName(asset);
+      final name = await _assetDisplayName(asset);
       final id = asset.id;
       final alreadyKnown = knownAssetIds?.contains(id) ?? false;
       final wantsGps = needGpsAssetIds?.contains(id) ?? false;
@@ -437,23 +440,111 @@ Future<Uint8List> _readFileRange(File file, int start, int length) async {
   }
 }
 
-/// Oynatma için MediaStore content URI (file path’ten daha güvenilir).
+/// Oynatma: taze dosya yolu veya MediaStore content URI.
 Future<String?> phoneAssetPlayableUri(String assetId) async {
   try {
     final asset = await AssetEntity.fromId(assetId);
     if (asset == null) return null;
+
+    // HEVC (DJI/GoPro): dosya yolu ExoPlayer’da daha güvenilir.
+    try {
+      final file = await asset.originFile ?? await asset.file;
+      if (file != null && await file.exists()) {
+        final len = await file.length();
+        if (len > 4096) return file.path;
+      }
+    } catch (_) {}
+
     final url = await asset.getMediaUrl();
     if (url != null && url.isNotEmpty) return url;
   } catch (_) {}
   return null;
 }
 
-String _assetFileName(AssetEntity asset) {
+/// Galeride videoya eşleşen DJI `.SRT` / `.ASS` yan dosyasından GPS.
+Future<LatLng?> readPhoneDjiSidecarGps(String videoFileName) async {
+  if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return null;
+  if (!looksLikeDjiVideoName(videoFileName)) return null;
+  if (!await hasPhoneMediaAccessSilently()) return null;
+
+  final videoStem = p.basenameWithoutExtension(videoFileName).toLowerCase();
+  if (videoStem.isEmpty) return null;
+
+  try {
+    final albums = await PhotoManager.getAssetPathList(
+      type: RequestType.all,
+      hasAll: true,
+      onlyAll: true,
+      filterOption: _phoneFilter(),
+    );
+    if (albums.isEmpty) return null;
+    final album = albums.first;
+    final total = await album.assetCountAsync;
+    final end = math.min(total, 1500);
+    const page = 80;
+    for (var start = 0; start < end; start += page) {
+      final assets = await album.getAssetListRange(
+        start: start,
+        end: math.min(start + page, end),
+      );
+      for (final asset in assets) {
+        final title = (await _assetDisplayName(asset)).toLowerCase();
+        if (!title.endsWith('.srt') &&
+            !title.endsWith('.ass') &&
+            !title.contains('.srt') &&
+            !title.contains('.ass')) {
+          continue;
+        }
+        if (!_djiSidecarMatchesVideo(title, videoStem)) continue;
+        final file = await asset.originFile ?? await asset.file;
+        if (file == null) continue;
+        final bytes = await readLocalTextFileLimited(
+          file.path,
+          maxBytes: 512 * 1024,
+        );
+        if (bytes == null || bytes.isEmpty) continue;
+        final point = parseDjiSrtGps(String.fromCharCodes(bytes));
+        if (point != null) return point;
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+bool _djiSidecarMatchesVideo(String sidecarName, String videoStem) {
+  final stem = sidecarName.replaceFirst(RegExp(r'\.[^.]+$'), '');
+  if (stem == videoStem) return true;
+  if (stem.startsWith(videoStem) || videoStem.startsWith(stem)) return true;
+  final prefixLen = math.min(18, math.min(stem.length, videoStem.length));
+  if (prefixLen >= 12 &&
+      stem.substring(0, prefixLen) == videoStem.substring(0, prefixLen)) {
+    return true;
+  }
+  return false;
+}
+
+Future<String> _assetDisplayName(AssetEntity asset) async {
+  var title = (asset.title ?? '').trim();
+  if (title.isNotEmpty &&
+      isMediaName(title) &&
+      !title.toLowerCase().startsWith('media_')) {
+    return title;
+  }
+  try {
+    final file = await asset.originFile ?? await asset.file;
+    if (file != null) {
+      final bn = p.basename(file.path);
+      if (bn.isNotEmpty && isMediaName(bn)) return bn;
+    }
+  } catch (_) {}
+  return _assetFileNameFallback(asset);
+}
+
+String _assetFileNameFallback(AssetEntity asset) {
   var title = (asset.title ?? '').trim();
   if (title.isEmpty) title = 'media_${asset.id}';
   if (isMediaName(title)) return title;
   final ext = asset.type == AssetType.video ? '.mp4' : '.jpg';
-  // .gpx vb. yanlış uzantıyı medya sanma — gövde + doğru uzantı.
   final dot = title.lastIndexOf('.');
   final stem = dot > 0 ? title.substring(0, dot) : title;
   final safe = stem.trim().isEmpty ? 'media_${asset.id}' : stem.trim();

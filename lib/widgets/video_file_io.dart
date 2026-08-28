@@ -30,6 +30,7 @@ Future<bool> videoFileExists(String path) async {
 Future<VideoPlayerController?> openVideoControllerWithFallback({
   required String? primary,
   String? fallbackPath,
+  bool preferFileFirst = false,
 }) async {
   Future<VideoPlayerController?> tryOpen(String? p) async {
     if (p == null || p.isEmpty) return null;
@@ -42,6 +43,13 @@ Future<VideoPlayerController?> openVideoControllerWithFallback({
       await c.dispose();
       return null;
     }
+  }
+
+  if (preferFileFirst &&
+      fallbackPath != null &&
+      fallbackPath.isNotEmpty) {
+    final fileFirst = await tryOpen(fallbackPath);
+    if (fileFirst != null) return fileFirst;
   }
 
   final first = await tryOpen(primary);

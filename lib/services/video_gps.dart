@@ -107,6 +107,7 @@ Future<LatLng?> scanVideoBytesForGps(Uint8List bytes) async {
 ///
 /// [deepScan]=false: yalnızca verilen head + SRT (SD toplu tarama).
 /// [deepScan]=true: dosya başı + kuyruk (GoPro GPMF sonda olabilir).
+/// [phoneDjiSidecar]: Android galeride ayrı .SRT varsa (cache yanında değil).
 Future<LatLng?> extractVideoGps({
   required String? localPath,
   Uint8List? head,
@@ -115,6 +116,7 @@ Future<LatLng?> extractVideoGps({
   bool deepScan = true,
   int maxScanBytes = videoGpsScanBytes,
   int maxTailBytes = videoGpsTailBytes,
+  Future<LatLng?> Function()? phoneDjiSidecar,
   bool Function()? isCancelled,
 }) async {
   if (isCancelled?.call() == true) return null;
@@ -133,6 +135,14 @@ Future<LatLng?> extractVideoGps({
   if (isCancelled?.call() == true) return null;
   point = await extractDjiSidecarGps(localPath);
   if (point != null) return point;
+
+  if (phoneDjiSidecar != null) {
+    if (isCancelled?.call() == true) return null;
+    try {
+      point = await phoneDjiSidecar();
+      if (point != null) return point;
+    } catch (_) {}
+  }
 
   if (!deepScan) return null;
   if (kIsWeb || localPath == null || localPath.isEmpty) return null;

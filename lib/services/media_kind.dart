@@ -26,6 +26,12 @@ final _djiVideoName = RegExp(
   caseSensitive: false,
 );
 
+/// DJI / Osmo dosya adı (GPS ve derin tarama için).
+bool looksLikeDjiVideoName(String name) {
+  final stem = name.replaceFirst(RegExp(r'\.[^.]+$'), '');
+  return _djiVideoName.hasMatch(stem);
+}
+
 /// MedyaAtlas gibi dosya kopyalanmaz; üst sınır yok.
 
 String extensionOf(String name) {

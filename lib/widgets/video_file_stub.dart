@@ -13,6 +13,7 @@ Future<bool> videoFileExists(String path) async => isWebPlayableUrl(path);
 Future<VideoPlayerController?> openVideoControllerWithFallback({
   required String? primary,
   String? fallbackPath,
+  bool preferFileFirst = false,
 }) async {
   Future<VideoPlayerController?> tryOpen(String? p) async {
     if (p == null || p.isEmpty || !isWebPlayableUrl(p)) return null;

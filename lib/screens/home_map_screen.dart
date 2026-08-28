@@ -1386,6 +1386,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               notify: false,
             );
           }
+          if (existing.kind != kind &&
+              _isPhoneBulkSource(source) &&
+              kind == MediaKind.drone &&
+              existing.kind != MediaKind.drone) {
+            await repo.updateKind(
+              id: existing.id,
+              kind: MediaKind.drone,
+              persist: false,
+              notify: false,
+            );
+          }
           // Web: aynı oturumda yeni blob URL’yi kaydet (önizleme için).
           if (ephemeralWeb &&
               isWebPlayableUrl(file.localPath) &&
@@ -1429,15 +1440,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 try {
                   head = await file.readHead(videoLimit);
                 } catch (_) {}
-                final gps = await extractVideoGps(
+                final gps = await _extractVideoGpsFor(
+                  name: file.name,
                   localPath: file.localPath,
                   head: head,
                   relativePath: file.relativePath,
                   deepScan: needsDeepGps,
-                  maxScanBytes: needsDeepGps
-                      ? videoLimitGps
-                      : videoGpsScanBytes,
-                  isCancelled: () => _cancel,
+                  needsDeepGps: needsDeepGps,
                 );
                 if (gps != null) {
                   await repo.updateLocation(
@@ -1560,13 +1569,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               gps = await extractExifGps(head);
               taken = await extractExifTakenAt(head) ?? taken;
             } else {
-              gps = await extractVideoGps(
+              gps = await _extractVideoGpsFor(
+                name: file.name,
                 localPath: file.localPath,
                 head: head,
                 relativePath: file.relativePath,
                 deepScan: !bulkMode || needsDeepGps,
-                maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
-                isCancelled: () => _cancel,
+                needsDeepGps: needsDeepGps,
+                bulkMode: bulkMode,
               );
             }
           } catch (_) {
@@ -1574,13 +1584,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
         } else if (gps == null && !isPhoto) {
           try {
-            gps = await extractVideoGps(
+            gps = await _extractVideoGpsFor(
+              name: file.name,
               localPath: file.localPath,
               head: head,
               relativePath: file.relativePath,
               deepScan: !bulkMode || needsDeepGps,
-              maxScanBytes: needsDeepGps ? videoLimitGps : videoGpsScanBytes,
-              isCancelled: () => _cancel,
+              needsDeepGps: needsDeepGps,
+              bulkMode: bulkMode,
             );
           } catch (_) {}
         }
@@ -1689,6 +1700,39 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   bool _isPhoneBulkSource(MediaSource source) =>
       source.id == phoneSourceId || isPhoneAllSourceLabel(source.label);
+
+  Future<LatLng?> Function()? _phoneDjiSidecarFor(String name) {
+    if (kIsWeb) return null;
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return null;
+    }
+    if (!looksLikeDjiVideoName(name)) return null;
+    return () => readPhoneDjiSidecarGps(name);
+  }
+
+  Future<LatLng?> _extractVideoGpsFor({
+    required String name,
+    required String? localPath,
+    Uint8List? head,
+    Uint8List? tail,
+    String? relativePath,
+    required bool deepScan,
+    required bool needsDeepGps,
+    bool bulkMode = false,
+  }) =>
+      extractVideoGps(
+        localPath: localPath,
+        head: head,
+        tail: tail,
+        relativePath: relativePath,
+        deepScan: deepScan,
+        maxScanBytes:
+            needsDeepGps ? videoGpsScanBytes : (bulkMode ? videoHeadBytes : videoGpsScanBytes),
+        maxTailBytes: needsDeepGps ? videoGpsTailBytes : 0,
+        phoneDjiSidecar: _phoneDjiSidecarFor(name),
+        isCancelled: () => _cancel,
+      );
 
   /// Tüm telefon tarama özeti — ortada, Tamam ile kapanır.
   Future<void> _showImportSummaryDialog({
@@ -1807,12 +1851,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               reclassified++;
             }
           }
+          if (item.kind == MediaKind.video && looksLikeDjiVideoName(item.name)) {
+            await repo.updateKind(
+              id: item.id,
+              kind: MediaKind.drone,
+              persist: false,
+              notify: false,
+            );
+            item = item.copyWith(kind: MediaKind.drone);
+            reclassified++;
+          }
 
           LatLng? gps;
           DateTime? taken;
           final isPhoto = item.kind == MediaKind.photo;
           // Telefon videosu: hafif baş+kuyruk. Gerçek GoPro/DJI: derin.
-          final lightVideo = !isPhoto && item.kind == MediaKind.video;
+          final needsDeepVideo = !isPhoto &&
+              (item.kind == MediaKind.gopro ||
+                  item.kind == MediaKind.drone ||
+                  looksLikeDjiVideoName(item.name));
+          final lightVideo = !isPhoto && !needsDeepVideo;
           final headLimit = isPhoto
               ? photoHeadBytes
               : (lightVideo ? videoGpsLightHeadBytes : videoGpsScanBytes);
@@ -1856,6 +1914,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 deepScan: !lightVideo,
                 maxScanBytes: headLimit,
                 maxTailBytes: tailLimit,
+                phoneDjiSidecar: _phoneDjiSidecarFor(item.name),
                 isCancelled: () => _cancel,
               );
             }
@@ -1916,6 +1975,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 deepScan: !lightVideo,
                 maxScanBytes: headLimit,
                 maxTailBytes: tailLimit,
+                phoneDjiSidecar: _phoneDjiSidecarFor(item.name),
                 isCancelled: () => _cancel,
               );
             } else {
@@ -1932,6 +1992,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   deepScan: !lightVideo,
                   maxScanBytes: headLimit,
                   maxTailBytes: tailLimit,
+                  phoneDjiSidecar: _phoneDjiSidecarFor(item.name),
                   isCancelled: () => _cancel,
                 );
               }
@@ -1959,6 +2020,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   deepScan: true,
                   maxScanBytes: videoGpsScanBytes,
                   maxTailBytes: videoGpsTailBytes,
+                  phoneDjiSidecar: _phoneDjiSidecarFor(item.name),
                   isCancelled: () => _cancel,
                 );
               }

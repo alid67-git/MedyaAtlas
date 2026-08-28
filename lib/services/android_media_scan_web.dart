@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:latlong2/latlong.dart';
+
 import 'folder_types.dart';
 
 export '../models/library_media.dart'
@@ -29,6 +31,9 @@ Future<FolderPickResult> scanEntirePhoneMedia({
 
 /// İzin zaten verilmiş mi — diyalog göstermeden (açılış taraması).
 Future<bool> hasPhoneMediaAccessSilently() async => false;
+
+/// Galeride DJI videoya eşleşen `.SRT` GPS.
+Future<LatLng?> readPhoneDjiSidecarGps(String videoFileName) async => null;
 
 Future<FolderPickResult> scanFavoritePhoneMedia({
   int maxAssets = 8000,

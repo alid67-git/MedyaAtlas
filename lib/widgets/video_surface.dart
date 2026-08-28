@@ -83,9 +83,13 @@ class _VideoThumbState extends State<VideoThumb> {
       return;
     }
     final fallback = widget.path;
+    final preferFile =
+        hostIsAndroid &&
+        (widget.kind == MediaKind.drone || widget.kind == MediaKind.gopro);
     final controller = await openVideoControllerWithFallback(
       primary: primary,
       fallbackPath: fallback,
+      preferFileFirst: preferFile,
     );
     if (controller == null) {
       if (mounted) setState(() => _loading = false);
@@ -297,9 +301,12 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
       return;
     }
 
+    final preferFile = hostIsAndroid &&
+        (widget.kind == MediaKind.drone || widget.kind == MediaKind.gopro);
     final controller = await openVideoControllerWithFallback(
       primary: path,
       fallbackPath: widget.path,
+      preferFileFirst: preferFile,
     );
     if (controller == null) {
       // Codec / erişim: sistem oynatıcıya düş (dosya yolu tercih).
@@ -380,25 +387,39 @@ class _VideoPlaybackPaneState extends State<VideoPlaybackPane> {
   }
 
   Future<void> _openExternally() async {
-    // Sistem oynatıcı: dosya yolu; yoksa content:// / blob.
-    final path = _externalOpenPath ?? _resolvedPath ?? widget.path;
-    if (path == null || path.isEmpty) return;
-    try {
-      if (kIsWeb && isWebPlayableUrl(path)) {
-        openUrlInNewTab(path);
+    final candidates = <String>[];
+    void add(String? p) {
+      if (p == null || p.isEmpty) return;
+      if (candidates.contains(p)) return;
+      candidates.add(p);
+    }
+
+    if (hostIsAndroid && _resolvedPath?.startsWith('content://') == true) {
+      add(_resolvedPath);
+    }
+    add(_externalOpenPath);
+    add(_resolvedPath);
+    add(widget.path);
+
+    for (final path in candidates) {
+      try {
+        if (kIsWeb && isWebPlayableUrl(path)) {
+          openUrlInNewTab(path);
+          _openedExternal = true;
+          if (mounted) setState(() {});
+          return;
+        }
+        if (isWebPlayableUrl(path)) continue;
+        if (hostIsWindows) {
+          await openPathWithWindowsShell(path);
+        } else {
+          await OpenFilex.open(path);
+        }
         _openedExternal = true;
         if (mounted) setState(() {});
         return;
-      }
-      if (isWebPlayableUrl(path)) return;
-      if (hostIsWindows) {
-        await openPathWithWindowsShell(path);
-      } else {
-        await OpenFilex.open(path);
-      }
-      _openedExternal = true;
-      if (mounted) setState(() {});
-    } catch (_) {}
+      } catch (_) {}
+    }
   }
 
   @override

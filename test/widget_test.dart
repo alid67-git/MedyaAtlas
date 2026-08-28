@@ -223,6 +223,13 @@ void main() {
     expect(b.longitude, closeTo(18.203059, 0.0001));
   });
 
+  test('DJI video adı tanıma', () {
+    expect(looksLikeDjiVideoName('DJI_20260219153358_0010_001.mp4'), isTrue);
+    expect(looksLikeDjiVideoName('Osmo_Action_4.mp4'), isTrue);
+    expect(looksLikeDjiVideoName('GX012489.MP4'), isFalse);
+    expect(detectKind('DJI_001.mp4'), MediaKind.drone);
+  });
+
   test('kindCountsLabel özet', () {
     expect(
       kindCountsLabel({
