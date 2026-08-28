@@ -23,6 +23,18 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.60',
+    tr: 'İzler listesi: rota tarihine göre yeniden eskiye (GPX saati).',
+    en: 'Tracks list: newest-to-oldest by route date (GPX time).',
+    de: 'Track-Liste: nach Routendatum absteigend (GPX-Zeit).',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.59',
+    tr: 'Android DJI: galeri .SRT GPS + HEVC oynatma düzeltmesi.',
+    en: 'Android DJI: gallery .SRT GPS + HEVC playback fix.',
+    de: 'Android DJI: Galerie-.SRT-GPS + HEVC-Wiedergabe.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.58',
     tr: 'Konumum düzeltmesi; açılışta hafif telefon taraması + özet; «yeni medya bulundu».',
     en: 'My-location fix; startup light phone scan + summary; «new media found» copy.',

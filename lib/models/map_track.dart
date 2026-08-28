@@ -160,6 +160,17 @@ class MapTrack {
       );
 }
 
+/// İz listesi sırası: rota bitiş → başlangıç → yükleme (ms).
+int trackSortEpochMs(MapTrack track) =>
+    track.timeEnd ?? track.timeStart ?? track.addedAt ?? 0;
+
+/// Yeniden eskiye; eşitse ada göre (Z→A).
+int compareTracksNewestFirst(MapTrack a, MapTrack b) {
+  final byDate = trackSortEpochMs(b).compareTo(trackSortEpochMs(a));
+  if (byDate != 0) return byDate;
+  return b.name.toLowerCase().compareTo(a.name.toLowerCase());
+}
+
 /// Yinelenen yükleme kontrolü — UUID farklı olsa bile aynı rota.
 String trackContentKey(MapTrack t) {
   final b = t.bounds;

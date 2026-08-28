@@ -89,7 +89,10 @@ MapTrack finalizeTrack(
     timeEnd: timeEnd,
     bounds: TrackBounds(south: south, west: west, north: north, east: east),
     visible: track.visible,
-    addedAt: track.addedAt,
+    addedAt: track.addedAt ??
+        timeEnd ??
+        timeStart ??
+        DateTime.now().millisecondsSinceEpoch,
   );
 }
 
@@ -159,7 +162,6 @@ MapTrack? parseGpxText(String text, {required String name, required String sourc
       points: points,
       waypoints: waypoints.isEmpty ? null : waypoints,
       visible: true,
-      addedAt: DateTime.now().millisecondsSinceEpoch,
     ),
   );
 }
@@ -202,7 +204,6 @@ MapTrack? parseKmlText(String text, {required String name, required String sourc
       sourceId: sourceId,
       points: points,
       visible: true,
-      addedAt: DateTime.now().millisecondsSinceEpoch,
     ),
   );
 }

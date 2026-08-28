@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/map_track.dart';
+import '../services/track_parse.dart';
 
 const _tracksBoxName = 'medyaatlas_tracks';
 const _tracksKey = 'tracks';
@@ -21,16 +22,15 @@ class TrackRepository extends ChangeNotifier {
   List<MapTrack> get tracks => List.unmodifiable(_tracks);
   Iterable<MapTrack> get visibleTracks => _tracks.where((t) => t.visible);
 
-  /// Kayıt tarihi (addedAt) — en yeni üstte; tarihi olmayanlar sonda.
+  /// Rota tarihi (bitiş/başlangıç) veya kayıt — en yeni üstte.
   void _sortNewestFirst() {
-    _tracks.sort((a, b) {
-      final aa = a.addedAt ?? 0;
-      final bb = b.addedAt ?? 0;
-      final byDate = bb.compareTo(aa);
-      if (byDate != 0) return byDate;
-      return b.name.toLowerCase().compareTo(a.name.toLowerCase());
-    });
+    _tracks.sort(compareTracksNewestFirst);
   }
+
+  MapTrack _normalizeLoadedTrack(MapTrack track) => finalizeTrack(
+        track,
+        maxPoints: track.pointCount ?? track.points.length,
+      );
 
   /// Aynı rota daha önce yüklendi mi? (ad + bounds + uç noktalar)
   bool hasEquivalent(MapTrack track) {
@@ -59,10 +59,13 @@ class TrackRepository extends ChangeNotifier {
           ..clear()
           ..addAll(
             list.map(
-              (e) => MapTrack.fromJson(Map<String, dynamic>.from(e as Map)),
+              (e) => _normalizeLoadedTrack(
+                MapTrack.fromJson(Map<String, dynamic>.from(e as Map)),
+              ),
             ),
           );
         _sortNewestFirst();
+        if (_tracks.isNotEmpty) await _persist();
       }
     } catch (e) {
       debugPrint('MedyaAtlas: iz indeksi okunamadı: $e');
