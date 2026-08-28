@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.64',
+    tr: 'Telefonda GX012490 gibi GoPro bölüm adları + .THM: GoPro ve derin GPMF GPS.',
+    en: 'Phone GX012490-style GoPro chapter names: GoPro kind + deep GPMF GPS.',
+    de: 'Telefon GX012490 GoPro-Kapitelnamen: GoPro-Art + tiefes GPMF-GPS.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.63',
     tr: 'Web deploy düzeltmesi; GPS arka planda harita açık; güncelleme metni sade; eski sürüm kapanır.',
     en: 'Web deploy fix; map live during GPS retry; simpler update text; old app exits.',

@@ -21,6 +21,11 @@ final _goproStrongName = RegExp(
   r'^(gopr|gpfr|gopro)',
   caseSensitive: false,
 );
+/// GoPro bölüm adı: GX012490, GH010001 … (telefonda .THM ile gelir).
+final _goproChapterName = RegExp(
+  r'^g[xhslaf]\d{6}$',
+  caseSensitive: false,
+);
 final _djiVideoName = RegExp(
   r'^(DJI[_-]|Osmo[_-]?|DJI)',
   caseSensitive: false,
@@ -30,6 +35,17 @@ final _djiVideoName = RegExp(
 bool looksLikeDjiVideoName(String name) {
   final stem = name.replaceFirst(RegExp(r'\.[^.]+$'), '');
   return _djiVideoName.hasMatch(stem);
+}
+
+/// GoPro GX/GH/… + 6 hane (GX012490.THM çifti).
+bool looksLikeGoproChapterName(String name) {
+  final stem = name.replaceFirst(RegExp(r'\.[^.]+$'), '');
+  return _goproChapterName.hasMatch(stem);
+}
+
+bool looksLikeGoproVideoName(String name) {
+  final stem = name.replaceFirst(RegExp(r'\.[^.]+$'), '');
+  return _goproStrongName.hasMatch(stem) || _goproChapterName.hasMatch(stem);
 }
 
 /// MedyaAtlas gibi dosya kopyalanmaz; üst sınır yok.
@@ -60,9 +76,9 @@ MediaKind? detectKind(String name, {bool phoneLibrary = false}) {
     final stem = name.replaceFirst(RegExp(r'\.[^.]+$'), '');
     if (_djiVideoName.hasMatch(stem)) return MediaKind.drone;
     if (_goproName.hasMatch(stem)) {
-      // GX012489 gibi isimler GoPro’ya benzer; telefonda çoğu zaman
-      // telefon videosu. Kesin GoPro adı değilse video say.
+      // GX012490 + .THM: gerçek GoPro. Belirsiz kısa adlar telefonda video kalır.
       if (phoneLibrary && !_goproStrongName.hasMatch(stem)) {
+        if (_goproChapterName.hasMatch(stem)) return MediaKind.gopro;
         return MediaKind.video;
       }
       return MediaKind.gopro;

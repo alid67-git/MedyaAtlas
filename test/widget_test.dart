@@ -230,6 +230,14 @@ void main() {
     expect(detectKind('DJI_001.mp4'), MediaKind.drone);
   });
 
+  test('GoPro GX bölüm adı telefonda GoPro', () {
+    expect(looksLikeGoproChapterName('GX012490.MP4'), isTrue);
+    expect(looksLikeGoproChapterName('GX022492.mp4'), isTrue);
+    expect(detectKind('GX012490.MP4', phoneLibrary: true), MediaKind.gopro);
+    expect(detectKind('GX012490.MP4', phoneLibrary: false), MediaKind.gopro);
+    expect(detectKind('GOPR0001.MP4', phoneLibrary: true), MediaKind.gopro);
+  });
+
   test('kindCountsLabel özet', () {
     expect(
       kindCountsLabel({

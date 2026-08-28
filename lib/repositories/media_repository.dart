@@ -20,7 +20,7 @@ const _indexKey = 'index';
 const _gpsDeepAlgoKey = 'gps_deep_algo';
 /// Hafif GPS + telefon GX yanlış GoPro düzeltmesi — eski «denenmiş» bayrağını temizle.
 const _gpsDeepAlgoVersion = '4';
-const _phoneWeakGoproKey = 'phone_weak_gopro_v1';
+const _phoneWeakGoproKey = 'phone_weak_gopro_v2';
 const gallerySourceId = 'gallery';
 const phoneSourceId = 'phone_all';
 const favoritesSourceId = 'favorites';
@@ -127,7 +127,7 @@ class MediaRepository extends ChangeNotifier {
     await box.put(_gpsDeepAlgoKey, _gpsDeepAlgoVersion);
   }
 
-  /// Telefon kütüphanesinde GX/GH… isimleri GoPro değildi — video’ya çevir.
+  /// Telefon: yanlışlıkla video yapılmış GX###### GoPro’ları geri al.
   Future<void> _migratePhoneWeakGoproKinds() async {
     final box = _indexBox;
     if (box == null) return;
@@ -135,13 +135,20 @@ class MediaRepository extends ChangeNotifier {
     var changed = false;
     for (var i = 0; i < _items.length; i++) {
       final m = _items[i];
-      if (m.kind != MediaKind.gopro) continue;
       if (!isPhoneAllSourceId(m.sourceId)) continue;
-      final next = detectKind(m.name, phoneLibrary: true);
-      if (next != MediaKind.video) continue;
-      _items[i] = m.copyWith(kind: MediaKind.video);
-      _itemJsonCache.remove(m.id);
-      changed = true;
+      if (m.kind == MediaKind.video && looksLikeGoproChapterName(m.name)) {
+        _items[i] = m.copyWith(kind: MediaKind.gopro);
+        _itemJsonCache.remove(m.id);
+        changed = true;
+        continue;
+      }
+      if (m.kind == MediaKind.gopro &&
+          detectKind(m.name, phoneLibrary: true) == MediaKind.video &&
+          !looksLikeGoproChapterName(m.name)) {
+        _items[i] = m.copyWith(kind: MediaKind.video);
+        _itemJsonCache.remove(m.id);
+        changed = true;
+      }
     }
     if (changed) await _persistIndex();
     await box.put(_phoneWeakGoproKey, '1');

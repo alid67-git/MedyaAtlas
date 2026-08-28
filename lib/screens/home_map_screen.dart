@@ -1362,7 +1362,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final kind =
           detectKind(file.name, phoneLibrary: _isPhoneBulkSource(source)) ??
           (file.isVideo ? MediaKind.video : MediaKind.photo);
-      final needsDeepGps = kind == MediaKind.gopro || kind == MediaKind.drone;
+      final needsDeepGps = kind == MediaKind.gopro ||
+          kind == MediaKind.drone ||
+          looksLikeGoproChapterName(file.name);
       final videoLimit = needsDeepGps ? videoLimitGps : videoLimitGeneric;
       final rel = file.relativePath ?? file.name;
       final ephemeralWeb =
@@ -1381,7 +1383,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           if (existing.kind != kind &&
               _isPhoneBulkSource(source) &&
               kind == MediaKind.video &&
-              existing.kind == MediaKind.gopro) {
+              existing.kind == MediaKind.gopro &&
+              !looksLikeGoproChapterName(file.name)) {
             await repo.updateKind(
               id: existing.id,
               kind: MediaKind.video,
@@ -1839,9 +1842,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var gotGps = false;
         var couldRead = false;
         try {
-          // Telefon + zayıf GX/GH adı → GoPro değil, telefon videosu.
+          // Telefon + belirsiz ad → video; GX012490 bölüm adı GoPro kalır.
           final phoneLib = isPhoneAllSourceId(item.sourceId);
-          if (phoneLib && item.kind == MediaKind.gopro) {
+          if (phoneLib &&
+              item.kind == MediaKind.gopro &&
+              !looksLikeGoproChapterName(item.name)) {
             final byName = detectKind(item.name, phoneLibrary: true);
             if (byName == MediaKind.video) {
               await repo.updateKind(
@@ -1853,6 +1858,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               item = item.copyWith(kind: MediaKind.video);
               reclassified++;
             }
+          }
+          if (item.kind == MediaKind.video &&
+              looksLikeGoproChapterName(item.name)) {
+            await repo.updateKind(
+              id: item.id,
+              kind: MediaKind.gopro,
+              persist: false,
+              notify: false,
+            );
+            item = item.copyWith(kind: MediaKind.gopro);
+            reclassified++;
           }
           if (item.kind == MediaKind.video && looksLikeDjiVideoName(item.name)) {
             await repo.updateKind(
@@ -1872,6 +1888,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           final needsDeepVideo = !isPhoto &&
               (item.kind == MediaKind.gopro ||
                   item.kind == MediaKind.drone ||
+                  looksLikeGoproChapterName(item.name) ||
                   looksLikeDjiVideoName(item.name));
           final lightVideo = !isPhoto && !needsDeepVideo;
           final headLimit = isPhoto
