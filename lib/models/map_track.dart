@@ -160,9 +160,37 @@ class MapTrack {
       );
 }
 
-/// İz listesi sırası: rota bitiş → başlangıç → yükleme (ms).
-int trackSortEpochMs(MapTrack track) =>
-    track.timeEnd ?? track.timeStart ?? track.addedAt ?? 0;
+/// GPX/KML noktalarından en geç zaman (ms).
+int? maxTrackPointTimeMs(List<TrackPoint> points) {
+  int? max;
+  for (final p in points) {
+    final t = p.timeMs;
+    if (t == null) continue;
+    if (max == null || t > max) max = t;
+  }
+  return max;
+}
+
+/// GPX/KML noktalarından en erken zaman (ms).
+int? minTrackPointTimeMs(List<TrackPoint> points) {
+  int? min;
+  for (final p in points) {
+    final t = p.timeMs;
+    if (t == null) continue;
+    if (min == null || t < min) min = t;
+  }
+  return min;
+}
+
+/// Rota içi aktivite zamanı — bitiş, yoksa başlangıç (yükleme tarihi değil).
+int? trackActivityEpochMs(MapTrack track) {
+  final end = track.timeEnd ?? maxTrackPointTimeMs(track.points);
+  if (end != null) return end;
+  return track.timeStart ?? minTrackPointTimeMs(track.points);
+}
+
+/// İz listesi sırası: yalnızca rota verisi; tarihsiz rotalar sonda.
+int trackSortEpochMs(MapTrack track) => trackActivityEpochMs(track) ?? 0;
 
 /// Yeniden eskiye; eşitse ada göre (Z→A).
 int compareTracksNewestFirst(MapTrack a, MapTrack b) {

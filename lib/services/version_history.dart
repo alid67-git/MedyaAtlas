@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.62',
+    tr: 'İz sırası yalnızca GPX/KML rota zamanına göre; yükleme tarihi kullanılmaz.',
+    en: 'Track order uses GPX/KML route time only; import date ignored.',
+    de: 'Track-Reihenfolge nur nach GPX/KML-Routenzeit; Importdatum ignoriert.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.61',
     tr: 'Eski yumuşak ısı haritası geri; rota rozeti küçük ve lekelerin üstünde.',
     en: 'Restored soft heat blobs; smaller route badge above heat markers.',

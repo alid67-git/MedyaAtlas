@@ -22,7 +22,7 @@ class TrackRepository extends ChangeNotifier {
   List<MapTrack> get tracks => List.unmodifiable(_tracks);
   Iterable<MapTrack> get visibleTracks => _tracks.where((t) => t.visible);
 
-  /// Rota tarihi (bitiş/başlangıç) veya kayıt — en yeni üstte.
+  /// Rota içi GPX/KML zamanına göre — en yeni üstte.
   void _sortNewestFirst() {
     _tracks.sort(compareTracksNewestFirst);
   }

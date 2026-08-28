@@ -89,10 +89,7 @@ MapTrack finalizeTrack(
     timeEnd: timeEnd,
     bounds: TrackBounds(south: south, west: west, north: north, east: east),
     visible: track.visible,
-    addedAt: track.addedAt ??
-        timeEnd ??
-        timeStart ??
-        DateTime.now().millisecondsSinceEpoch,
+    addedAt: track.addedAt,
   );
 }
 
