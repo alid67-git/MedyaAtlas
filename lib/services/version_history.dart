@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.58',
+    tr: 'Konumum düzeltmesi; açılışta hafif telefon taraması + özet; «yeni medya bulundu».',
+    en: 'My-location fix; startup light phone scan + summary; «new media found» copy.',
+    de: 'Standort-Fix; leichter Start-Scan + Zusammenfassung; «neue Medien» Text.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.57',
     tr: 'İzler listesi: en son kayıt edilen üstte.',
     en: 'Tracks list: newest registered first.',

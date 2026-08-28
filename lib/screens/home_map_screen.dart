@@ -75,6 +75,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _busy = false;
   /// GPS yeniden dene — harita/menü kilitlenmez; bitince rapor.
   bool _gpsBgRunning = false;
+  /// Açılış / arka plan telefon taraması.
+  bool _autoScanRunning = false;
+  var _startupScanDone = false;
   bool _cancel = false;
   bool _dropping = false;
   bool _locating = false;
@@ -173,6 +176,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdates();
       context.read<MediaRepository>().refreshMountStates();
+      // UI otursun; izin varsa hafif telefon taraması (yalnızca yeni medya).
+      Future<void>.delayed(const Duration(seconds: 2), () {
+        if (mounted) _startupPhoneRescan();
+      });
     });
   }
 
@@ -971,6 +978,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     bool alreadyBusy = false,
     bool? bulkMode,
     String? preferSourceId,
+    bool background = false,
+    bool showSummaryWhenEmpty = true,
   }) async {
     if (result.items.isEmpty) {
       setState(() {
@@ -983,10 +992,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final photoCount = result.items.length - videoCount;
     final bulk = bulkMode ?? result.rootPath != null;
     setState(() {
-      if (!alreadyBusy) _beginBusy();
-      _status =
-          '"${result.folderName}" okunuyor… ($photoCount foto · $videoCount video)'
-          '${bulk ? ' · hızlı tarama' : ''}';
+      if (!alreadyBusy && !background) _beginBusy();
+      if (background) {
+        _autoScanRunning = true;
+        _mapClusters = _safeClusters(context.read<MediaRepository>());
+        _status = 'Arka planda telefon taranıyor…';
+      } else {
+        _status =
+            '"${result.folderName}" okunuyor… ($photoCount foto · $videoCount video)'
+            '${bulk ? ' · hızlı tarama' : ''}';
+      }
     });
     String? phoneSummary;
     String phoneTitle = result.folderName;
@@ -1050,10 +1065,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         if (fresh.isEmpty) {
           if (mounted) {
             if (_isPhoneBulkSource(source)) {
-              setState(() => _status = null);
-              phoneSummary = gpsFilled > 0
-                  ? '$gpsFilled GPS güncellendi\n$skippedKnown kayıtlı'
-                  : 'Yeni medya yok\n$skippedKnown kayıtlı';
+              if (!background || (showSummaryWhenEmpty && gpsFilled > 0)) {
+                setState(() => _status = null);
+                phoneSummary = gpsFilled > 0
+                    ? '$gpsFilled GPS güncellendi\n$skippedKnown kayıtlı'
+                    : 'Yeni medya yok\n$skippedKnown kayıtlı';
+              } else {
+                setState(() => _status = null);
+              }
             } else {
               setState(() {
                 _status = gpsFilled > 0
@@ -1078,7 +1097,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             final fail =
                 stats.failed > 0 ? ' · ${stats.failed} okunamadı' : '';
             phoneSummary =
-                '${stats.added} medya bulundu\n'
+                '${stats.added} yeni medya bulundu\n'
                 '${stats.withGps} GPS’li · ${stats.missing} GPS’siz$fail';
           }
         }
@@ -1094,13 +1113,69 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             : 'Klasör okunamadı: $e';
       });
     } finally {
-      if (mounted) setState(_endBusy);
+      if (mounted) {
+        if (background) {
+          setState(() {
+            _autoScanRunning = false;
+            _mapClusters = _safeClusters(context.read<MediaRepository>());
+            if (_status == 'Arka planda telefon taranıyor…') {
+              _status = null;
+            }
+          });
+        } else {
+          setState(_endBusy);
+        }
+      }
     }
     if (phoneSummary != null && mounted) {
       await _showImportSummaryDialog(
         title: phoneTitle,
         message: phoneSummary,
       );
+    }
+  }
+
+  /// Açılışta bir kez: kayıtlıları atla, yalnızca yeni medyayı ekle (hafif).
+  Future<void> _startupPhoneRescan() async {
+    if (_startupScanDone || _busy || _gpsBgRunning || _autoScanRunning) {
+      return;
+    }
+    _startupScanDone = true;
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS)) {
+      return;
+    }
+    if (!await hasPhoneMediaAccessSilently()) return;
+
+    final repo = context.read<MediaRepository>();
+    try {
+      final knownIds = <String>{};
+      final needGpsIds = <String>{};
+      for (final m in repo.items) {
+        final id = phoneAssetIdFromRelativePath(m.relativePath);
+        if (id == null) continue;
+        knownIds.add(id);
+        if (!m.hasLocation) needGpsIds.add(id);
+      }
+      final picked = await scanEntirePhoneMedia(
+        knownAssetIds: knownIds.isEmpty ? null : knownIds,
+        needGpsAssetIds: needGpsIds.isEmpty ? null : needGpsIds,
+      );
+      if (!mounted || picked.items.isEmpty) return;
+      await _ingestPick(
+        picked,
+        bulkMode: true,
+        preferSourceId: phoneSourceId,
+        background: true,
+        showSummaryWhenEmpty: false,
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _autoScanRunning = false;
+        });
+      }
     }
   }
 
@@ -2046,12 +2121,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
   }
 
-  /// Cihaz konumu + son ~5 gün GPS’li medya; sokak zoom değil, birkaç günlük alan.
+  /// Cihaz konumu; yakındaki son günlerin medyası varsa onlarla sığdır.
   Future<void> _goToMyLocation() async {
     if (_locating) return;
     setState(() {
       _locating = true;
       _status = 'Konum alınıyor…';
+      _sourcesOpen = false;
+      _tracksOpen = false;
+      _kindMenu = null;
+      _showMissing = false;
     });
     try {
       final me = await fetchDeviceLocation();
@@ -2060,56 +2139,63 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         setState(() {
           _locating = false;
           _status =
-              'Konum alınamadı. Konum servisi / izin açık mı kontrol edin.';
+              'Konum alınamadı. Konum servisi ve uygulama konum iznini kontrol edin.';
         });
         return;
       }
 
-      final repo = context.read<MediaRepository>();
+      const nearbyM = 25000.0;
       final cutoff =
           DateTime.now().toUtc().subtract(const Duration(days: 5));
-      final points = <LatLng>[me];
-      for (final m in repo.withLocation) {
-        if (!_kinds.contains(m.kind)) continue;
+      final repo = context.read<MediaRepository>();
+      final fitPoints = <LatLng>[me];
+      for (final m in repo.visibleItems) {
+        if (!m.hasLocation || !_kinds.contains(m.kind)) continue;
         final when = (m.takenAt ?? m.addedAt).toUtc();
         if (when.isBefore(cutoff)) continue;
         final ll = m.latLng;
-        if (ll != null) points.add(ll);
+        if (ll == null) continue;
+        if (haversineMeters(
+              me.latitude,
+              me.longitude,
+              ll.latitude,
+              ll.longitude,
+            ) <=
+            nearbyM) {
+          fitPoints.add(ll);
+        }
       }
 
       setState(() {
         _locating = false;
         _status = null;
-        _sourcesOpen = false;
-        _tracksOpen = false;
-        _kindMenu = null;
-        _showMissing = false;
       });
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        try {
-          _map.rotate(0);
-          if (points.length == 1) {
-            // Tek nokta: birkaç günlük yerel ölçek (~şehir/bölge), dip zoom değil.
-            _map.moveAndRotate(me, 11, 0);
-            return;
-          }
-          final bounds = _expandBoundsMinSpan(
-            LatLngBounds.fromPoints(points),
-            minLatSpan: 0.08,
-            minLngSpan: 0.08,
-          );
-          _map.fitCamera(
-            CameraFit.bounds(
-              bounds: bounds,
-              padding: const EdgeInsets.fromLTRB(36, 120, 36, 72),
-              maxZoom: 12,
-            ),
-          );
-          _map.rotate(0);
-        } catch (_) {}
-      });
+      // Harita çizilsin (eksik kare / fitCamera sessiz hatası).
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      if (!mounted) return;
+      try {
+        _map.rotate(0);
+        if (fitPoints.length <= 1) {
+          _map.move(me, 15);
+          return;
+        }
+        final bounds = _expandBoundsMinSpan(
+          LatLngBounds.fromPoints(fitPoints),
+          minLatSpan: 0.012,
+          minLngSpan: 0.012,
+        );
+        _map.fitCamera(
+          CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.fromLTRB(36, 120, 36, 72),
+            maxZoom: 15,
+          ),
+        );
+        _map.rotate(0);
+      } catch (_) {
+        _map.move(me, 15);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -2412,9 +2498,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final repo = context.watch<MediaRepository>();
     final settings = context.watch<AppSettings>();
     final s = S.of(settings);
-    // Tarama / arka plan GPS sürerken dondurulmuş pinler (ANR yok).
-    final clusters =
-        (_busy || _gpsBgRunning) ? _mapClusters : _safeClusters(repo);
+    // Tarama / arka plan GPS / açılış taraması sürerken dondurulmuş pinler.
+    final clusters = (_busy || _gpsBgRunning || _autoScanRunning)
+        ? _mapClusters
+        : _safeClusters(repo);
     final missing = _missingOf(repo);
     final visible = _filtered(repo);
     final wide = MediaQuery.sizeOf(context).width >= 960;
@@ -2559,6 +2646,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ),
                 if (_busy ||
                     _gpsBgRunning ||
+                    _autoScanRunning ||
                     _updateDownloading ||
                     (_status != null && _status!.isNotEmpty))
                   Positioned(
@@ -2578,6 +2666,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     right: 14,
                     bottom: (_busy ||
                             _gpsBgRunning ||
+                            _autoScanRunning ||
                             _updateDownloading ||
                             (_status != null && _status!.isNotEmpty))
                         ? 78
@@ -2848,7 +2937,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     required int missingCount,
   }) {
     final s = S.of(context.watch<AppSettings>());
-    final active = _busy || _gpsBgRunning || _updateDownloading;
+    final active =
+        _busy || _gpsBgRunning || _autoScanRunning || _updateDownloading;
     final canCancel = _busy || _gpsBgRunning;
     final text = active
         ? (_status ?? 'Dosyalar aranıyor…')

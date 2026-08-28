@@ -27,6 +27,9 @@ Future<FolderPickResult> scanEntirePhoneMedia({
   throw UnsupportedError('Telefon tarama web’de yok; dosya seçici kullanın.');
 }
 
+/// İzin zaten verilmiş mi — diyalog göstermeden (açılış taraması).
+Future<bool> hasPhoneMediaAccessSilently() async => false;
+
 Future<FolderPickResult> scanFavoritePhoneMedia({
   int maxAssets = 8000,
   void Function(String status)? onProgress,

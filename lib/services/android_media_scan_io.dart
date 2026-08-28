@@ -195,6 +195,24 @@ Future<void> _ensurePhoneMediaPermission() async {
   }
 }
 
+/// Açılış arka plan taraması — izin yoksa sessizce false (diyalog yok).
+Future<bool> hasPhoneMediaAccessSilently() async {
+  if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return false;
+  try {
+    final state = await PhotoManager.getPermissionState(
+      requestOption: const PermissionRequestOption(
+        androidPermission: AndroidPermission(
+          type: RequestType.common,
+          mediaLocation: true,
+        ),
+      ),
+    );
+    return state.hasAccess;
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<AssetPathEntity?> _allPhotosAlbum() async {
   final paths = await PhotoManager.getAssetPathList(
     type: RequestType.common,

@@ -16,12 +16,23 @@ Future<LatLng?> fetchDeviceLocation() async {
       return null;
     }
 
-    final pos = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.medium,
-        timeLimit: Duration(seconds: 12),
-      ),
-    );
+    Position? pos;
+    try {
+      pos = await Geolocator.getLastKnownPosition();
+    } catch (_) {}
+
+    try {
+      pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 18),
+        ),
+      );
+    } catch (_) {
+      // Son bilinen konum yeterli (GPS yavaş / kapalı alan).
+    }
+
+    if (pos == null) return null;
     if (!pos.latitude.isFinite || !pos.longitude.isFinite) return null;
     return LatLng(pos.latitude, pos.longitude);
   } catch (_) {
