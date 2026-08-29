@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.65',
+    tr: 'Telefon tarama özeti: Konumluları / Konumsuzları Göster; rapor açık kalır.',
+    en: 'Phone scan report: Show Located / Show Missing; report stays open.',
+    de: 'Telefon-Scan-Bericht: Mit / Ohne Standort zeigen; Bericht bleibt offen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.64',
     tr: 'Telefonda GX012490 gibi GoPro bölüm adları + .THM: GoPro ve derin GPMF GPS.',
     en: 'Phone GX012490-style GoPro chapter names: GoPro kind + deep GPMF GPS.',
