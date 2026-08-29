@@ -19,7 +19,7 @@ Future<void> openMediaViewer(
 }) {
   if (items.isEmpty) return Future<void>.value();
   final index = initialIndex.clamp(0, items.length - 1);
-  return Navigator.of(context).push(
+  return Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute<void>(
       fullscreenDialog: true,
       builder: (_) => MediaViewer(items: items, initialIndex: index),

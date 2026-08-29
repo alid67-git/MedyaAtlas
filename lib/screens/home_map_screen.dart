@@ -1003,6 +1003,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
     String? phoneSummary;
     String phoneTitle = result.folderName;
+    var phoneLocated = const <LibraryMedia>[];
+    var phoneMissing = const <LibraryMedia>[];
     try {
       final repo = context.read<MediaRepository>();
       final stableId = preferSourceId ??
@@ -1090,8 +1092,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             );
           }
           items = fresh;
+          final beforeIds = {for (final m in repo.items) m.id};
           final stats = await _ingest(items, source: source, bulkMode: bulk);
           if (_isPhoneBulkSource(source) && !stats.cancelled) {
+            final newly = [
+              for (final m in repo.items)
+                if (!beforeIds.contains(m.id)) m,
+            ];
+            phoneLocated = [
+              for (final m in newly)
+                if (m.hasLocation) m,
+            ];
+            phoneMissing = [
+              for (final m in newly)
+                if (!m.hasLocation) m,
+            ];
             final fail =
                 stats.failed > 0 ? ' · ${stats.failed} okunamadı' : '';
             phoneSummary =
@@ -1130,10 +1145,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final noNewMedia = trimmed.startsWith('Yeni medya yok') ||
           trimmed.startsWith('0 yeni medya');
       if (!noNewMedia) {
-        await _showImportSummaryDialog(
-          title: phoneTitle,
-          message: phoneSummary,
-        );
+        if (phoneLocated.isNotEmpty || phoneMissing.isNotEmpty) {
+          await _showPhoneImportSummaryDialog(
+            title: phoneTitle,
+            message: phoneSummary,
+            located: phoneLocated,
+            missing: phoneMissing,
+          );
+        } else {
+          await _showImportSummaryDialog(
+            title: phoneTitle,
+            message: phoneSummary,
+          );
+        }
       }
     }
   }
@@ -1740,7 +1764,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         isCancelled: () => _cancel,
       );
 
-  /// Tüm telefon tarama özeti — ortada, Tamam ile kapanır.
+  /// Genel özet — ortada, Tamam ile kapanır (GPS retry vb.).
   Future<void> _showImportSummaryDialog({
     required String title,
     required String message,
@@ -1780,6 +1804,89 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               child: const Text('Tamam'),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  /// Son telefon taramasında eklenen medya özeti.
+  /// Viewer üstte açılır; yalnızca Kapat raporu kapatır.
+  Future<void> _showPhoneImportSummaryDialog({
+    required String title,
+    required String message,
+    required List<LibraryMedia> located,
+    required List<LibraryMedia> missing,
+  }) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF0A1C28),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            title: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.4,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    FilledButton(
+                      onPressed: located.isEmpty
+                          ? null
+                          : () {
+                              openMediaViewer(
+                                ctx,
+                                items: located,
+                              );
+                            },
+                      child: Text('Konumluları Göster (${located.length})'),
+                    ),
+                    FilledButton.tonal(
+                      onPressed: missing.isEmpty
+                          ? null
+                          : () {
+                              openMediaViewer(
+                                ctx,
+                                items: missing,
+                              );
+                            },
+                      child: Text('Konumsuzları Göster (${missing.length})'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Kapat'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
