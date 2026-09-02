@@ -4162,7 +4162,7 @@ class _MapMediaStrip extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.fromLTRB(4, 0, 12, 0),
                 itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (context, i) {
                   final item = items[i];
                   final focused = item.id == focusId;
