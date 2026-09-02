@@ -123,6 +123,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   List<Marker> _selectedPinCache = const [];
   int _markerCacheClusterLen = -1;
   String? _markerCacheSelectedId;
+  int _markerCacheStyleSig = -1;
 
   int _mapFilterSignature(TrackRepository tracks) => Object.hash(
         Object.hashAll(_kinds.map((k) => k.index)),
@@ -3053,6 +3054,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     onPressed: () => openMapLayerSheet(context),
                   ),
                   _TopIcon(
+                    tooltip: s.mapPins,
+                    icon: Icons.photo_size_select_actual_outlined,
+                    onPressed: () => openMapPinStyleSheet(context),
+                  ),
+                  _TopIcon(
                     tooltip: s.fitAll,
                     icon: Icons.zoom_out_map,
                     onPressed:
@@ -3827,10 +3833,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     List<LocationCluster> clusters,
     MediaRepository repo,
   ) {
+    final settings = context.read<AppSettings>();
+    final display = settings.mapPinDisplay;
+    final shape = settings.mapPinShape;
+    final styleSig = Object.hash(display.index, shape.index);
     final selectedId = _panelCluster?.id;
     if (_heatMarkerCache.isNotEmpty &&
         _markerCacheClusterLen == clusters.length &&
         _markerCacheSelectedId == selectedId &&
+        _markerCacheStyleSig == styleSig &&
         identical(clusters, _clusterCache)) {
       return (heat: _heatMarkerCache, selected: _selectedPinCache);
     }
@@ -3842,23 +3853,31 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (!lat.isFinite || !lng.isFinite) continue;
       if (lat.abs() > 90 || lng.abs() > 180) continue;
       final isSelected = cluster.id == selectedId;
-      if (isSelected) {
-        selected.add(
-          Marker(
-            point: LatLng(lat, lng),
-            width: 56,
-            height: 68,
-            alignment: Alignment.bottomCenter,
-            child: GestureDetector(
-              onTap: () => _openCluster(cluster),
-              child: PhotoMapPin(
-                item: coverMediaOf(cluster.items),
-                repo: repo,
-                count: cluster.items.length,
-              ),
+      if (isSelected || display == MapPinDisplay.photos) {
+        final box = PhotoMapPin.markerBox(shape);
+        final marker = Marker(
+          point: LatLng(lat, lng),
+          width: box.width,
+          height: box.height,
+          alignment: shape == MapPinShape.round
+              ? Alignment.bottomCenter
+              : Alignment.center,
+          child: GestureDetector(
+            onTap: () => _openCluster(cluster),
+            behavior: HitTestBehavior.opaque,
+            child: PhotoMapPin(
+              item: coverMediaOf(cluster.items),
+              repo: repo,
+              count: cluster.items.length,
+              shape: shape,
             ),
           ),
         );
+        if (isSelected) {
+          selected.add(marker);
+        } else {
+          heat.add(marker);
+        }
         continue;
       }
       final n = cluster.items.length;
@@ -3880,6 +3899,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _selectedPinCache = selected;
     _markerCacheClusterLen = clusters.length;
     _markerCacheSelectedId = selectedId;
+    _markerCacheStyleSig = styleSig;
     return (heat: heat, selected: selected);
   }
 }

@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.68',
+    tr: 'Pin görünümü: ısı veya resim; yuvarlak veya düzlem (kare) — üst çubuktan seçilir.',
+    en: 'Pin style: heat or photos; round or flat (square) — choose from the top bar.',
+    de: 'Pin-Stil: Heatmap oder Fotos; rund oder flach — in der oberen Leiste wählbar.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.67',
     tr: 'Haritada medyaya dokununca ekrandaki tüm medya yan yana kaydırılır (zoom ile daraltılmaz).',
     en: 'Tap map media to swipe all on-screen items side by side (no zoom-in shrink).',
