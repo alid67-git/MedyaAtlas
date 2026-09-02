@@ -15,16 +15,27 @@ class TrackRepository extends ChangeNotifier {
   static final TrackRepository instance = TrackRepository._();
 
   final List<MapTrack> _tracks = [];
+  List<MapTrack> _visibleTracksCache = const [];
   Box<String>? _box;
   bool _ready = false;
 
   bool get isReady => _ready;
   List<MapTrack> get tracks => List.unmodifiable(_tracks);
-  Iterable<MapTrack> get visibleTracks => _tracks.where((t) => t.visible);
+  Iterable<MapTrack> get visibleTracks => _visibleTracksCache;
+  /// Aynı liste örneği — pan rebuild’de toList() / yeniden filtre yok.
+  List<MapTrack> get visibleTracksList => _visibleTracksCache;
+
+  void _refreshVisibleCache() {
+    _visibleTracksCache = [
+      for (final t in _tracks)
+        if (t.visible) t,
+    ];
+  }
 
   /// Rota içi GPX/KML zamanına göre — en yeni üstte.
   void _sortNewestFirst() {
     _tracks.sort(compareTracksNewestFirst);
+    _refreshVisibleCache();
   }
 
   MapTrack _normalizeLoadedTrack(MapTrack track) => finalizeTrack(
@@ -70,6 +81,7 @@ class TrackRepository extends ChangeNotifier {
     } catch (e) {
       debugPrint('MedyaAtlas: iz indeksi okunamadı: $e');
       _tracks.clear();
+      _refreshVisibleCache();
       await _box!.delete(_tracksKey);
     }
     _ready = true;
@@ -117,6 +129,7 @@ class TrackRepository extends ChangeNotifier {
     final i = _tracks.indexWhere((t) => t.id == id);
     if (i < 0) return;
     _tracks[i] = _tracks[i].copyWith(visible: visible);
+    _refreshVisibleCache();
     await _persist();
     notifyListeners();
   }
@@ -131,6 +144,7 @@ class TrackRepository extends ChangeNotifier {
       changed = true;
     }
     if (!changed) return;
+    _refreshVisibleCache();
     await _persist();
     notifyListeners();
   }
@@ -147,12 +161,14 @@ class TrackRepository extends ChangeNotifier {
       changed = true;
     }
     if (!changed) return;
+    _refreshVisibleCache();
     await _persist();
     notifyListeners();
   }
 
   Future<void> remove(String id) async {
     _tracks.removeWhere((t) => t.id == id);
+    _refreshVisibleCache();
     await _persist();
     notifyListeners();
   }
@@ -162,6 +178,7 @@ class TrackRepository extends ChangeNotifier {
     final before = _tracks.length;
     _tracks.removeWhere((t) => want.contains(t.id));
     if (_tracks.length == before) return;
+    _refreshVisibleCache();
     await _persist();
     notifyListeners();
   }

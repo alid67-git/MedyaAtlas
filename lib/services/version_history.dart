@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.66',
+    tr: 'Harita pan/zoom kilitlenmesi: ısı pinleri hareket sırasında gizlenir; izler sadeleştirildi.',
+    en: 'Map pan/zoom freeze: hide heat pins while moving; lighter track polylines.',
+    de: 'Karten-Pan/Zoom-Freeze: Heat-Pins beim Bewegen aus; leichtere Track-Linien.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.65',
     tr: 'Telefon tarama özeti: Konumluları / Konumsuzları Göster; rapor açık kalır.',
     en: 'Phone scan report: Show Located / Show Missing; report stays open.',

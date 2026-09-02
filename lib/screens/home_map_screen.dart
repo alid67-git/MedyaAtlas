@@ -95,6 +95,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   final Set<MediaKind> _kinds = {...MediaKind.values};
   Timer? _mountTimer;
 
+  /// Harita pan/zoom sırasında ısı pinlerini gizle — ANR önlemi.
+  bool _mapInteracting = false;
+  Timer? _mapIdleTimer;
+
   /// Zorunlu güncelleme — harita kullanılmaz.
   AppUpdateInfo? _forceUpdate;
 
@@ -202,6 +206,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _mountTimer?.cancel();
+    _mapIdleTimer?.cancel();
     super.dispose();
   }
 
@@ -2439,7 +2444,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         items = items.where((m) => !m.hasLocation);
         break;
       case _TrackMediaFilter.onTracks:
-        final visible = tracks.visibleTracks.toList();
+        final visible = tracks.visibleTracksList;
         if (visible.isEmpty) {
           items = items.where((m) => !m.hasLocation);
         } else {
@@ -2467,7 +2472,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (_trackMediaFilter != _TrackMediaFilter.onTracks) {
       return filtered.where((m) => m.hasLocation).toList();
     }
-    final tracks = context.read<TrackRepository>().visibleTracks.toList();
+    final tracks = context.read<TrackRepository>().visibleTracksList;
     if (tracks.isEmpty) return const [];
     final out = <LibraryMedia>[];
     for (final m in filtered) {
@@ -3796,23 +3801,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     MediaRepository repo,
   ) {
     final trackRepo = context.watch<TrackRepository>();
+    final visibleTracks = trackRepo.visibleTracksList;
     final mapMarkers = _mapMarkersFor(clusters, repo);
     return Stack(
       children: [
         FlutterMap(
           mapController: _map,
-          options: const MapOptions(
+          options: MapOptions(
             initialCenter: _worldCenter,
             initialZoom: 2.4,
+            onMapEvent: _onMapEvent,
           ),
           children: [
             TileLayer(
               urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
               userAgentPackageName: 'com.medyaatlas.app',
             ),
-            _TrackLinesLayer(tracks: trackRepo.visibleTracks.toList()),
-            MarkerLayer(markers: mapMarkers.heat),
-            _TrackBadgeLayer(tracks: trackRepo.visibleTracks.toList()),
+            _TrackLinesLayer(tracks: visibleTracks),
+            // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
+            if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
+            _TrackBadgeLayer(tracks: visibleTracks),
             MarkerLayer(markers: mapMarkers.selected),
           ],
         ),
@@ -3840,6 +3848,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ),
       ],
     );
+  }
+
+  void _onMapEvent(MapEvent event) {
+    // Hareket / zoom / fling — ısı pinlerini geçici gizle.
+    final busy = event is MapEventMoveStart ||
+        event is MapEventMove ||
+        event is MapEventFlingAnimationStart ||
+        event is MapEventFlingAnimation ||
+        event is MapEventRotateStart ||
+        event is MapEventDoubleTapZoomStart ||
+        event is MapEventScrollWheelZoom;
+    if (!busy) return;
+    _mapIdleTimer?.cancel();
+    if (!_mapInteracting && mounted) {
+      setState(() => _mapInteracting = true);
+    }
+    _mapIdleTimer = Timer(const Duration(milliseconds: 220), () {
+      if (!mounted || !_mapInteracting) return;
+      setState(() => _mapInteracting = false);
+    });
   }
 
   ({List<Marker> heat, List<Marker> selected}) _mapMarkersFor(
@@ -4358,15 +4386,15 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
         for (final p in track.points)
           if (isValidGps(p.latitude, p.longitude)) p.latLng,
       ];
-      final pts = _downsampleTrackPoints(raw, maxPoints: 2500);
+      // Harita pan için agresif sadeleştirme (tam nokta GPS’te kalır).
+      final pts = _downsampleTrackPoints(raw, maxPoints: 500);
       if (pts.length < 2) continue;
-      // Tek polyline + border — çift katman yerine (yarı maliyet).
       polylines.add(
         Polyline(
           points: pts,
-          strokeWidth: 5.5,
+          strokeWidth: 4.5,
           color: const Color(0xFFFFB020),
-          borderStrokeWidth: 3.5,
+          borderStrokeWidth: 2.5,
           borderColor: const Color(0xE0121C28),
         ),
       );
@@ -4396,8 +4424,8 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
     if (_polylines.isEmpty) return const SizedBox.shrink();
     return PolylineLayer(
       polylines: _polylines,
-      cullingMargin: 28,
-      simplificationTolerance: 0.6,
+      cullingMargin: 40,
+      simplificationTolerance: 2.5,
     );
   }
 }

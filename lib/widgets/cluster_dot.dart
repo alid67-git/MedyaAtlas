@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// Google Fotoğraflar tarzı yumuşak ısı lekesi (mavi → mor → sarı çekirdek).
+///
+/// MaskFilter.blur yok — pan/zoom’da yüzlerce lekede ANR yapıyordu.
 class HeatBlob extends StatelessWidget {
   const HeatBlob({super.key, required this.count});
 
@@ -11,11 +13,11 @@ class HeatBlob extends StatelessWidget {
   /// Görsel çap (piksel).
   static double sizeFor(int count) {
     final n = count.clamp(1, 500);
-    return math.min(88.0, 36 + math.sqrt(n) * 9);
+    return math.min(64.0, 28 + math.sqrt(n) * 7);
   }
 
-  /// Blur taşması için Marker kutusu payı.
-  static const glowPadding = 24.0;
+  /// Gradient taşması için Marker kutusu payı.
+  static const glowPadding = 12.0;
 
   static double markerSizeFor(int count) => sizeFor(count) + glowPadding;
 
@@ -45,6 +47,8 @@ class HeatBlob extends StatelessWidget {
       width: size + glowPadding,
       height: size + glowPadding,
       child: CustomPaint(
+        isComplex: true,
+        willChange: false,
         painter: _HeatBlobPainter(
           outer: outer,
           mid: mid,
@@ -74,17 +78,17 @@ class _HeatBlobPainter extends CustomPainter {
     final c = Offset(size.width / 2, size.height / 2);
     final r = blobDiameter / 2;
 
+    // Soft edge yalnızca RadialGradient ile — blur mask yok.
     final glow = Paint()
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-    glow.shader = RadialGradient(
-      colors: [
-        core.withValues(alpha: 0.95),
-        mid.withValues(alpha: 0.55),
-        outer.withValues(alpha: 0.22),
-        outer.withValues(alpha: 0.0),
-      ],
-      stops: const [0.0, 0.28, 0.62, 1.0],
-    ).createShader(Rect.fromCircle(center: c, radius: r));
+      ..shader = RadialGradient(
+        colors: [
+          core.withValues(alpha: 0.95),
+          mid.withValues(alpha: 0.55),
+          outer.withValues(alpha: 0.22),
+          outer.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.28, 0.62, 1.0],
+      ).createShader(Rect.fromCircle(center: c, radius: r));
     canvas.drawCircle(c, r, glow);
 
     final solid = Paint()
@@ -105,6 +109,9 @@ class _HeatBlobPainter extends CustomPainter {
       oldDelegate.mid != mid ||
       oldDelegate.core != core ||
       oldDelegate.blobDiameter != blobDiameter;
+
+  @override
+  bool shouldRebuildSemantics(covariant _HeatBlobPainter oldDelegate) => false;
 }
 
 /// Eski sayı rozeti — ısı lekesine yönlendir.
