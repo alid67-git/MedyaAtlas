@@ -314,3 +314,115 @@ Future<void> openMapLayerSheet(BuildContext context) async {
     },
   );
 }
+
+Future<void> openMapPinStyleSheet(BuildContext context) async {
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: const Color(0xFF0A1C28),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) {
+      return Consumer<AppSettings>(
+        builder: (context, st, _) {
+          final t = S.of(st);
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 10),
+                  Text(
+                    t.mapPins,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      t.mapPinDisplayLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  for (final mode in MapPinDisplay.values)
+                    ListTile(
+                      leading: Icon(
+                        mode == MapPinDisplay.heat
+                            ? Icons.blur_on
+                            : Icons.photo_library_outlined,
+                        color: const Color(0xFF2EC4B6),
+                      ),
+                      title: Text(t.mapPinDisplayName(mode)),
+                      trailing: Icon(
+                        st.mapPinDisplay == mode
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        color: const Color(0xFF2EC4B6),
+                      ),
+                      onTap: () => st.setMapPinDisplay(mode),
+                    ),
+                  const Divider(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      t.mapPinShapeLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  for (final shape in MapPinShape.values)
+                    ListTile(
+                      leading: Icon(
+                        shape == MapPinShape.round
+                            ? Icons.circle_outlined
+                            : Icons.crop_square,
+                        color: const Color(0xFF2EC4B6),
+                      ),
+                      title: Text(t.mapPinShapeName(shape)),
+                      subtitle: st.mapPinDisplay == MapPinDisplay.heat
+                          ? Text(
+                              switch (st.lang) {
+                                AppLang.tr => 'Resim modunda uygulanır',
+                                AppLang.en => 'Applies in photo mode',
+                                AppLang.de => 'Gilt im Foto-Modus',
+                              },
+                              style: const TextStyle(fontSize: 11),
+                            )
+                          : null,
+                      trailing: Icon(
+                        st.mapPinShape == shape
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        color: const Color(0xFF2EC4B6),
+                      ),
+                      onTap: () => st.setMapPinShape(shape),
+                    ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text(t.close),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}

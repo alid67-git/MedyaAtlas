@@ -10,6 +10,18 @@ enum MapLayer {
   dark,
 }
 
+/// Harita medya pin şekli: yuvarlak (daire) veya düzlem (kare).
+enum MapPinShape {
+  round,
+  square,
+}
+
+/// Haritada medya: ısı lekesi veya fotoğraf önizlemesi.
+enum MapPinDisplay {
+  heat,
+  photos,
+}
+
 /// Sabit kredi — kullanıcı tarafından değiştirilmez.
 const appDeveloperName = 'Ali Dinçer';
 
@@ -22,6 +34,8 @@ class AppSettings extends ChangeNotifier {
 
   AppLang lang = AppLang.tr;
   MapLayer mapLayer = MapLayer.satellite;
+  MapPinShape mapPinShape = MapPinShape.round;
+  MapPinDisplay mapPinDisplay = MapPinDisplay.heat;
 
   Future<void> init() async {
     _box = await Hive.openBox(_boxName);
@@ -32,6 +46,14 @@ class AppSettings extends ChangeNotifier {
     mapLayer = MapLayer.values.firstWhere(
       (e) => e.name == (_box.get('mapLayer') as String? ?? 'satellite'),
       orElse: () => MapLayer.satellite,
+    );
+    mapPinShape = MapPinShape.values.firstWhere(
+      (e) => e.name == (_box.get('mapPinShape') as String? ?? 'round'),
+      orElse: () => MapPinShape.round,
+    );
+    mapPinDisplay = MapPinDisplay.values.firstWhere(
+      (e) => e.name == (_box.get('mapPinDisplay') as String? ?? 'heat'),
+      orElse: () => MapPinDisplay.heat,
     );
   }
 
@@ -44,6 +66,18 @@ class AppSettings extends ChangeNotifier {
   Future<void> setMapLayer(MapLayer value) async {
     mapLayer = value;
     await _box.put('mapLayer', value.name);
+    notifyListeners();
+  }
+
+  Future<void> setMapPinShape(MapPinShape value) async {
+    mapPinShape = value;
+    await _box.put('mapPinShape', value.name);
+    notifyListeners();
+  }
+
+  Future<void> setMapPinDisplay(MapPinDisplay value) async {
+    mapPinDisplay = value;
+    await _box.put('mapPinDisplay', value.name);
     notifyListeners();
   }
 

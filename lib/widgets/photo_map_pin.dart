@@ -3,18 +3,47 @@ import 'package:flutter/material.dart';
 
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
+import '../services/app_settings.dart';
 import '../services/photo_orient.dart';
 import '../services/video_preview.dart';
 import 'photo_source.dart';
 import 'video_surface.dart';
 
-/// Seçili konum: dairesel fotoğraf + altta konum ucu (Google Fotoğraflar pin).
+/// Harita pin: yuvarlak (uçlu) veya düzlem (hafif eğik kare) fotoğraf.
 class PhotoMapPin extends StatelessWidget {
   const PhotoMapPin({
     super.key,
     required this.item,
     required this.repo,
     this.count = 1,
+    this.shape = MapPinShape.round,
+  });
+
+  final LibraryMedia item;
+  final MediaRepository repo;
+  final int count;
+  final MapPinShape shape;
+
+  /// Marker kutusu (flutter_map).
+  static Size markerBox(MapPinShape shape) => switch (shape) {
+        MapPinShape.round => const Size(56, 68),
+        MapPinShape.square => const Size(58, 58),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (shape) {
+      MapPinShape.round => _RoundPin(item: item, repo: repo, count: count),
+      MapPinShape.square => _SquarePin(item: item, repo: repo, count: count),
+    };
+  }
+}
+
+class _RoundPin extends StatelessWidget {
+  const _RoundPin({
+    required this.item,
+    required this.repo,
+    required this.count,
   });
 
   final LibraryMedia item;
@@ -54,24 +83,7 @@ class PhotoMapPin extends StatelessWidget {
                     Positioned(
                       right: 2,
                       bottom: 2,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xE0050E16),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          count > 99 ? '99+' : '$count',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
+                      child: _CountChip(count: count, compact: true),
                     ),
                 ],
               ),
@@ -82,6 +94,127 @@ class PhotoMapPin extends StatelessWidget {
             painter: _PinTipPainter(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SquarePin extends StatelessWidget {
+  const _SquarePin({
+    required this.item,
+    required this.repo,
+    required this.count,
+  });
+
+  final LibraryMedia item;
+  final MediaRepository repo;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    const side = 44.0;
+    // Hafif eğim — FotoMap tarzı dağınık kareler.
+    final tilt = ((item.id.hashCode % 17) - 8) * 0.035;
+    return SizedBox(
+      width: 58,
+      height: 58,
+      child: Center(
+        child: Transform.rotate(
+          angle: tilt,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: side,
+                height: side,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: Colors.white, width: 2.5),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x55000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(1),
+                  child: _PinThumb(item: item, repo: repo),
+                ),
+              ),
+              if (count > 1)
+                Positioned(
+                  right: -4,
+                  top: -4,
+                  child: _CountBadge(count: count),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountChip extends StatelessWidget {
+  const _CountChip({required this.count, this.compact = false});
+
+  final int count;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 5 : 6,
+        vertical: compact ? 1 : 2,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xE0050E16),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: compact ? 10 : 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 99 ? '99+' : '$count';
+    return Container(
+      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2EC4B6),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x44000000), blurRadius: 3),
+        ],
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          height: 1.1,
+        ),
       ),
     );
   }
