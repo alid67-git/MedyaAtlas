@@ -2511,7 +2511,31 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _openCluster(LocationCluster cluster) async {
-    _fitCluster(cluster);
+    if (cluster.items.isEmpty) return;
+    final repo = context.read<MediaRepository>();
+    // Fit/zoom YAPMA — ekranda görünen tüm medya kaybolmasın.
+    final viewport = _mediaInMapViewport(repo);
+    final cover = coverMediaOf(cluster.items);
+    final list = <LibraryMedia>[];
+    final seen = <String>{};
+    void addAll(Iterable<LibraryMedia> items) {
+      for (final m in items) {
+        if (seen.add(m.id)) list.add(m);
+      }
+    }
+
+    if (viewport.isNotEmpty) {
+      addAll(viewport);
+    }
+    addAll(cluster.items);
+    if (list.isEmpty) return;
+    list.sort((a, b) {
+      final ta = a.takenAt ?? a.addedAt;
+      final tb = b.takenAt ?? b.addedAt;
+      return tb.compareTo(ta);
+    });
+    final start = list.indexWhere((m) => m.id == cover.id);
+
     setState(() {
       _panelCluster = cluster;
       _showMissing = false;
@@ -2519,79 +2543,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _tracksOpen = false;
       _kindMenu = null;
     });
-    if (_isDesktop || MediaQuery.sizeOf(context).width >= 960) {
-      return;
-    }
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: const Color(0xFF0A1C28),
-      builder: (ctx) {
-        final live = ctx.watch<MediaRepository>();
-        final h = MediaQuery.sizeOf(ctx).height * 0.62;
-        return SizedBox(
-          height: h.clamp(320.0, 640.0),
-          child: _ClusterSheet(
-            cluster: cluster,
-            repo: live,
-            onOpen: (items, index) {
-              Navigator.pop(ctx);
-              _openMapMediaViewer(
-                clusterItems: items,
-                tappedIndex: index,
-              );
-            },
-          ),
-        );
-      },
+
+    // Doğrudan yan yana (PageView) — alt sayfa / küme listesi atlanır.
+    await openMediaViewer(
+      context,
+      items: list,
+      initialIndex: start < 0 ? 0 : start,
     );
     if (mounted) setState(() => _panelCluster = null);
-  }
-
-  /// Kümedeki tüm medya haritada görünsün (sokak dip zoom değil).
-  void _fitCluster(LocationCluster cluster) {
-    final points = <LatLng>[
-      for (final m in cluster.items)
-        if (m.latLng != null) m.latLng!,
-    ];
-    if (points.isEmpty) {
-      final c = cluster.latLng;
-      if (c.latitude.isFinite && c.longitude.isFinite) {
-        points.add(c);
-      }
-    }
-    if (points.isEmpty) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      try {
-        _map.rotate(0);
-        if (points.length == 1) {
-          _map.moveAndRotate(points.first, 15, 0);
-          return;
-        }
-        var bounds = LatLngBounds.fromPoints(points);
-        final latSpan = (bounds.north - bounds.south).abs();
-        final lngSpan = (bounds.east - bounds.west).abs();
-        // Aynı noktaya yakın küme: biraz aç ki tüm pinler görünsün.
-        if (latSpan < 0.0008 || lngSpan < 0.0008) {
-          const pad = 0.002;
-          bounds = LatLngBounds(
-            LatLng(bounds.south - pad, bounds.west - pad),
-            LatLng(bounds.north + pad, bounds.east + pad),
-          );
-        }
-        _map.fitCamera(
-          CameraFit.bounds(
-            bounds: bounds,
-            padding: const EdgeInsets.fromLTRB(48, 140, 48, 200),
-            maxZoom: 16,
-          ),
-        );
-        _map.rotate(0);
-      } catch (_) {}
-    });
   }
 
   /// Mevcut harita zoom’undaki GPS’li medya (yeniden eskiye).
@@ -2613,7 +2572,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  /// Küme / pin’den aç: önce küme, zoom’da görünen tüm medya ile kaydır.
+  /// Yan panel / pin: ekrandaki tüm medya + küme, kaydırılabilir izleyici.
   void _openMapMediaViewer({
     required List<LibraryMedia> clusterItems,
     required int tappedIndex,
@@ -2622,32 +2581,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final safeIndex = tappedIndex.clamp(0, clusterItems.length - 1);
     final tapped = clusterItems[safeIndex];
     final repo = context.read<MediaRepository>();
-
-    // Frame sonrası: fit bittiyse viewport’taki komşular da listeye girer.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      var list = _mediaInMapViewport(repo);
-      if (list.isEmpty || !list.any((m) => m.id == tapped.id)) {
-        list = List<LibraryMedia>.from(clusterItems);
-      } else {
-        // Kümedekiler viewport dışındaysa (padding) yine ekle.
-        final ids = {for (final m in list) m.id};
-        for (final m in clusterItems) {
-          if (!ids.contains(m.id)) list.add(m);
-        }
-        list.sort((a, b) {
-          final ta = a.takenAt ?? a.addedAt;
-          final tb = b.takenAt ?? b.addedAt;
-          return tb.compareTo(ta);
-        });
-      }
-      final start = list.indexWhere((m) => m.id == tapped.id);
-      openMediaViewer(
-        context,
-        items: list,
-        initialIndex: start < 0 ? 0 : start,
-      );
+    final list = <LibraryMedia>[];
+    final seen = <String>{};
+    for (final m in _mediaInMapViewport(repo)) {
+      if (seen.add(m.id)) list.add(m);
+    }
+    for (final m in clusterItems) {
+      if (seen.add(m.id)) list.add(m);
+    }
+    if (list.isEmpty) return;
+    list.sort((a, b) {
+      final ta = a.takenAt ?? a.addedAt;
+      final tb = b.takenAt ?? b.addedAt;
+      return tb.compareTo(ta);
     });
+    final start = list.indexWhere((m) => m.id == tapped.id);
+    openMediaViewer(
+      context,
+      items: list,
+      initialIndex: start < 0 ? 0 : start,
+    );
   }
 
   String _kindTitle(MediaKind kind) => switch (kind) {

@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.67',
+    tr: 'Haritada medyaya dokununca ekrandaki tüm medya yan yana kaydırılır (zoom ile daraltılmaz).',
+    en: 'Tap map media to swipe all on-screen items side by side (no zoom-in shrink).',
+    de: 'Kartenmedien antippen: alle sichtbaren Medien nebeneinander wischen (kein Zoom).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.66',
     tr: 'Harita pan/zoom kilitlenmesi: ısı pinleri hareket sırasında gizlenir; izler sadeleştirildi.',
     en: 'Map pan/zoom freeze: hide heat pins while moving; lighter track polylines.',
