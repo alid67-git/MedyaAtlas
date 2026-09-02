@@ -3760,8 +3760,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     MediaRepository repo,
   ) {
     final trackRepo = context.watch<TrackRepository>();
+    final settings = context.watch<AppSettings>();
     final visibleTracks = trackRepo.visibleTracksList;
-    final mapMarkers = _mapMarkersFor(clusters, repo);
+    final mapMarkers = _mapMarkersFor(clusters, repo, settings);
     return Stack(
       children: [
         FlutterMap(
@@ -3773,11 +3774,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ),
           children: [
             TileLayer(
-              urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
+              urlTemplate: settings.mapUrlTemplate,
               userAgentPackageName: 'com.medyaatlas.app',
             ),
             _TrackLinesLayer(tracks: visibleTracks),
-            // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
+            // Pan/zoom sırasında ısı/resim pinlerini çizme — ANR / kilitlenme.
             if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
             _TrackBadgeLayer(tracks: visibleTracks),
             MarkerLayer(markers: mapMarkers.selected),
@@ -3832,8 +3833,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   ({List<Marker> heat, List<Marker> selected}) _mapMarkersFor(
     List<LocationCluster> clusters,
     MediaRepository repo,
+    AppSettings settings,
   ) {
-    final settings = context.read<AppSettings>();
     final display = settings.mapPinDisplay;
     final shape = settings.mapPinShape;
     final styleSig = Object.hash(display.index, shape.index);
