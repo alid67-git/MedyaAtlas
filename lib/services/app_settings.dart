@@ -71,7 +71,10 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> setMapPinShape(MapPinShape value) async {
     mapPinShape = value;
+    // Şekil yalnızca resim pinlerinde görünür — otomatik resim moduna geç.
+    mapPinDisplay = MapPinDisplay.photos;
     await _box.put('mapPinShape', value.name);
+    await _box.put('mapPinDisplay', mapPinDisplay.name);
     notifyListeners();
   }
 

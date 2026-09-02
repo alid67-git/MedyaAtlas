@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.69',
+    tr: 'Yuvarlak pin: şekil seçince resim moduna geçer; daire pin yerleşimi düzeltildi.',
+    en: 'Round pins: choosing a shape switches to photos; circular pin layout fixed.',
+    de: 'Runde Pins: Formwahl wechselt zu Fotos; Kreispin-Layout korrigiert.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.68',
     tr: 'Pin görünümü: ısı veya resim; yuvarlak veya düzlem (kare) — üst çubuktan seçilir.',
     en: 'Pin style: heat or photos; round or flat (square) — choose from the top bar.',

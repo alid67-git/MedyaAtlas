@@ -53,45 +53,54 @@ class _RoundPin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const pin = 48.0;
-    const tip = 9.0;
+    const tip = 10.0;
+    // Marker kutusuyla aynı boyut — Column taşması / sıfır boyut olmasın.
     return SizedBox(
-      width: pin,
-      height: pin + tip,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      width: 56,
+      height: 68,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
         children: [
-          Container(
-            width: pin,
-            height: pin,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _PinThumb(item: item, repo: repo),
-                  if (count > 1)
-                    Positioned(
-                      right: 2,
-                      bottom: 2,
-                      child: _CountChip(count: count, compact: true),
-                    ),
+          Positioned(
+            bottom: tip - 1,
+            child: Container(
+              width: pin,
+              height: pin,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF1A2A36),
+                border: Border.all(color: Colors.white, width: 3),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x66000000),
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
                 ],
+              ),
+              child: ClipOval(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _PinThumb(item: item, repo: repo),
+                    if (count > 1)
+                      Positioned(
+                        right: 2,
+                        bottom: 2,
+                        child: _CountChip(count: count, compact: true),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
-          CustomPaint(
-            size: const Size(16, tip),
-            painter: _PinTipPainter(),
+          Positioned(
+            bottom: 0,
+            child: CustomPaint(
+              size: const Size(18, tip),
+              painter: _PinTipPainter(),
+            ),
           ),
         ],
       ),

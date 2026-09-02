@@ -392,18 +392,17 @@ Future<void> openMapPinStyleSheet(BuildContext context) async {
                         color: const Color(0xFF2EC4B6),
                       ),
                       title: Text(t.mapPinShapeName(shape)),
-                      subtitle: st.mapPinDisplay == MapPinDisplay.heat
-                          ? Text(
-                              switch (st.lang) {
-                                AppLang.tr => 'Resim modunda uygulanır',
-                                AppLang.en => 'Applies in photo mode',
-                                AppLang.de => 'Gilt im Foto-Modus',
-                              },
-                              style: const TextStyle(fontSize: 11),
-                            )
-                          : null,
+                      subtitle: Text(
+                        switch (st.lang) {
+                          AppLang.tr => 'Resim pinlerine geçer',
+                          AppLang.en => 'Switches to photo pins',
+                          AppLang.de => 'Wechselt zu Foto-Pins',
+                        },
+                        style: const TextStyle(fontSize: 11),
+                      ),
                       trailing: Icon(
-                        st.mapPinShape == shape
+                        st.mapPinDisplay == MapPinDisplay.photos &&
+                                st.mapPinShape == shape
                             ? Icons.radio_button_checked
                             : Icons.radio_button_off,
                         color: const Color(0xFF2EC4B6),
