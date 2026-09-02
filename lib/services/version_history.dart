@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.71',
+    tr: 'Haritada medyaya dokununca altta ikon şeridi; ikona basınca tam ekran kaydırılabilir izleyici.',
+    en: 'Tap map media for a bottom icon strip; tap an icon for fullscreen swipe viewer.',
+    de: 'Kartenmedien antippen: Icon-Leiste unten; Icon tippen → Vollbild-Wischer.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.70',
     tr: 'Yuvarlak = döndürülebilir 3D dünya; düzlem = 2D harita. Isı/resim ayrı seçilir.',
     en: 'Globe = rotatable 3D Earth; flat = 2D map. Heat/photos chosen separately.',
