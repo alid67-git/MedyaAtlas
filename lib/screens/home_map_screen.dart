@@ -47,6 +47,7 @@ import '../services/web_media_session.dart';
 import '../widgets/app_update_progress.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/drop_host.dart';
+import '../widgets/media_globe_view.dart';
 import '../widgets/media_viewer.dart';
 import '../widgets/photo_map_pin.dart';
 import '../widgets/photo_source.dart';
@@ -124,6 +125,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   int _markerCacheClusterLen = -1;
   String? _markerCacheSelectedId;
   int _markerCacheStyleSig = -1;
+  final GlobalKey<MediaGlobeViewState> _globeKey =
+      GlobalKey<MediaGlobeViewState>();
 
   int _mapFilterSignature(TrackRepository tracks) => Object.hash(
         Object.hashAll(_kinds.map((k) => k.index)),
@@ -2250,6 +2253,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _places = [];
       _showMissing = false;
     });
+    if (context.read<AppSettings>().mapSurface == MapSurface.globe) {
+      _globeKey.currentState?.focusLatLng(place.latitude, place.longitude);
+      return;
+    }
     if (place.bbox != null && place.bbox!.length == 4) {
       final b = place.bbox!;
       _map.fitCamera(
@@ -2265,6 +2272,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _fitVisible({bool includeTracks = false}) {
+    final settings = context.read<AppSettings>();
+    if (settings.mapSurface == MapSurface.globe) {
+      _globeKey.currentState?.fitClusters();
+      return;
+    }
     final repo = context.read<MediaRepository>();
     final clusters = _clustersOf(repo);
     final points = <LatLng>[
@@ -2370,6 +2382,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       // Harita çizilsin (eksik kare / fitCamera sessiz hatası).
       await Future<void>.delayed(const Duration(milliseconds: 80));
       if (!mounted) return;
+      final onGlobe =
+          context.read<AppSettings>().mapSurface == MapSurface.globe;
+      if (onGlobe) {
+        _globeKey.currentState?.focusLatLng(me.latitude, me.longitude);
+        return;
+      }
       try {
         _map.rotate(0);
         if (fitPoints.length <= 1) {
@@ -3055,7 +3073,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   ),
                   _TopIcon(
                     tooltip: s.mapPins,
-                    icon: Icons.photo_size_select_actual_outlined,
+                    icon: settings.mapSurface == MapSurface.globe
+                        ? Icons.public
+                        : Icons.photo_size_select_actual_outlined,
                     onPressed: () => openMapPinStyleSheet(context),
                   ),
                   _TopIcon(
@@ -3762,28 +3782,42 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final trackRepo = context.watch<TrackRepository>();
     final settings = context.watch<AppSettings>();
     final visibleTracks = trackRepo.visibleTracksList;
-    final mapMarkers = _mapMarkersFor(clusters, repo, settings);
+    final useGlobe = settings.mapSurface == MapSurface.globe;
+    final mapMarkers =
+        useGlobe ? (heat: const <Marker>[], selected: const <Marker>[]) : _mapMarkersFor(clusters, repo, settings);
     return Stack(
       children: [
-        FlutterMap(
-          mapController: _map,
-          options: MapOptions(
-            initialCenter: _worldCenter,
-            initialZoom: 2.4,
-            onMapEvent: _onMapEvent,
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: settings.mapUrlTemplate,
-              userAgentPackageName: 'com.medyaatlas.app',
+        if (useGlobe)
+          Positioned.fill(
+            child: MediaGlobeView(
+              key: _globeKey,
+              clusters: clusters,
+              repo: repo,
+              display: settings.mapPinDisplay,
+              shape: settings.mapPinShape,
+              onOpenCluster: _openCluster,
             ),
-            _TrackLinesLayer(tracks: visibleTracks),
-            // Pan/zoom sırasında ısı/resim pinlerini çizme — ANR / kilitlenme.
-            if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
-            _TrackBadgeLayer(tracks: visibleTracks),
-            MarkerLayer(markers: mapMarkers.selected),
-          ],
-        ),
+          )
+        else
+          FlutterMap(
+            mapController: _map,
+            options: MapOptions(
+              initialCenter: _worldCenter,
+              initialZoom: 2.4,
+              onMapEvent: _onMapEvent,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: settings.mapUrlTemplate,
+                userAgentPackageName: 'com.medyaatlas.app',
+              ),
+              _TrackLinesLayer(tracks: visibleTracks),
+              // Pan/zoom sırasında ısı/resim pinlerini çizme — ANR / kilitlenme.
+              if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
+              _TrackBadgeLayer(tracks: visibleTracks),
+              MarkerLayer(markers: mapMarkers.selected),
+            ],
+          ),
         if (_places.isNotEmpty)
           Positioned(
             left: 12,

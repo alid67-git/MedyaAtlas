@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.70',
+    tr: 'Yuvarlak = döndürülebilir 3D dünya; düzlem = 2D harita. Isı/resim ayrı seçilir.',
+    en: 'Globe = rotatable 3D Earth; flat = 2D map. Heat/photos chosen separately.',
+    de: 'Kugel = drehbare 3D-Erde; flach = 2D-Karte. Heat/Fotos separat wählbar.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.69',
     tr: 'Yuvarlak pin: şekil seçince resim moduna geçer; daire pin yerleşimi düzeltildi.',
     en: 'Round pins: choosing a shape switches to photos; circular pin layout fixed.',

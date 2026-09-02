@@ -329,94 +329,117 @@ Future<void> openMapPinStyleSheet(BuildContext context) async {
           return SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 10),
-                  Text(
-                    t.mapPins,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      t.mapPinDisplayLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.65),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 10),
+                    Text(
+                      t.mapPins,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  for (final mode in MapPinDisplay.values)
-                    ListTile(
-                      leading: Icon(
-                        mode == MapPinDisplay.heat
-                            ? Icons.blur_on
-                            : Icons.photo_library_outlined,
-                        color: const Color(0xFF2EC4B6),
-                      ),
-                      title: Text(t.mapPinDisplayName(mode)),
-                      trailing: Icon(
-                        st.mapPinDisplay == mode
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_off,
-                        color: const Color(0xFF2EC4B6),
-                      ),
-                      onTap: () => st.setMapPinDisplay(mode),
-                    ),
-                  const Divider(height: 20),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      t.mapPinShapeLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.65),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        t.mapSurfaceLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.65),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  for (final shape in MapPinShape.values)
-                    ListTile(
-                      leading: Icon(
-                        shape == MapPinShape.round
-                            ? Icons.circle_outlined
-                            : Icons.crop_square,
-                        color: const Color(0xFF2EC4B6),
+                    const SizedBox(height: 6),
+                    for (final surface in MapSurface.values)
+                      ListTile(
+                        leading: Icon(
+                          surface == MapSurface.globe
+                              ? Icons.public
+                              : Icons.map_outlined,
+                          color: const Color(0xFF2EC4B6),
+                        ),
+                        title: Text(t.mapSurfaceName(surface)),
+                        trailing: Icon(
+                          st.mapSurface == surface
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_off,
+                          color: const Color(0xFF2EC4B6),
+                        ),
+                        onTap: () => st.setMapSurface(surface),
                       ),
-                      title: Text(t.mapPinShapeName(shape)),
-                      subtitle: Text(
-                        switch (st.lang) {
-                          AppLang.tr => 'Resim pinlerine geçer',
-                          AppLang.en => 'Switches to photo pins',
-                          AppLang.de => 'Wechselt zu Foto-Pins',
-                        },
-                        style: const TextStyle(fontSize: 11),
+                    const Divider(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        t.mapPinDisplayLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.65),
+                        ),
                       ),
-                      trailing: Icon(
-                        st.mapPinDisplay == MapPinDisplay.photos &&
-                                st.mapPinShape == shape
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_off,
-                        color: const Color(0xFF2EC4B6),
-                      ),
-                      onTap: () => st.setMapPinShape(shape),
                     ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: Text(t.close),
+                    const SizedBox(height: 6),
+                    for (final mode in MapPinDisplay.values)
+                      ListTile(
+                        leading: Icon(
+                          mode == MapPinDisplay.heat
+                              ? Icons.blur_on
+                              : Icons.photo_library_outlined,
+                          color: const Color(0xFF2EC4B6),
+                        ),
+                        title: Text(t.mapPinDisplayName(mode)),
+                        trailing: Icon(
+                          st.mapPinDisplay == mode
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_off,
+                          color: const Color(0xFF2EC4B6),
+                        ),
+                        onTap: () => st.setMapPinDisplay(mode),
+                      ),
+                    const Divider(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        t.mapPinShapeLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.65),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    for (final shape in MapPinShape.values)
+                      ListTile(
+                        leading: Icon(
+                          shape == MapPinShape.round
+                              ? Icons.circle_outlined
+                              : Icons.crop_square,
+                          color: const Color(0xFF2EC4B6),
+                        ),
+                        title: Text(t.mapPinShapeName(shape)),
+                        trailing: Icon(
+                          st.mapPinDisplay == MapPinDisplay.photos &&
+                                  st.mapPinShape == shape
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_off,
+                          color: const Color(0xFF2EC4B6),
+                        ),
+                        onTap: () => st.setMapPinShape(shape),
+                      ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(t.close),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
