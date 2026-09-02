@@ -1,7 +1,7 @@
 name: medyaatlas
 description: MedyaAtlas — Windows, Android ve web GPS medya haritası (yerel kayıt).
 publish_to: 'none'
-version: 1.0.69+97
+version: 1.0.70+98
 
 environment:
   sdk: '>=3.9.0 <4.0.0'
@@ -35,6 +35,7 @@ dependencies:
   open_filex: ^4.7.0
   archive: ^4.2.0
   geolocator: ^14.0.2
+  flutter_earth_globe: ^2.2.1
 
 dev_dependencies:
   flutter_test:
@@ -43,3 +44,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/globe/earth-day.jpg
