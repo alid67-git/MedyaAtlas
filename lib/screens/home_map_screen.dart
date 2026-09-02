@@ -93,6 +93,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   final _query = '';
   List<PlaceHit> _places = [];
   LocationCluster? _panelCluster;
+  /// Haritada medyaya dokununca alttaki ikon şeridi (ekrandaki tüm medya).
+  List<LibraryMedia>? _mapStripItems;
+  String? _mapStripFocusId;
+  final ScrollController _mapStripScroll = ScrollController();
   final Set<MediaKind> _kinds = {...MediaKind.values};
   Timer? _mountTimer;
 
@@ -211,6 +215,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.removeObserver(this);
     _mountTimer?.cancel();
     _mapIdleTimer?.cancel();
+    _mapStripScroll.dispose();
     super.dispose();
   }
 
@@ -2531,10 +2536,25 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   Future<void> _openCluster(LocationCluster cluster) async {
     if (cluster.items.isEmpty) return;
-    final repo = context.read<MediaRepository>();
-    // Fit/zoom YAPMA — ekranda görünen tüm medya kaybolmasın.
-    final viewport = _mediaInMapViewport(repo);
+    final list = _mediaListForMapTap(cluster);
+    if (list.isEmpty) return;
     final cover = coverMediaOf(cluster.items);
+    setState(() {
+      _panelCluster = cluster;
+      _mapStripItems = list;
+      _mapStripFocusId = cover.id;
+      _showMissing = false;
+      _sourcesOpen = false;
+      _tracksOpen = false;
+      _kindMenu = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollMapStripToId(cover.id);
+    });
+  }
+
+  List<LibraryMedia> _mediaListForMapTap(LocationCluster cluster) {
+    final repo = context.read<MediaRepository>();
     final list = <LibraryMedia>[];
     final seen = <String>{};
     void addAll(Iterable<LibraryMedia> items) {
@@ -2543,33 +2563,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
     }
 
-    if (viewport.isNotEmpty) {
-      addAll(viewport);
+    final onMap = _mediaOnOpenMap(repo);
+    if (onMap.isNotEmpty) {
+      addAll(onMap);
     }
     addAll(cluster.items);
-    if (list.isEmpty) return;
     list.sort((a, b) {
       final ta = a.takenAt ?? a.addedAt;
       final tb = b.takenAt ?? b.addedAt;
       return tb.compareTo(ta);
     });
-    final start = list.indexWhere((m) => m.id == cover.id);
+    return list;
+  }
 
-    setState(() {
-      _panelCluster = cluster;
-      _showMissing = false;
-      _sourcesOpen = false;
-      _tracksOpen = false;
-      _kindMenu = null;
-    });
-
-    // Doğrudan yan yana (PageView) — alt sayfa / küme listesi atlanır.
-    await openMediaViewer(
-      context,
-      items: list,
-      initialIndex: start < 0 ? 0 : start,
-    );
-    if (mounted) setState(() => _panelCluster = null);
+  /// Açık haritadaki medya: 2D’de viewport; 3D dünyada filtrelenmiş tüm GPS’li.
+  List<LibraryMedia> _mediaOnOpenMap(MediaRepository repo) {
+    final surface = context.read<AppSettings>().mapSurface;
+    if (surface == MapSurface.globe) {
+      final out = List<LibraryMedia>.from(_locatedForMap(repo));
+      out.sort((a, b) {
+        final ta = a.takenAt ?? a.addedAt;
+        final tb = b.takenAt ?? b.addedAt;
+        return tb.compareTo(ta);
+      });
+      return out;
+    }
+    return _mediaInMapViewport(repo);
   }
 
   /// Mevcut harita zoom’undaki GPS’li medya (yeniden eskiye).
@@ -2591,7 +2610,42 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  /// Yan panel / pin: ekrandaki tüm medya + küme, kaydırılabilir izleyici.
+  void _scrollMapStripToId(String id) {
+    final items = _mapStripItems;
+    if (items == null || !_mapStripScroll.hasClients) return;
+    final i = items.indexWhere((m) => m.id == id);
+    if (i < 0) return;
+    const itemExtent = 76.0; // 64 thumb + spacing
+    final target = (i * itemExtent) - 40;
+    _mapStripScroll.animateTo(
+      target.clamp(0.0, _mapStripScroll.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _closeMapStrip() {
+    if (_mapStripItems == null && _panelCluster == null) return;
+    setState(() {
+      _mapStripItems = null;
+      _mapStripFocusId = null;
+      _panelCluster = null;
+    });
+  }
+
+  Future<void> _openStripItem(LibraryMedia item) async {
+    final items = _mapStripItems;
+    if (items == null || items.isEmpty) return;
+    final start = items.indexWhere((m) => m.id == item.id);
+    setState(() => _mapStripFocusId = item.id);
+    await openMediaViewer(
+      context,
+      items: items,
+      initialIndex: start < 0 ? 0 : start,
+    );
+  }
+
+  /// Yan panel / pin: önce alt şerit, ikona dokununca tam ekran.
   void _openMapMediaViewer({
     required List<LibraryMedia> clusterItems,
     required int tappedIndex,
@@ -2602,7 +2656,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final repo = context.read<MediaRepository>();
     final list = <LibraryMedia>[];
     final seen = <String>{};
-    for (final m in _mediaInMapViewport(repo)) {
+    for (final m in _mediaOnOpenMap(repo)) {
       if (seen.add(m.id)) list.add(m);
     }
     for (final m in clusterItems) {
@@ -2614,12 +2668,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final tb = b.takenAt ?? b.addedAt;
       return tb.compareTo(ta);
     });
-    final start = list.indexWhere((m) => m.id == tapped.id);
-    openMediaViewer(
-      context,
-      items: list,
-      initialIndex: start < 0 ? 0 : start,
-    );
+    setState(() {
+      _mapStripItems = list;
+      _mapStripFocusId = tapped.id;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollMapStripToId(tapped.id);
+    });
   }
 
   String _kindTitle(MediaKind kind) => switch (kind) {
@@ -2686,6 +2741,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         const SingleActivator(LogicalKeyboardKey.escape): () {
           setState(() {
             _panelCluster = null;
+            _mapStripItems = null;
+            _mapStripFocusId = null;
             _places = [];
             _closeMenus();
             if (_showMissing) _showMissing = false;
@@ -2714,8 +2771,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                                 child: _ClusterSheet(
                                   cluster: _panelCluster!,
                                   repo: repo,
-                                  onClose: () =>
-                                      setState(() => _panelCluster = null),
+                                  onClose: _closeMapStrip,
                                   onOpen: (items, index) => _openMapMediaViewer(
                                     clusterItems: items,
                                     tappedIndex: index,
@@ -2819,7 +2875,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   Positioned(
                     left: 12,
                     right: 12,
-                    bottom: 12,
+                    bottom: _mapStripItems != null ? 118 : 12,
                     child: _statusChip(
                       repo: repo,
                       visible: visible,
@@ -2827,17 +2883,34 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       missingCount: missing.length,
                     ),
                   ),
+                // Haritada medya: alttaki ikon şeridi → dokununca tam ekran kaydır.
+                if (_mapStripItems != null && !_showMissing)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _MapMediaStrip(
+                      items: _mapStripItems!,
+                      focusId: _mapStripFocusId,
+                      repo: repo,
+                      scrollController: _mapStripScroll,
+                      onClose: _closeMapStrip,
+                      onOpen: _openStripItem,
+                    ),
+                  ),
                 // Sağ alt: konumum (son birkaç günlük alan).
                 if (!_showMissing)
                   Positioned(
                     right: 14,
-                    bottom: (_busy ||
-                            _gpsBgRunning ||
-                            _autoScanRunning ||
-                            _updateDownloading ||
-                            (_status != null && _status!.isNotEmpty))
-                        ? 78
-                        : 20,
+                    bottom: _mapStripItems != null
+                        ? 118
+                        : ((_busy ||
+                                _gpsBgRunning ||
+                                _autoScanRunning ||
+                                _updateDownloading ||
+                                (_status != null && _status!.isNotEmpty))
+                            ? 78
+                            : 20),
                     child: Material(
                       elevation: 4,
                       color: const Color(0xFF0A1C28),
@@ -3043,6 +3116,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     onPressed: () => setState(() {
                       _showMissing = false;
                       _panelCluster = null;
+                      _mapStripItems = null;
+                      _mapStripFocusId = null;
                       _sourcesOpen = false;
                       _tracksOpen = false;
                       _kindMenu = _kindMenu == 'located' ? null : 'located';
@@ -3055,6 +3130,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     badge: '$missingCount',
                     onPressed: () => setState(() {
                       _panelCluster = null;
+                      _mapStripItems = null;
+                      _mapStripFocusId = null;
                       _sourcesOpen = false;
                       _tracksOpen = false;
                       if (_showMissing) {
@@ -4025,6 +4102,120 @@ class _MissingList extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MapMediaStrip extends StatelessWidget {
+  const _MapMediaStrip({
+    required this.items,
+    required this.focusId,
+    required this.repo,
+    required this.scrollController,
+    required this.onClose,
+    required this.onOpen,
+  });
+
+  final List<LibraryMedia> items;
+  final String? focusId;
+  final MediaRepository repo;
+  final ScrollController scrollController;
+  final VoidCallback onClose;
+  final ValueChanged<LibraryMedia> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    return Material(
+      elevation: 16,
+      color: const Color(0xF00A1C28),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(8, 8, 4, 8 + bottomPad),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const SizedBox(width: 8),
+                Text(
+                  '${items.length} medya',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Kapat',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close, size: 20),
+                ),
+              ],
+            ),
+            SizedBox(
+              height: 72,
+              child: ListView.separated(
+                controller: scrollController,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(4, 0, 12, 0),
+                itemCount: items.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, i) {
+                  final item = items[i];
+                  final focused = item.id == focusId;
+                  return GestureDetector(
+                    onTap: () => onOpen(item),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: focused
+                              ? const Color(0xFF2EC4B6)
+                              : Colors.white24,
+                          width: focused ? 2.5 : 1,
+                        ),
+                        boxShadow: focused
+                            ? const [
+                                BoxShadow(
+                                  color: Color(0x662EC4B6),
+                                  blurRadius: 8,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _Thumb(item: item, repo: repo),
+                          if (item.isVideo)
+                            const Align(
+                              alignment: Alignment.bottomRight,
+                              child: Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.play_circle_fill,
+                                  size: 18,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
