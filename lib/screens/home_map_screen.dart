@@ -3810,6 +3810,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           options: MapOptions(
             initialCenter: _worldCenter,
             initialZoom: 2.4,
+            // Kısıt yoksa küçültünce dünya yan yana tekrarlanıyordu —
+            // kamerayı tek dünya sınırına kilitle.
+            minZoom: 2.2,
+            cameraConstraint: CameraConstraint.contain(
+              bounds: LatLngBounds(
+                const LatLng(-85.0511, -180),
+                const LatLng(85.0511, 180),
+              ),
+            ),
             onMapEvent: _onMapEvent,
           ),
           children: [

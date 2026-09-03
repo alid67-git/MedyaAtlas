@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.84',
+    tr: 'Haritayı çok küçültünce dünya yan yana tekrar tekrar çıkıyordu — artık tek dünyada kilitli.',
+    en: 'Zooming the map way out repeated the world side by side — now locked to a single world view.',
+    de: 'Beim starken Herauszoomen wiederholte sich die Welt nebeneinander — jetzt auf eine einzelne Weltansicht begrenzt.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.83',
     tr: 'İz çizimi RideAtlas gibi köşe koruyarak inceltiliyor (sabit indeks-adımı köşeleri siliyordu); pan/zoom sırasında yeniden çizilmiyor (iz listesi değişmedikçe).',
     en: 'Track lines now thin RideAtlas-style, keeping corners (fixed-step decimation was erasing them); no longer rebuilt during pan/zoom (only when the track set itself changes).',
