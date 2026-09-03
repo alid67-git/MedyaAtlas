@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-title MedyaAtlas build temizle
+title MediaAtlas build temizle
 cd /d "%~dp0"
 
 call "%~dp0_medyaatlas_paths.bat" 2>nul

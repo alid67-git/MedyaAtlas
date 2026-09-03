@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
-title MedyaAtlas APK derle
+title MediaAtlas APK derle
 cd /d "%~dp0"
 
 if /i not "%~1"=="_go" (
-  start "MedyaAtlas APK" cmd /k call "%~f0" _go
+  start "MediaAtlas APK" cmd /k call "%~f0" _go
   exit /b 0
 )
 
@@ -12,7 +12,7 @@ call "%~dp0_medyaatlas_paths.bat"
 call "%~dp0_flutter_env.bat"
 
 echo.
-echo === MedyaAtlas Android APK ===
+echo === MediaAtlas Android APK ===
 echo Yerel: %MA_LOCAL%
 echo.
 

@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.76',
+    tr: 'Uygulama adı: MediaAtlas (eski MedyaAtlas).',
+    en: 'App name is now MediaAtlas (formerly MedyaAtlas).',
+    de: 'App-Name jetzt MediaAtlas (früher MedyaAtlas).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.75',
     tr: '3D dünya: Avrupa pinleri Afrika’da duruyordu (etiket kayması); dönüş hızlandı, medyaya odaklanır.',
     en: '3D globe: Europe pins no longer sit on Africa (label offset); faster drag, focuses on your media.',

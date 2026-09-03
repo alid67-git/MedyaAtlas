@@ -48,7 +48,7 @@ bool looksLikeGoproVideoName(String name) {
   return _goproStrongName.hasMatch(stem) || _goproChapterName.hasMatch(stem);
 }
 
-/// MedyaAtlas gibi dosya kopyalanmaz; üst sınır yok.
+/// MediaAtlas gibi dosya kopyalanmaz; üst sınır yok.
 
 String extensionOf(String name) {
   final i = name.lastIndexOf('.');

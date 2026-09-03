@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
-title MedyaAtlas Windows zip derle
+title MediaAtlas Windows zip derle
 cd /d "%~dp0"
 
 if /i not "%~1"=="_go" (
-  start "MedyaAtlas Windows zip" cmd /k call "%~f0" _go
+  start "MediaAtlas Windows zip" cmd /k call "%~f0" _go
   exit /b 0
 )
 
@@ -12,7 +12,7 @@ call "%~dp0_medyaatlas_paths.bat"
 call "%~dp0_flutter_env.bat"
 
 echo.
-echo === MedyaAtlas Windows zip ===
+echo === MediaAtlas Windows zip ===
 echo Yerel: %MA_LOCAL%
 echo.
 
@@ -55,7 +55,7 @@ if errorlevel 1 (
 )
 
 set "SRC=build\windows\x64\runner\Release"
-if not exist "%SRC%\medyaatlas.exe" if not exist "%SRC%\MedyaAtlas.exe" (
+if not exist "%SRC%\medyaatlas.exe" if not exist "%SRC%\MediaAtlas.exe" (
   echo HATA: Release klasoru yok: %SRC%
   dir /b "build\windows\x64\runner" 2>nul
   goto :end

@@ -1,11 +1,11 @@
-# Google Drive bağlantısı (MedyaAtlas)
+# Google Drive bağlantısı (MediaAtlas)
 
 ## Google Drive ≠ Google Fotoğraflar
 
 | | Google Drive | Google Fotoğraflar |
 |---|---|---|
 | Nerede | [drive.google.com](https://drive.google.com) dosyaları | photos.google.com / Fotoğraflar uygulaması |
-| MedyaAtlas | **+ Google Drive** (OAuth gerekir) | Telefonda senkron ise **Tüm telefon** / Galeri |
+| MediaAtlas | **+ Google Drive** (OAuth gerekir) | Telefonda senkron ise **Tüm telefon** / Galeri |
 | API | Drive API | Photos Library API (ayrı, bu sürümde yok) |
 
 Telefonunuzda Google Fotoğraflar’dan inmiş / senkron medya zaten cihazda:
@@ -71,6 +71,6 @@ flutter build apk --release --dart-define=GOOGLE_SERVER_CLIENT_ID=123456789-xxxx
 
 ## Kullanım
 
-1. MedyaAtlas’ta **+ Google Drive (dosya)**  
+1. MediaAtlas’ta **+ Google Drive (dosya)**  
 2. Google hesabı seç → Drive izni ver  
 3. Tarama biter → GPS’li fotoğraflar haritada  

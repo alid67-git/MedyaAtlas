@@ -76,7 +76,7 @@ Future<void> disconnectGoogleDrive() async {
   }
 }
 
-/// Drive’daki foto/video listesini MedyaAtlas tarama öğelerine çevirir.
+/// Drive’daki foto/video listesini MediaAtlas tarama öğelerine çevirir.
 /// Konum varsa Drive `imageMediaMetadata` üzerinden gelir (indirmeden).
 Future<FolderPickResult> listDriveMedia(
   GoogleDriveSession session, {
