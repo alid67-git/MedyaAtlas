@@ -80,12 +80,6 @@ class S {
         AppLang.de => 'Anzeige',
       };
 
-  String get mapPinShapeLabel => switch (lang) {
-        AppLang.tr => 'Foto pin şekli',
-        AppLang.en => 'Photo pin shape',
-        AppLang.de => 'Foto-Pin-Form',
-      };
-
   String get pinDisplayHeat => switch (lang) {
         AppLang.tr => 'Isı haritası',
         AppLang.en => 'Heat map',
@@ -93,31 +87,14 @@ class S {
       };
 
   String get pinDisplayPhotos => switch (lang) {
-        AppLang.tr => 'Resimler',
-        AppLang.en => 'Photos',
-        AppLang.de => 'Fotos',
-      };
-
-  String get pinShapeRound => switch (lang) {
-        AppLang.tr => 'Daire',
-        AppLang.en => 'Circle',
-        AppLang.de => 'Kreis',
-      };
-
-  String get pinShapeSquare => switch (lang) {
-        AppLang.tr => 'Kare',
-        AppLang.en => 'Square',
-        AppLang.de => 'Quadrat',
+        AppLang.tr => 'Resimler (yuvarlak)',
+        AppLang.en => 'Photos (round)',
+        AppLang.de => 'Fotos (rund)',
       };
 
   String mapPinDisplayName(MapPinDisplay value) => switch (value) {
         MapPinDisplay.heat => pinDisplayHeat,
         MapPinDisplay.photos => pinDisplayPhotos,
-      };
-
-  String mapPinShapeName(MapPinShape value) => switch (value) {
-        MapPinShape.round => pinShapeRound,
-        MapPinShape.square => pinShapeSquare,
       };
 
   String get settings => switch (lang) {
@@ -227,8 +204,7 @@ MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasınd
 • SD/USB ve disk kökleri Klasör seçimiyle eklenir (ayrı Disk butonu yok)
 • GPS’li medya haritada pin; GPX/KML/KMZ izleri turuncu çizgi
 • Harita: uydu / sokak / topo / koyu
-• Pin: ısı veya resim; düzlem harita veya döndürülebilir 3D dünya
-• Foto pin (düzlem): daire veya kare
+• Pin: ısı veya yuvarlak resim; düzlem harita veya döndürülebilir 3D dünya
 • iPhone web: dosya kopyalanmaz; sayfa yenilenince medyayı yeniden seçin
 
 ## İzinler (Android)
@@ -248,8 +224,7 @@ MedyaAtlas shows GPS locations from your photos and videos on a world map. It do
 • SD/USB and disk roots are added via Folder (no separate Disk button)
 • GPS media as map pins; GPX/KML/KMZ tracks as orange lines
 • Map: satellite / street / topo / dark
-• Pins: heat or photos; flat map or rotatable 3D globe
-• Photo pins (flat): circle or square
+• Pins: heat or round photos; flat map or rotatable 3D globe
 • iPhone web: files are not copied; re-select media after refresh
 
 ## Permissions (Android)
@@ -269,8 +244,7 @@ MedyaAtlas zeigt GPS-Positionen aus Fotos und Videos auf einer Weltkarte. Dateie
 • SD/USB und Disk-Wurzeln über Ordner (kein eigener Disk-Button)
 • GPS-Medien als Pins; GPX/KML/KMZ-Tracks als orangene Linien
 • Karte: Satellit / Straße / Topo / Dunkel
-• Pins: Heatmap oder Fotos; flache Karte oder drehbare 3D-Erde
-• Foto-Pins (flach): Kreis oder Quadrat
+• Pins: Heatmap oder runde Fotos; flache Karte oder drehbare 3D-Erde
 • iPhone-Web: keine Dateikopie; nach Reload Medien neu wählen
 
 ## Berechtigungen (Android)

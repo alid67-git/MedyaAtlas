@@ -10,12 +10,6 @@ enum MapLayer {
   dark,
 }
 
-/// Harita medya pin şekli (düzlem haritada foto): daire veya kare.
-enum MapPinShape {
-  round,
-  square,
-}
-
 /// Haritada medya: ısı lekesi veya fotoğraf önizlemesi.
 enum MapPinDisplay {
   heat,
@@ -40,7 +34,6 @@ class AppSettings extends ChangeNotifier {
 
   AppLang lang = AppLang.tr;
   MapLayer mapLayer = MapLayer.satellite;
-  MapPinShape mapPinShape = MapPinShape.round;
   MapPinDisplay mapPinDisplay = MapPinDisplay.heat;
   MapSurface mapSurface = MapSurface.flat;
 
@@ -53,10 +46,6 @@ class AppSettings extends ChangeNotifier {
     mapLayer = MapLayer.values.firstWhere(
       (e) => e.name == (_box.get('mapLayer') as String? ?? 'satellite'),
       orElse: () => MapLayer.satellite,
-    );
-    mapPinShape = MapPinShape.values.firstWhere(
-      (e) => e.name == (_box.get('mapPinShape') as String? ?? 'round'),
-      orElse: () => MapPinShape.round,
     );
     mapPinDisplay = MapPinDisplay.values.firstWhere(
       (e) => e.name == (_box.get('mapPinDisplay') as String? ?? 'heat'),
@@ -77,14 +66,6 @@ class AppSettings extends ChangeNotifier {
   Future<void> setMapLayer(MapLayer value) async {
     mapLayer = value;
     await _box.put('mapLayer', value.name);
-    notifyListeners();
-  }
-
-  Future<void> setMapPinShape(MapPinShape value) async {
-    mapPinShape = value;
-    mapPinDisplay = MapPinDisplay.photos;
-    await _box.put('mapPinShape', value.name);
-    await _box.put('mapPinDisplay', mapPinDisplay.name);
     notifyListeners();
   }
 

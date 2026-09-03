@@ -401,36 +401,6 @@ Future<void> openMapPinStyleSheet(BuildContext context) async {
                         ),
                         onTap: () => st.setMapPinDisplay(mode),
                       ),
-                    const Divider(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        t.mapPinShapeLabel,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.65),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    for (final shape in MapPinShape.values)
-                      ListTile(
-                        leading: Icon(
-                          shape == MapPinShape.round
-                              ? Icons.circle_outlined
-                              : Icons.crop_square,
-                          color: const Color(0xFF2EC4B6),
-                        ),
-                        title: Text(t.mapPinShapeName(shape)),
-                        trailing: Icon(
-                          st.mapPinDisplay == MapPinDisplay.photos &&
-                                  st.mapPinShape == shape
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_off,
-                          color: const Color(0xFF2EC4B6),
-                        ),
-                        onTap: () => st.setMapPinShape(shape),
-                      ),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(

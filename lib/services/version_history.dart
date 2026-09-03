@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.72',
+    tr: '3D dünya düzeltmesi (doku + web); resimler yalnızca yuvarlak yığın; küre harita türüne göre.',
+    en: '3D globe fix (texture + web); photos always round stacks; globe follows map type.',
+    de: '3D-Erde-Fix (Textur + Web); Fotos nur runde Stapel; Kugel folgt Kartentyp.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.71',
     tr: 'Haritada medyaya dokununca altta ikon şeridi; ikona basınca tam ekran kaydırılabilir izleyici.',
     en: 'Tap map media for a bottom icon strip; tap an icon for fullscreen swipe viewer.',

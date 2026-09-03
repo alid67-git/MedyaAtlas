@@ -3871,7 +3871,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               clusters: clusters,
               repo: repo,
               display: settings.mapPinDisplay,
-              shape: settings.mapPinShape,
+              mapLayer: settings.mapLayer,
               onOpenCluster: _openCluster,
             ),
           )
@@ -3947,8 +3947,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     AppSettings settings,
   ) {
     final display = settings.mapPinDisplay;
-    final shape = settings.mapPinShape;
-    final styleSig = Object.hash(display.index, shape.index);
+    final styleSig = display.index;
     final selectedId = _panelCluster?.id;
     if (_heatMarkerCache.isNotEmpty &&
         _markerCacheClusterLen == clusters.length &&
@@ -3966,22 +3965,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (lat.abs() > 90 || lng.abs() > 180) continue;
       final isSelected = cluster.id == selectedId;
       if (isSelected || display == MapPinDisplay.photos) {
-        final box = PhotoMapPin.markerBox(shape);
+        final covers = clusterPinCovers(cluster.items);
+        const box = PhotoMapPin.markerBox;
         final marker = Marker(
           point: LatLng(lat, lng),
           width: box.width,
           height: box.height,
-          alignment: shape == MapPinShape.round
-              ? Alignment.bottomCenter
-              : Alignment.center,
+          alignment: Alignment.bottomCenter,
           child: GestureDetector(
             onTap: () => _openCluster(cluster),
             behavior: HitTestBehavior.opaque,
             child: PhotoMapPin(
-              item: coverMediaOf(cluster.items),
+              item: covers.cover,
               repo: repo,
               count: cluster.items.length,
-              shape: shape,
+              extraCovers: covers.behind,
             ),
           ),
         );

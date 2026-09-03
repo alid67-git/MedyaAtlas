@@ -25,7 +25,7 @@ jobs:
           cache: true
 
       - run: flutter pub get
-      - run: flutter build web --release --base-href /MedyaAtlas/ --pwa-strategy=none
+      - run: flutter build web --release --wasm --base-href /MedyaAtlas/ --pwa-strategy=none
 
       - name: Verify version.json
         run: cat build/web/version.json
