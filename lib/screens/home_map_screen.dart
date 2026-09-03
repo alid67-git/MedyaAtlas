@@ -3810,6 +3810,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           options: MapOptions(
             initialCenter: _worldCenter,
             initialZoom: 2.4,
+            // Kısıt yoksa küçültünce dünya yan yana tekrarlanıyordu —
+            // kamerayı tek dünya sınırına kilitle.
+            minZoom: 2.2,
+            cameraConstraint: CameraConstraint.contain(
+              bounds: LatLngBounds(
+                const LatLng(-85.0511, -180),
+                const LatLng(85.0511, 180),
+              ),
+            ),
             onMapEvent: _onMapEvent,
           ),
           children: [
@@ -4379,15 +4388,29 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
     return true;
   }
 
+  /// Aynı anda görünen tüm izler için toplam nokta bütçesi (bellek + çizim
+  /// maliyeti) — iz sayısına bölünür, tek iz için de makul bir taban tutulur.
+  /// PolylineLayer zaten zoom'a göre kendi (simplificationTolerance) ek
+  /// sadeleştirmesini yapıyor; bu sadece kaynak veriyi sınırlar.
+  static const _totalDisplayPointBudget = 3000;
+
   void _rebuildPolylines() {
     final polylines = <Polyline>[];
+    final perTrackCap = widget.tracks.isEmpty
+        ? _totalDisplayPointBudget
+        : math.max(
+            500,
+            _totalDisplayPointBudget ~/ widget.tracks.length,
+          );
     for (final track in widget.tracks) {
       final raw = <LatLng>[
         for (final p in track.points)
           if (isValidGps(p.latitude, p.longitude)) p.latLng,
       ];
-      // Harita pan için agresif sadeleştirme (tam nokta GPS’te kalır).
-      final pts = _downsampleTrackPoints(raw, maxPoints: 500);
+      // Önce mesafeye göre inceltir (köşe/detay korunur), hâlâ gerekiyorsa
+      // indeks adımıyla son bir düşürme yapar — RideAtlas'taki gibi. Eski
+      // sabit indeks-adımı (500 nokta) köşeleri siliyordu.
+      final pts = simplifyLatLngsForDisplay(raw, maxPoints: perTrackCap);
       if (pts.length < 2) continue;
       polylines.add(
         Polyline(
@@ -4400,23 +4423,6 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
       );
     }
     _polylines = polylines;
-  }
-
-  /// Yoğun GPX — UI isolate’ta binlerce nokta ANR riski.
-  static List<LatLng> _downsampleTrackPoints(
-    List<LatLng> pts, {
-    required int maxPoints,
-  }) {
-    if (pts.length <= maxPoints) return pts;
-    final out = <LatLng>[pts.first];
-    final step = pts.length / maxPoints;
-    var cursor = step;
-    while (cursor < pts.length - 1) {
-      out.add(pts[cursor.floor()]);
-      cursor += step;
-    }
-    out.add(pts.last);
-    return out;
   }
 
   @override
