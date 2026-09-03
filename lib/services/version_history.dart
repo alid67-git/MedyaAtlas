@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.74',
+    tr: '3D dünya: dokununca bozulma (yan panel / zoom / yeniden çizim) düzeltildi.',
+    en: '3D globe: fixed touch break (side panel / zoom / redraw).',
+    de: '3D-Erde: Touch-Bruch behoben (Seitenpanel / Zoom / Neuzeichnung).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.73',
     tr: 'Web: alt banner ile güvenli güncelleme (Service Worker); tek giriş noktası.',
     en: 'Web: safe update via bottom banner (Service Worker); single entry point.',
