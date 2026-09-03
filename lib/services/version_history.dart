@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.77',
+    tr: '3D dünya: zoom belirgin şekilde büyüyor; pin dokununca yalnızca yakın çevredeki medya önizlenir (tüm dünya değil).',
+    en: '3D globe: zoom now goes noticeably further; tapping a pin previews only nearby media, not the whole world.',
+    de: '3D-Erde: Zoom geht jetzt deutlich weiter; Pin-Tipp zeigt nur Medien in der Nähe, nicht die ganze Welt.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.76',
     tr: 'Uygulama adı: MediaAtlas (eski MedyaAtlas).',
     en: 'App name is now MediaAtlas (formerly MedyaAtlas).',

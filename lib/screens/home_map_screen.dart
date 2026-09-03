@@ -2574,7 +2574,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
     }
 
-    final onMap = _mediaOnOpenMap(repo);
+    final onMap = _mediaOnOpenMap(
+      repo,
+      around: LatLng(cluster.latitude, cluster.longitude),
+    );
     if (onMap.isNotEmpty) {
       addAll(onMap);
     }
@@ -2587,11 +2590,38 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     return list;
   }
 
-  /// Açık haritadaki medya: 2D’de viewport; 3D dünyada filtrelenmiş tüm GPS’li.
-  List<LibraryMedia> _mediaOnOpenMap(MediaRepository repo) {
+  /// Küre: tıklanan noktaya göre "görünen alan" yarıçapı (km).
+  /// Paket kameranın o anki dönüşünü/görünürlüğünü dışa açmıyor, bu yüzden
+  /// gerçek ekran görünürlüğü yerine zoom'a göre daralan bir mesafe
+  /// yaklaşımı kullanılıyor: yakınlaştıkça yarıçap küçülür.
+  double _globeVisibleRadiusKm() {
+    final zoom = _globeKey.currentState?.controller.zoom ?? 0.55;
+    final z = zoom.clamp(0.2, 3.0);
+    return (2500 / math.pow(z, 1.3)).clamp(400, 20000).toDouble();
+  }
+
+  /// Açık haritadaki medya: 2D’de viewport; 3D dünyada tıklanan noktaya
+  /// yakın (görünen alan) medya — dokunmadan tüm dünyanın önizlemesi
+  /// gösterilmez.
+  List<LibraryMedia> _mediaOnOpenMap(MediaRepository repo, {LatLng? around}) {
     final surface = context.read<AppSettings>().mapSurface;
     if (surface == MapSurface.globe) {
-      final out = List<LibraryMedia>.from(_locatedForMap(repo));
+      final all = _locatedForMap(repo);
+      final center = around;
+      final out = center == null
+          ? List<LibraryMedia>.from(all)
+          : [
+              for (final m in all)
+                if (m.latLng != null &&
+                    haversineMeters(
+                          center.latitude,
+                          center.longitude,
+                          m.latLng!.latitude,
+                          m.latLng!.longitude,
+                        ) <=
+                        _globeVisibleRadiusKm() * 1000)
+                  m,
+            ];
       out.sort((a, b) {
         final ta = a.takenAt ?? a.addedAt;
         final tb = b.takenAt ?? b.addedAt;

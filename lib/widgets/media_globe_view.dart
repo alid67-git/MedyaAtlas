@@ -71,9 +71,11 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
       isRotating: false,
       isZoomEnabled: true,
       // convertedRadius = radius * 2^zoom — aşırı zoom layout’u şişirir.
+      // ClipRect + kilitli radius taşmayı zaten kesiyor, bu yüzden üst
+      // sınırı belirgin biçimde büyütmek güvenli (1.15 çok az yakınlaşıyordu).
       zoom: 0.55,
       minZoom: 0.2,
-      maxZoom: 1.15,
+      maxZoom: 2.4,
       zoomSensitivity: 0.7,
       panSensitivity: 1.55,
       zoomToMousePosition: false,
