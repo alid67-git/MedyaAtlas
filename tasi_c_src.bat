@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
-title MediaAtlas → C:\src tasi
+title MedyaAtlas → C:\src tasi
 cd /d "%~dp0"
 
 if /i not "%~1"=="_keep" (
-  start "MediaAtlas tasi" /D "%~dp0" cmd /k call "%~f0" _keep
+  start "MedyaAtlas tasi" /D "%~dp0" cmd /k call "%~f0" _keep
   exit /b 0
 )
 
@@ -12,7 +12,7 @@ call "%~dp0_medyaatlas_paths.bat"
 call "%~dp0_flutter_env.bat"
 
 echo.
-echo === MediaAtlas: Google Drive → %MA_LOCAL% ===
+echo === MedyaAtlas: Google Drive → %MA_LOCAL% ===
 echo.
 echo Bu betik:
 echo   1. Projeyi %MA_LOCAL% altina clone/gunceller
@@ -69,7 +69,7 @@ start "" explorer "%MA_LOCAL%"
 echo.
 echo === Tamam ===
 echo Bundan sonra:
-echo   - Masaustundeki "MediaAtlas Windows" kisayolunu kullan
+echo   - Masaustundeki "MedyaAtlas Windows" kisayolunu kullan
 echo   - veya %MA_LOCAL%\run_windows.bat
 echo.
 echo Google Drive kopyasini ^(MedyaAtlasApp^) artik kullanma.

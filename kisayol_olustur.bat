@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-title MediaAtlas kisayol
+title MedyaAtlas kisayol
 cd /d "%~dp0"
 
 call "%~dp0_medyaatlas_paths.bat"
@@ -37,9 +37,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$desk=[Environment]::GetFolderPath('Desktop');" ^
   "$programs=Join-Path ([Environment]::GetFolderPath('StartMenu')) 'Programs';" ^
   "if (-not (Test-Path $programs)) { New-Item -ItemType Directory -Force -Path $programs | Out-Null };" ^
-  "foreach ($p in @((Join-Path $desk 'MediaAtlas Windows.lnk'), (Join-Path $programs 'MediaAtlas Windows.lnk'), (Join-Path $desk 'MedyaAtlas Windows.lnk'), (Join-Path $programs 'MedyaAtlas Windows.lnk'))) {" ^
+  "foreach ($p in @((Join-Path $desk 'MedyaAtlas Windows.lnk'), (Join-Path $programs 'MedyaAtlas Windows.lnk'))) {" ^
   "  $s=$ws.CreateShortcut($p); $s.TargetPath=$t; $s.WorkingDirectory=$w; $s.WindowStyle=1;" ^
-  "  $s.Description='MediaAtlas (C:\\src\\MedyaAtlas)'; $s.IconLocation=$i; $s.Save(); Write-Host ('OK ' + $p);" ^
+  "  $s.Description='MedyaAtlas (C:\\src\\MedyaAtlas)'; $s.IconLocation=$i; $s.Save(); Write-Host ('OK ' + $p);" ^
   "}"
 
 if errorlevel 1 (
@@ -49,7 +49,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo Masaustu + Baslat: MediaAtlas Windows
+echo Masaustu + Baslat: MedyaAtlas Windows
 if "%SILENT%"=="0" (
   echo.
   pause

@@ -30,12 +30,6 @@ Future<String?> installApkFile(String path) async {
       return 'Bilinmeyen uygulamalar iznini açıp tekrar Güncelle’ye basın.';
     }
     await _installerChannel.invokeMethod<void>('installApk', {'path': path});
-    // Kurulum ekranı açıldıktan sonra bu Activity'yi bitir — yoksa kullanıcı
-    // "Bitti"ye basınca eski kod hâlâ bellekte çalışan bu sürece geri döner
-    // ve kurulan yeni APK bir sonraki soğuk başlatmaya kadar devreye girmez.
-    Future<void>.delayed(const Duration(milliseconds: 400), () {
-      SystemNavigator.pop();
-    });
     return null;
   } on PlatformException catch (e) {
     return e.message ?? 'Kurulum açılamadı (${e.code}).';
@@ -199,7 +193,7 @@ Future<void> _ensurePhoneMediaPermission() async {
   );
   if (!perm.hasAccess) {
     throw StateError(
-      'Medya izni yok. Ayarlar → MediaAtlas → Fotoğraf/Video + medya konumu.',
+      'Medya izni yok. Ayarlar → MedyaAtlas → Fotoğraf/Video + medya konumu.',
     );
   }
 }

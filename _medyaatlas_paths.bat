@@ -1,5 +1,5 @@
 @echo off
-REM MediaAtlas sabit yollar — diger bat'lar bunu call eder.
+REM MedyaAtlas sabit yollar — diger bat'lar bunu call eder.
 REM Asil calisma yeri Google Drive DEGIL, yerel disk:
 
 if not defined MA_BRANCH set "MA_BRANCH=cursor/recognize-all-media-6bc2"

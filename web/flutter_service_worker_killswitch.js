@@ -1,4 +1,4 @@
-// MediaAtlas kill-switch: eski Flutter SW cache'ini temizle, yeni yola git.
+// MedyaAtlas kill-switch: eski Flutter SW cache'ini temizle, yeni yola git.
 self.addEventListener('install', function (event) {
   self.skipWaiting();
 });

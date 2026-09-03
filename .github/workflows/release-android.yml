@@ -90,7 +90,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
-          name: MediaAtlas Android (latest) - ${{ steps.meta.outputs.version }}
+          name: MedyaAtlas Android (latest) - ${{ steps.meta.outputs.version }}
           files: dist/MedyaAtlas.apk
           make_latest: false
           body: |
@@ -107,7 +107,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
-          name: MediaAtlas ${{ steps.meta.outputs.tag }}
+          name: MedyaAtlas ${{ steps.meta.outputs.tag }}
           generate_release_notes: false
           files: dist/MedyaAtlas.apk
           body: |
@@ -163,7 +163,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: windows-latest
-          name: MediaAtlas Windows (latest) - ${{ needs.android-apk.outputs.version }}
+          name: MedyaAtlas Windows (latest) - ${{ needs.android-apk.outputs.version }}
           files: dist/MedyaAtlas-windows.zip
           make_latest: false
           body: |

@@ -34,7 +34,7 @@ Future<List<PlaceHit>> searchPlaces(String query) async {
       uri,
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'MediaAtlas/0.6',
+        'User-Agent': 'MedyaAtlas/0.6',
       },
     );
     if (res.statusCode != 200) return [];

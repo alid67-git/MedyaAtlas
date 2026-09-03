@@ -13,7 +13,7 @@ double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
   return 2 * r * math.asin(math.sqrt(a.toDouble()));
 }
 
-/// PC MediaAtlas V2: ~40 m yarıçap.
+/// PC MedyaAtlas V2: ~40 m yarıçap.
 List<LocationCluster> groupByLocation(
   List<LibraryMedia> items, {
   double radiusMeters = 40,

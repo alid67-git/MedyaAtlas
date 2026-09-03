@@ -4,7 +4,7 @@ import '../services/geo.dart';
 
 enum MediaKind { photo, video, gopro, drone }
 
-/// MediaAtlas tarama kimliği: kaynak + göreli yol + boyut.
+/// MedyaAtlas tarama kimliği: kaynak + göreli yol + boyut.
 String mediaIndexId({
   required String sourceId,
   required String relativePath,
