@@ -193,7 +193,7 @@ Future<void> _ensurePhoneMediaPermission() async {
   );
   if (!perm.hasAccess) {
     throw StateError(
-      'Medya izni yok. Ayarlar → MedyaAtlas → Fotoğraf/Video + medya konumu.',
+      'Medya izni yok. Ayarlar → MediaAtlas → Fotoğraf/Video + medya konumu.',
     );
   }
 }

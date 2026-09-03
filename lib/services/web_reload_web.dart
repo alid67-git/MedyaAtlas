@@ -7,7 +7,7 @@ const _webAppRootUrl = 'https://alid67-git.github.io/MedyaAtlas/';
 
 String get webAppReleasePathUrl => _webAppRootUrl;
 
-@JS('MedyaAtlasUpdate')
+@JS('MediaAtlasUpdate')
 external JSObject? get _medyaAtlasUpdate;
 
 extension type _UpdateApi(JSObject _) implements JSObject {

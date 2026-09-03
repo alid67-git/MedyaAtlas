@@ -276,7 +276,7 @@ void main() {
     expect(point!.latitude, closeTo(48.8577, 0.0001));
   });
 
-  test('mediaIndexId MedyaAtlas biçimi', () {
+  test('mediaIndexId MediaAtlas biçimi', () {
     expect(
       mediaIndexId(sourceId: 's', relativePath: 'a/b.mp4', size: 12),
       's|a/b.mp4|12',

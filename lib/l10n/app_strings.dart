@@ -7,7 +7,7 @@ class S {
 
   static S of(AppSettings settings) => S(settings.lang);
 
-  String get appName => 'MedyaAtlas';
+  String get appName => 'MediaAtlas';
 
   String get developedBy => switch (lang) {
         AppLang.tr => 'Geliştiren',
@@ -146,9 +146,9 @@ class S {
       };
 
   String get dropHint => switch (lang) {
-        AppLang.tr => 'Klasörü bırak — MedyaAtlas tarar, kopyalamaz',
-        AppLang.en => 'Drop folder — MedyaAtlas indexes, does not copy',
-        AppLang.de => 'Ordner ablegen — MedyaAtlas indexiert, kopiert nicht',
+        AppLang.tr => 'Klasörü bırak — MediaAtlas tarar, kopyalamaz',
+        AppLang.en => 'Drop folder — MediaAtlas indexes, does not copy',
+        AppLang.de => 'Ordner ablegen — MediaAtlas indexiert, kopiert nicht',
       };
 
   String get layerSatellite => switch (lang) {
@@ -189,15 +189,15 @@ class S {
       };
 
   String get helpTitle => switch (lang) {
-        AppLang.tr => 'MedyaAtlas Yardım',
-        AppLang.en => 'MedyaAtlas Help',
-        AppLang.de => 'MedyaAtlas Hilfe',
+        AppLang.tr => 'MediaAtlas Yardım',
+        AppLang.en => 'MediaAtlas Help',
+        AppLang.de => 'MediaAtlas Hilfe',
       };
 
   /// Uzun yardım metni (markdown benzeri düz metin).
   String get helpBody => switch (lang) {
         AppLang.tr => '''
-MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasında gösterir. Dosyaları bir yerden bir yere kopyalamaz; yalnızca indeks tutar (ad, yol, GPS).
+MediaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasında gösterir. Dosyaları bir yerden bir yere kopyalamaz; yalnızca indeks tutar (ad, yol, GPS).
 
 ## Ne yapabilirsiniz?
 • Kaynaklar: Klasör / Galeri / Tüm telefon / Google Drive / GPX·KML — her kaynakta «yeniden tara»
@@ -217,7 +217,7 @@ https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaA
 Google Fotoğraflar bulutu taranmaz; yerel dosya veya Google Drive gerekir. Windows’ta run_windows.bat / C:\\src\\MedyaAtlas kullanılır.
 ''',
         AppLang.en => '''
-MedyaAtlas shows GPS locations from your photos and videos on a world map. It does not copy files from place to place; it only keeps an index (name, path, GPS).
+MediaAtlas shows GPS locations from your photos and videos on a world map. It does not copy files from place to place; it only keeps an index (name, path, GPS).
 
 ## What you can do
 • Sources: Folder / Gallery / Whole phone / Google Drive / GPX·KML — tap sync on a source to rescan
@@ -237,7 +237,7 @@ https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaA
 Google Photos cloud is not scanned; use local files or Google Drive. On Windows use run_windows.bat / C:\\src\\MedyaAtlas.
 ''',
         AppLang.de => '''
-MedyaAtlas zeigt GPS-Positionen aus Fotos und Videos auf einer Weltkarte. Dateien werden nicht kopiert; nur lokal indexiert.
+MediaAtlas zeigt GPS-Positionen aus Fotos und Videos auf einer Weltkarte. Dateien werden nicht kopiert; nur lokal indexiert.
 
 ## Funktionen
 • Quellen: Ordner / Galerie / Ganzes Telefon / Google Drive / GPX·KML — Sync-Taste zum erneuten Scannen

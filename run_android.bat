@@ -1,9 +1,9 @@
 @echo off
 setlocal EnableExtensions
-title MedyaAtlas Android
+title MediaAtlas Android
 
 if /i not "%~1"=="_go" (
-  start "MedyaAtlas Android" cmd /k call "%~f0" _go
+  start "MediaAtlas Android" cmd /k call "%~f0" _go
   exit /b 0
 )
 
@@ -11,7 +11,7 @@ call "%~dp0_medyaatlas_paths.bat"
 call "%~dp0_flutter_env.bat"
 
 echo.
-echo === MedyaAtlas Android ===
+echo === MediaAtlas Android ===
 echo Yerel repo: %MA_LOCAL%
 echo.
 

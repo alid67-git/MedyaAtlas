@@ -1,4 +1,4 @@
-/* MedyaAtlas service worker — sürümle değişen cache.
+/* MediaAtlas service worker — sürümle değişen cache.
  * Placeholders: __MEDYAATLAS_VERSION__ (CI/build damgası)
  */
 const APP_VERSION = '__MEDYAATLAS_VERSION__';

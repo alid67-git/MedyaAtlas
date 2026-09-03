@@ -1,6 +1,6 @@
 {
-    "name": "MedyaAtlas",
-    "short_name": "MedyaAtlas",
+    "name": "MediaAtlas",
+    "short_name": "MediaAtlas",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#071018",

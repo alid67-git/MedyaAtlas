@@ -1,4 +1,4 @@
-/* MedyaAtlas web update — alt banner + SW SKIP_WAITING + tek reload.
+/* MediaAtlas web update — alt banner + SW SKIP_WAITING + tek reload.
  * Placeholders: __MEDYAATLAS_VERSION__
  */
 (function () {
@@ -258,7 +258,7 @@
         scope: './',
       });
     } catch (e) {
-      console.warn('MedyaAtlas SW register failed', e);
+      console.warn('MediaAtlas SW register failed', e);
       await checkRemoteVersion();
       setInterval(checkRemoteVersion, CHECK_MS);
       return;
@@ -279,7 +279,7 @@
     }, CHECK_MS);
 
     // Flutter / ayarlar «Güncelleme kontrol et» için.
-    window.MedyaAtlasUpdate = {
+    window.MediaAtlasUpdate = window.MedyaAtlasUpdate = {
       check: function () {
         if (registration) registration.update().catch(function () {});
         return checkRemoteVersion();

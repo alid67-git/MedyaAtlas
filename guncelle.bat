@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-title MedyaAtlas guncelle
+title MediaAtlas guncelle
 cd /d "%~dp0"
 
 call "%~dp0_medyaatlas_paths.bat"
@@ -9,7 +9,7 @@ set "FROM_RUN=0"
 if /i "%~1"=="_from_run" set "FROM_RUN=1"
 
 echo.
-echo === MedyaAtlas guncelle → %MA_LOCAL% ===
+echo === MediaAtlas guncelle → %MA_LOCAL% ===
 echo.
 
 where git >nul 2>&1
