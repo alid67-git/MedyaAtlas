@@ -1,8 +1,6 @@
-# MediaAtlas
+# MedyaAtlas
 
 Windows, Android ve **web** (iPhone Safari / Ana Ekrana Ekle): fotoğraf/video GPS konumlarını dünya haritasında gösterir.
-
-GitHub deposu ve web adresi (`alid67-git.github.io/MedyaAtlas`) aynı kalır; uygulama adı **MediaAtlas**.
 
 Dağıtım: GitHub **Releases** (APK / Windows zip). Web derlemesi: `flutter build web`.
 
@@ -38,7 +36,7 @@ Google Drive: [GOOGLE_DRIVE.md](GOOGLE_DRIVE.md)
 **Asıl klasör:** `C:\src\MedyaAtlas`  
 Google Drive üzerinde geliştirme / `flutter run` yapma.
 
-1. Bir kez: `tasi_c_src.bat` → `C:\src\MedyaAtlas` + masaüstü kısayolu **MediaAtlas Windows**  
+1. Bir kez: `tasi_c_src.bat` → `C:\src\MedyaAtlas` + masaüstü kısayolu **MedyaAtlas Windows**  
 2. Sonra sadece o kısayol / `run_windows.bat`  
 3. Drive `MedyaAtlasApp` kullanma
 

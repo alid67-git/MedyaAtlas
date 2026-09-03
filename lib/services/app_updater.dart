@@ -106,7 +106,7 @@ Future<AppUpdateInfo?> _fetchFromWebVersionJson() async {
     final res = await http
         .get(
           Uri.parse('${webAppRootUrl}version.json'),
-          headers: {'User-Agent': 'MediaAtlas/$appVersion'},
+          headers: {'User-Agent': 'MedyaAtlas/$appVersion'},
         )
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) return null;
@@ -116,7 +116,7 @@ Future<AppUpdateInfo?> _fetchFromWebVersionJson() async {
     return AppUpdateInfo(
       latestVersion: ver,
       downloadUrl: webAppRootUrl,
-      assetName: 'MediaAtlas web',
+      assetName: 'MedyaAtlas web',
       platform: UpdatePlatform.web,
       releaseNotes: '',
     );
@@ -149,7 +149,7 @@ Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
           ),
           headers: {
             'Accept': 'application/vnd.github+json',
-            'User-Agent': 'MediaAtlas/$appVersion',
+            'User-Agent': 'MedyaAtlas/$appVersion',
           },
         )
         .timeout(const Duration(seconds: 20));
@@ -187,7 +187,7 @@ Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
   }
 }
 
-/// `MediaAtlas Android (latest) - 1.0.35` veya gövdede `Sürüm: 1.0.35`.
+/// `MedyaAtlas Android (latest) - 1.0.35` veya gövdede `Sürüm: 1.0.35`.
 String? _versionFromRollingRelease(Map<String, dynamic> json) {
   final name = (json['name'] as String?)?.trim() ?? '';
   final body = (json['body'] as String?)?.trim() ?? '';
@@ -275,7 +275,7 @@ Future<String?> _downloadWindowsZip(
   );
   if (err != null) return err;
 
-  final extractPath = p.join(outDirPath, 'MediaAtlas-update');
+  final extractPath = p.join(outDirPath, 'MedyaAtlas-update');
   final unzipErr = await unzipWindowsUpdate(zipPath, extractPath);
   if (unzipErr != null) {
     await OpenFilex.open(zipPath);

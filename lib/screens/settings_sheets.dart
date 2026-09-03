@@ -84,7 +84,7 @@ Future<void> openSettingsSheet(
                       title: const Text('Güncelleme kontrol et'),
                       subtitle: Text(
                         kIsWeb
-                            ? 'Web: yeni sürüm varsa alt banner'
+                            ? 'Web: GitHub sürümü → sayfa yenile'
                             : 'GitHub Releases',
                       ),
                       onTap: () {
@@ -307,110 +307,6 @@ Future<void> openMapLayerSheet(BuildContext context) async {
                   ),
                 const SizedBox(height: 8),
               ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
-Future<void> openMapPinStyleSheet(BuildContext context) async {
-  await showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: const Color(0xFF0A1C28),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (ctx) {
-      return Consumer<AppSettings>(
-        builder: (context, st, _) {
-          final t = S.of(st);
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 10),
-                    Text(
-                      t.mapPins,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        t.mapSurfaceLabel,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.65),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    for (final surface in MapSurface.values)
-                      ListTile(
-                        leading: Icon(
-                          surface == MapSurface.globe
-                              ? Icons.public
-                              : Icons.map_outlined,
-                          color: const Color(0xFF2EC4B6),
-                        ),
-                        title: Text(t.mapSurfaceName(surface)),
-                        trailing: Icon(
-                          st.mapSurface == surface
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_off,
-                          color: const Color(0xFF2EC4B6),
-                        ),
-                        onTap: () => st.setMapSurface(surface),
-                      ),
-                    const Divider(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        t.mapPinDisplayLabel,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.65),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    for (final mode in MapPinDisplay.values)
-                      ListTile(
-                        leading: Icon(
-                          mode == MapPinDisplay.heat
-                              ? Icons.blur_on
-                              : Icons.photo_library_outlined,
-                          color: const Color(0xFF2EC4B6),
-                        ),
-                        title: Text(t.mapPinDisplayName(mode)),
-                        trailing: Icon(
-                          st.mapPinDisplay == mode
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_off,
-                          color: const Color(0xFF2EC4B6),
-                        ),
-                        onTap: () => st.setMapPinDisplay(mode),
-                      ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: Text(t.close),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           );
         },

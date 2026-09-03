@@ -4,16 +4,16 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="MediaAtlas — GPS medya haritası (iPhone / tarayıcı).">
+  <meta name="description" content="MedyaAtlas — GPS medya haritası (iPhone / tarayıcı).">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="MediaAtlas">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=__MEDYAATLAS_VERSION__">
-  <title>MediaAtlas</title>
+  <meta name="apple-mobile-web-app-title" content="MedyaAtlas">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <title>MedyaAtlas</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#071018">
   <style>
@@ -24,11 +24,19 @@
   </style>
 </head>
 <body>
-  <div class="boot" id="boot">MediaAtlas…</div>
-  <script src="app_version.js?v=__MEDYAATLAS_VERSION__"></script>
-  <script src="update.js?v=__MEDYAATLAS_VERSION__"></script>
+  <div class="boot" id="boot">MedyaAtlas…</div>
   <script>
-    (function () {
+    (async function () {
+      try {
+        if ('serviceWorker' in navigator) {
+          var regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }
+        if (window.caches && caches.keys) {
+          var keys = await caches.keys();
+          await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        }
+      } catch (e) {}
       var s = document.createElement('script');
       s.src = 'flutter_bootstrap.js';
       s.async = true;

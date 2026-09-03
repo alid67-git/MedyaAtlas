@@ -7,7 +7,7 @@ class S {
 
   static S of(AppSettings settings) => S(settings.lang);
 
-  String get appName => 'MediaAtlas';
+  String get appName => 'MedyaAtlas';
 
   String get developedBy => switch (lang) {
         AppLang.tr => 'Geliştiren',
@@ -43,58 +43,6 @@ class S {
         AppLang.tr => 'Harita türü',
         AppLang.en => 'Map type',
         AppLang.de => 'Kartentyp',
-      };
-
-  String get mapPins => switch (lang) {
-        AppLang.tr => 'Harita görünümü',
-        AppLang.en => 'Map view',
-        AppLang.de => 'Kartenansicht',
-      };
-
-  String get mapSurfaceLabel => switch (lang) {
-        AppLang.tr => 'Yüzey',
-        AppLang.en => 'Surface',
-        AppLang.de => 'Oberfläche',
-      };
-
-  String get mapSurfaceFlat => switch (lang) {
-        AppLang.tr => 'Düzlem (2D harita)',
-        AppLang.en => 'Flat (2D map)',
-        AppLang.de => 'Flach (2D-Karte)',
-      };
-
-  String get mapSurfaceGlobe => switch (lang) {
-        AppLang.tr => 'Yuvarlak (3D dünya)',
-        AppLang.en => 'Globe (3D Earth)',
-        AppLang.de => 'Kugel (3D-Erde)',
-      };
-
-  String mapSurfaceName(MapSurface value) => switch (value) {
-        MapSurface.flat => mapSurfaceFlat,
-        MapSurface.globe => mapSurfaceGlobe,
-      };
-
-  String get mapPinDisplayLabel => switch (lang) {
-        AppLang.tr => 'Gösterim',
-        AppLang.en => 'Display',
-        AppLang.de => 'Anzeige',
-      };
-
-  String get pinDisplayHeat => switch (lang) {
-        AppLang.tr => 'Isı haritası',
-        AppLang.en => 'Heat map',
-        AppLang.de => 'Heatmap',
-      };
-
-  String get pinDisplayPhotos => switch (lang) {
-        AppLang.tr => 'Resimler (yuvarlak)',
-        AppLang.en => 'Photos (round)',
-        AppLang.de => 'Fotos (rund)',
-      };
-
-  String mapPinDisplayName(MapPinDisplay value) => switch (value) {
-        MapPinDisplay.heat => pinDisplayHeat,
-        MapPinDisplay.photos => pinDisplayPhotos,
       };
 
   String get settings => switch (lang) {
@@ -146,9 +94,9 @@ class S {
       };
 
   String get dropHint => switch (lang) {
-        AppLang.tr => 'Klasörü bırak — MediaAtlas tarar, kopyalamaz',
-        AppLang.en => 'Drop folder — MediaAtlas indexes, does not copy',
-        AppLang.de => 'Ordner ablegen — MediaAtlas indexiert, kopiert nicht',
+        AppLang.tr => 'Klasörü bırak — MedyaAtlas tarar, kopyalamaz',
+        AppLang.en => 'Drop folder — MedyaAtlas indexes, does not copy',
+        AppLang.de => 'Ordner ablegen — MedyaAtlas indexiert, kopiert nicht',
       };
 
   String get layerSatellite => switch (lang) {
@@ -189,22 +137,21 @@ class S {
       };
 
   String get helpTitle => switch (lang) {
-        AppLang.tr => 'MediaAtlas Yardım',
-        AppLang.en => 'MediaAtlas Help',
-        AppLang.de => 'MediaAtlas Hilfe',
+        AppLang.tr => 'MedyaAtlas Yardım',
+        AppLang.en => 'MedyaAtlas Help',
+        AppLang.de => 'MedyaAtlas Hilfe',
       };
 
   /// Uzun yardım metni (markdown benzeri düz metin).
   String get helpBody => switch (lang) {
         AppLang.tr => '''
-MediaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasında gösterir. Dosyaları bir yerden bir yere kopyalamaz; yalnızca indeks tutar (ad, yol, GPS).
+MedyaAtlas, fotoğraf ve videolarınızdaki GPS konumlarını dünya haritasında gösterir. Dosyaları bir yerden bir yere kopyalamaz; yalnızca indeks tutar (ad, yol, GPS).
 
 ## Ne yapabilirsiniz?
 • Kaynaklar: Klasör / Galeri / Tüm telefon / Google Drive / GPX·KML — her kaynakta «yeniden tara»
 • SD/USB ve disk kökleri Klasör seçimiyle eklenir (ayrı Disk butonu yok)
 • GPS’li medya haritada pin; GPX/KML/KMZ izleri turuncu çizgi
 • Harita: uydu / sokak / topo / koyu
-• Pin: ısı veya yuvarlak resim; düzlem harita veya döndürülebilir 3D dünya
 • iPhone web: dosya kopyalanmaz; sayfa yenilenince medyayı yeniden seçin
 
 ## İzinler (Android)
@@ -217,14 +164,13 @@ https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaA
 Google Fotoğraflar bulutu taranmaz; yerel dosya veya Google Drive gerekir. Windows’ta run_windows.bat / C:\\src\\MedyaAtlas kullanılır.
 ''',
         AppLang.en => '''
-MediaAtlas shows GPS locations from your photos and videos on a world map. It does not copy files from place to place; it only keeps an index (name, path, GPS).
+MedyaAtlas shows GPS locations from your photos and videos on a world map. It does not copy files from place to place; it only keeps an index (name, path, GPS).
 
 ## What you can do
 • Sources: Folder / Gallery / Whole phone / Google Drive / GPX·KML — tap sync on a source to rescan
 • SD/USB and disk roots are added via Folder (no separate Disk button)
 • GPS media as map pins; GPX/KML/KMZ tracks as orange lines
 • Map: satellite / street / topo / dark
-• Pins: heat or round photos; flat map or rotatable 3D globe
 • iPhone web: files are not copied; re-select media after refresh
 
 ## Permissions (Android)
@@ -237,14 +183,13 @@ https://github.com/alid67-git/MedyaAtlas/releases/download/android-latest/MedyaA
 Google Photos cloud is not scanned; use local files or Google Drive. On Windows use run_windows.bat / C:\\src\\MedyaAtlas.
 ''',
         AppLang.de => '''
-MediaAtlas zeigt GPS-Positionen aus Fotos und Videos auf einer Weltkarte. Dateien werden nicht kopiert; nur lokal indexiert.
+MedyaAtlas zeigt GPS-Positionen aus Fotos und Videos auf einer Weltkarte. Dateien werden nicht kopiert; nur lokal indexiert.
 
 ## Funktionen
 • Quellen: Ordner / Galerie / Ganzes Telefon / Google Drive / GPX·KML — Sync-Taste zum erneuten Scannen
 • SD/USB und Disk-Wurzeln über Ordner (kein eigener Disk-Button)
 • GPS-Medien als Pins; GPX/KML/KMZ-Tracks als orangene Linien
 • Karte: Satellit / Straße / Topo / Dunkel
-• Pins: Heatmap oder runde Fotos; flache Karte oder drehbare 3D-Erde
 • iPhone-Web: keine Dateikopie; nach Reload Medien neu wählen
 
 ## Berechtigungen (Android)

@@ -6,147 +6,15 @@ import 'package:open_filex/open_filex.dart';
 import 'package:video_player/video_player.dart';
 
 import '../models/library_media.dart';
-import '../repositories/media_repository.dart';
 import '../services/host_platform.dart';
 import '../services/media_mime.dart';
 import '../services/photo_orient.dart';
-import '../services/video_preview.dart';
 import '../services/web_open.dart';
 import 'process_host.dart';
 import 'video_file.dart';
 
 IconData kindVideoIcon(MediaKind kind) =>
     kind == MediaKind.drone ? Icons.flight : Icons.videocam;
-
-/// Video önizleme — grid'de de küre/harita pinlerinde de kullanılır.
-/// Tarama sırasında kaydedilen JPEG'i (veya MediaStore/gömülü JPEG'i bir
-/// kez çıkarıp önbelleğe alarak) gösterir; canlı [VideoThumb] (video_player,
-/// başına ~onlarca MB native bellek) yalnızca hiçbiri yoksa son çare olarak
-/// devreye girer. Aynı anda çok sayıda [VideoThumb] (ör. bir ekran dolusu
-/// video pini) ciddi yavaşlamaya/OOM'a yol açabiliyordu.
-class CachedVideoThumb extends StatefulWidget {
-  const CachedVideoThumb({super.key, required this.item, required this.repo});
-
-  final LibraryMedia item;
-  final MediaRepository repo;
-
-  @override
-  State<CachedVideoThumb> createState() => _CachedVideoThumbState();
-}
-
-class _CachedVideoThumbState extends State<CachedVideoThumb> {
-  Uint8List? _bytes;
-  var _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void didUpdateWidget(covariant CachedVideoThumb oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.item.id != widget.item.id) {
-      _bytes = null;
-      _loading = true;
-      _load();
-    }
-  }
-
-  Future<void> _load() async {
-    // Web: video önizleme için dosya/player okuma yok (3 video = ciddi gecikme).
-    if (kIsWeb) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-    final cached =
-        widget.repo.cachedBytes(widget.item.id) ??
-        await widget.repo.bytesOf(widget.item.id);
-    if (cached != null && cached.isNotEmpty && looksLikeJpeg(cached)) {
-      if (mounted) {
-        setState(() {
-          _bytes = cached;
-          _loading = false;
-        });
-      }
-      return;
-    }
-    final extracted = await extractVideoPreviewBytes(
-      localPath: widget.item.localPath,
-      relativePath: widget.item.relativePath,
-    );
-    if (extracted != null && extracted.isNotEmpty) {
-      await widget.repo.putPreviewBytes(widget.item.id, extracted);
-      if (mounted) {
-        setState(() {
-          _bytes = extracted;
-          _loading = false;
-        });
-      }
-      return;
-    }
-    if (mounted) setState(() => _loading = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bytes = _bytes;
-    if (bytes != null) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            errorBuilder: (_, error, stack) => _webOrPathThumb(),
-          ),
-          const Align(
-            alignment: Alignment.bottomRight,
-            child: Padding(
-              padding: EdgeInsets.all(4),
-              child: Icon(
-                Icons.play_circle_fill,
-                size: 22,
-                color: Colors.white70,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-    if (_loading) {
-      return const ColoredBox(
-        color: Colors.black26,
-        child: Center(
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-    return _webOrPathThumb();
-  }
-
-  Widget _webOrPathThumb() {
-    if (kIsWeb) {
-      return ColoredBox(
-        color: const Color(0xFF1A2A36),
-        child: Center(
-          child: Icon(kindVideoIcon(widget.item.kind), color: Colors.white54),
-        ),
-      );
-    }
-    return VideoThumb(
-      path: widget.item.localPath,
-      kind: widget.item.kind,
-      resolveUrl: () => widget.repo.resolvePlayableUrl(widget.item),
-    );
-  }
-}
 
 String _externalReopenLabel() {
   if (hostIsAndroid) return 'Yeniden aç';

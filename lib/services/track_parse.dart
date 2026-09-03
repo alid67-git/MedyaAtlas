@@ -8,10 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../models/map_track.dart';
 import 'geo.dart';
 
-// RideAtlas'taki kMapDisplayMaxPoints ile aynı — düz indeks adımıyla 1600'e
-// düşürmek uzun/yoğun GPX'lerde köşeleri siliyordu (dönüşler örneklenen
-// indeksler arasına düşüyordu).
-const trackDisplayMaxPoints = 8000;
+const trackDisplayMaxPoints = 1600;
 
 bool isTrackFileName(String name) =>
     RegExp(r'\.(gpx|kml|kmz)$', caseSensitive: false).hasMatch(name);
@@ -21,40 +18,22 @@ String trackFileDisplayName(String fileName) {
   return base.isEmpty ? fileName : base;
 }
 
-/// Sadece görüntüleme için gereksiz noktaları düşürür (analiz/export tam
-/// listeyi kullanır): önce mesafeye göre inceltir (şekil/köşe bozulmaz),
-/// hâlâ [maxPoints] üstündeyse indeks adımıyla son bir düşürme yapar.
-/// RideAtlas'taki latLngsForMapDisplay ile aynı yaklaşım.
 List<TrackPoint> simplifyTrackPoints(
   List<TrackPoint> points, {
   int maxPoints = trackDisplayMaxPoints,
-  double minSpacingMeters = 15,
 }) {
-  if (points.length <= 2) return points;
-  if (points.length <= maxPoints && minSpacingMeters <= 0) return points;
-
-  bool samePoint(TrackPoint a, TrackPoint b) =>
-      a.latitude == b.latitude && a.longitude == b.longitude;
-
-  final spaced = <TrackPoint>[points.first];
-  for (var i = 1; i < points.length - 1; i++) {
-    final p = points[i];
-    if (distanceMeters(spaced.last.latLng, p.latLng) >= minSpacingMeters) {
-      spaced.add(p);
-    }
+  if (points.length <= maxPoints) return points;
+  final step = (points.length / maxPoints).ceil();
+  final out = <TrackPoint>[];
+  for (var i = 0; i < points.length; i += step) {
+    out.add(points[i]);
   }
   final last = points.last;
-  if (!samePoint(spaced.last, last)) spaced.add(last);
-
-  if (spaced.length <= maxPoints) return spaced;
-
-  final step = (spaced.length / maxPoints).ceil();
-  final out = <TrackPoint>[spaced.first];
-  for (var i = step; i < spaced.length - 1; i += step) {
-    out.add(spaced[i]);
+  if (out.isEmpty ||
+      out.last.latitude != last.latitude ||
+      out.last.longitude != last.longitude) {
+    out.add(last);
   }
-  final spacedLast = spaced.last;
-  if (!samePoint(out.last, spacedLast)) out.add(spacedLast);
   return out;
 }
 

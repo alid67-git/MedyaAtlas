@@ -47,7 +47,6 @@ import '../services/web_media_session.dart';
 import '../widgets/app_update_progress.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/drop_host.dart';
-import '../widgets/media_globe_view.dart';
 import '../widgets/media_viewer.dart';
 import '../widgets/photo_map_pin.dart';
 import '../widgets/photo_source.dart';
@@ -93,24 +92,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   final _query = '';
   List<PlaceHit> _places = [];
   LocationCluster? _panelCluster;
-  /// Haritada medyaya dokununca alttaki ikon şeridi (ekrandaki tüm medya).
-  List<LibraryMedia>? _mapStripItems;
-  String? _mapStripFocusId;
-  final ScrollController _mapStripScroll = ScrollController();
   final Set<MediaKind> _kinds = {...MediaKind.values};
   Timer? _mountTimer;
 
   /// Harita pan/zoom sırasında ısı pinlerini gizle — ANR önlemi.
   bool _mapInteracting = false;
   Timer? _mapIdleTimer;
-
-  /// Küre max zoom'a ulaşınca 2D'ye "hile" ile geçiş — [AppSettings.mapSurface]
-  /// değişmez (mod ikonu 3D'de kalır, kullanıcı geçişi fark etmez). Ters zum
-  /// yapılınca otomatik küreye döner. Kullanıcı ayarlar menüsünden elle mod
-  /// değiştirirse [_buildMain] bunu sıfırlar.
-  var _globeZoomOverrideFlat = false;
-  MapSurface? _lastKnownMapSurface;
-  static const _globeReturnZoom = 5.0;
 
   /// Zorunlu güncelleme — harita kullanılmaz.
   AppUpdateInfo? _forceUpdate;
@@ -136,9 +123,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   List<Marker> _selectedPinCache = const [];
   int _markerCacheClusterLen = -1;
   String? _markerCacheSelectedId;
-  int _markerCacheStyleSig = -1;
-  final GlobalKey<MediaGlobeViewState> _globeKey =
-      GlobalKey<MediaGlobeViewState>();
 
   int _mapFilterSignature(TrackRepository tracks) => Object.hash(
         Object.hashAll(_kinds.map((k) => k.index)),
@@ -199,8 +183,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdates();
       context.read<MediaRepository>().refreshMountStates();
-      // Açılışta bulunan konuma git (izin varsa) — «konumum» butonuyla aynı yol.
-      _goToMyLocation();
       // UI otursun; izin varsa hafif telefon taraması (yalnızca yeni medya).
       Future<void>.delayed(const Duration(seconds: 2), () {
         if (mounted) _startupPhoneRescan();
@@ -217,11 +199,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       } else {
         _checkForUpdates();
       }
-      // Android: arka plandan dönünce GPU yüzeyi/doku kaybolabilir —
-      // küre görünürken sessizce boşalmasın diye yeniden yükle.
-      if (context.read<AppSettings>().mapSurface == MapSurface.globe) {
-        _globeKey.currentState?.reloadSurface();
-      }
     }
   }
 
@@ -230,7 +207,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.removeObserver(this);
     _mountTimer?.cancel();
     _mapIdleTimer?.cancel();
-    _mapStripScroll.dispose();
     super.dispose();
   }
 
@@ -238,17 +214,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!supportsInAppUpdate) {
       if (manual && mounted) {
         setState(() => _status = 'Bu platformda uygulama içi güncelleme yok.');
-      }
-      return;
-    }
-    // Web: tek giriş noktası alt SW banner (update.js) — diyalog/header yok.
-    if (kIsWeb) {
-      triggerWebUpdateCheck();
-      if (manual && mounted) {
-        setState(
-          () => _status =
-              'Güncelleme kontrol edildi. Yeni sürüm varsa altta banner çıkar.',
-        );
       }
       return;
     }
@@ -2284,10 +2249,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _places = [];
       _showMissing = false;
     });
-    if (context.read<AppSettings>().mapSurface == MapSurface.globe) {
-      _globeKey.currentState?.focusLatLng(place.latitude, place.longitude);
-      return;
-    }
     if (place.bbox != null && place.bbox!.length == 4) {
       final b = place.bbox!;
       _map.fitCamera(
@@ -2303,11 +2264,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _fitVisible({bool includeTracks = false}) {
-    final settings = context.read<AppSettings>();
-    if (settings.mapSurface == MapSurface.globe) {
-      _globeKey.currentState?.fitClusters();
-      return;
-    }
     final repo = context.read<MediaRepository>();
     final clusters = _clustersOf(repo);
     final points = <LatLng>[
@@ -2413,12 +2369,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       // Harita çizilsin (eksik kare / fitCamera sessiz hatası).
       await Future<void>.delayed(const Duration(milliseconds: 80));
       if (!mounted) return;
-      final onGlobe =
-          context.read<AppSettings>().mapSurface == MapSurface.globe;
-      if (onGlobe) {
-        _globeKey.currentState?.focusLatLng(me.latitude, me.longitude);
-        return;
-      }
       try {
         _map.rotate(0);
         if (fitPoints.length <= 1) {
@@ -2560,122 +2510,88 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     return _filtered(repo).where((m) => !m.hasLocation).toList();
   }
 
-  /// 3D küre en yakın zoom'a ulaşınca 2D haritaya geç ve aynı noktadan
-  /// (yakın bir zoom'la) büyütmeye devam et — 2D ve 3D aynı son noktaya
-  /// kadar büyüsün. Bu tamamen dahili bir hile: [AppSettings.mapSurface]
-  /// (ve dolayısıyla mod ikonu) değişmez, kullanıcı hâlâ "3D"de gibi görür.
-  void _handleGlobeMaxZoom(LatLng point) {
-    final settings = context.read<AppSettings>();
-    if (settings.mapSurface != MapSurface.globe || _globeZoomOverrideFlat) {
-      return;
-    }
-    setState(() => _globeZoomOverrideFlat = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _map.move(point, 17);
-    });
-  }
-
-  /// Hile 2D'deyken ters zum yapılırsa küreye geri dön — kullanıcı sanki
-  /// hep 3D'deymiş gibi hisseder.
-  void _returnToGlobeFromZoomOverride(LatLng center) {
-    if (!_globeZoomOverrideFlat) return;
-    setState(() => _globeZoomOverrideFlat = false);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _globeKey.currentState?.focusLatLng(
-        center.latitude,
-        center.longitude,
-        animate: false,
-      );
-    });
-  }
-
   Future<void> _openCluster(LocationCluster cluster) async {
-    if (cluster.items.isEmpty) return;
-    final list = _mediaListForMapTap(cluster);
-    if (list.isEmpty) return;
-    final cover = coverMediaOf(cluster.items);
+    _fitCluster(cluster);
     setState(() {
       _panelCluster = cluster;
-      _mapStripItems = list;
-      _mapStripFocusId = cover.id;
       _showMissing = false;
       _sourcesOpen = false;
       _tracksOpen = false;
       _kindMenu = null;
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollMapStripToId(cover.id);
-    });
+    if (_isDesktop || MediaQuery.sizeOf(context).width >= 960) {
+      return;
+    }
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFF0A1C28),
+      builder: (ctx) {
+        final live = ctx.watch<MediaRepository>();
+        final h = MediaQuery.sizeOf(ctx).height * 0.62;
+        return SizedBox(
+          height: h.clamp(320.0, 640.0),
+          child: _ClusterSheet(
+            cluster: cluster,
+            repo: live,
+            onOpen: (items, index) {
+              Navigator.pop(ctx);
+              _openMapMediaViewer(
+                clusterItems: items,
+                tappedIndex: index,
+              );
+            },
+          ),
+        );
+      },
+    );
+    if (mounted) setState(() => _panelCluster = null);
   }
 
-  List<LibraryMedia> _mediaListForMapTap(LocationCluster cluster) {
-    final repo = context.read<MediaRepository>();
-    final list = <LibraryMedia>[];
-    final seen = <String>{};
-    void addAll(Iterable<LibraryMedia> items) {
-      for (final m in items) {
-        if (seen.add(m.id)) list.add(m);
+  /// Kümedeki tüm medya haritada görünsün (sokak dip zoom değil).
+  void _fitCluster(LocationCluster cluster) {
+    final points = <LatLng>[
+      for (final m in cluster.items)
+        if (m.latLng != null) m.latLng!,
+    ];
+    if (points.isEmpty) {
+      final c = cluster.latLng;
+      if (c.latitude.isFinite && c.longitude.isFinite) {
+        points.add(c);
       }
     }
-
-    final onMap = _mediaOnOpenMap(
-      repo,
-      around: LatLng(cluster.latitude, cluster.longitude),
-    );
-    if (onMap.isNotEmpty) {
-      addAll(onMap);
-    }
-    addAll(cluster.items);
-    list.sort((a, b) {
-      final ta = a.takenAt ?? a.addedAt;
-      final tb = b.takenAt ?? b.addedAt;
-      return tb.compareTo(ta);
+    if (points.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        _map.rotate(0);
+        if (points.length == 1) {
+          _map.moveAndRotate(points.first, 15, 0);
+          return;
+        }
+        var bounds = LatLngBounds.fromPoints(points);
+        final latSpan = (bounds.north - bounds.south).abs();
+        final lngSpan = (bounds.east - bounds.west).abs();
+        // Aynı noktaya yakın küme: biraz aç ki tüm pinler görünsün.
+        if (latSpan < 0.0008 || lngSpan < 0.0008) {
+          const pad = 0.002;
+          bounds = LatLngBounds(
+            LatLng(bounds.south - pad, bounds.west - pad),
+            LatLng(bounds.north + pad, bounds.east + pad),
+          );
+        }
+        _map.fitCamera(
+          CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.fromLTRB(48, 140, 48, 200),
+            maxZoom: 16,
+          ),
+        );
+        _map.rotate(0);
+      } catch (_) {}
     });
-    return list;
-  }
-
-  /// Küre: tıklanan noktaya göre "görünen alan" yarıçapı (km).
-  /// Paket kameranın o anki dönüşünü/görünürlüğünü dışa açmıyor, bu yüzden
-  /// gerçek ekran görünürlüğü yerine zoom'a göre daralan bir mesafe
-  /// yaklaşımı kullanılıyor: yakınlaştıkça yarıçap küçülür.
-  double _globeVisibleRadiusKm() {
-    final zoom = _globeKey.currentState?.controller.zoom ?? 0.55;
-    final z = zoom.clamp(0.2, 3.0);
-    return (2500 / math.pow(z, 1.3)).clamp(400, 20000).toDouble();
-  }
-
-  /// Açık haritadaki medya: 2D’de viewport; 3D dünyada tıklanan noktaya
-  /// yakın (görünen alan) medya — dokunmadan tüm dünyanın önizlemesi
-  /// gösterilmez.
-  List<LibraryMedia> _mediaOnOpenMap(MediaRepository repo, {LatLng? around}) {
-    final surface = context.read<AppSettings>().mapSurface;
-    if (surface == MapSurface.globe) {
-      final all = _locatedForMap(repo);
-      final center = around;
-      final out = center == null
-          ? List<LibraryMedia>.from(all)
-          : [
-              for (final m in all)
-                if (m.latLng != null &&
-                    haversineMeters(
-                          center.latitude,
-                          center.longitude,
-                          m.latLng!.latitude,
-                          m.latLng!.longitude,
-                        ) <=
-                        _globeVisibleRadiusKm() * 1000)
-                  m,
-            ];
-      out.sort((a, b) {
-        final ta = a.takenAt ?? a.addedAt;
-        final tb = b.takenAt ?? b.addedAt;
-        return tb.compareTo(ta);
-      });
-      return out;
-    }
-    return _mediaInMapViewport(repo);
   }
 
   /// Mevcut harita zoom’undaki GPS’li medya (yeniden eskiye).
@@ -2697,42 +2613,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  void _scrollMapStripToId(String id) {
-    final items = _mapStripItems;
-    if (items == null || !_mapStripScroll.hasClients) return;
-    final i = items.indexWhere((m) => m.id == id);
-    if (i < 0) return;
-    const itemExtent = 76.0; // 64 thumb + spacing
-    final target = (i * itemExtent) - 40;
-    _mapStripScroll.animateTo(
-      target.clamp(0.0, _mapStripScroll.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-    );
-  }
-
-  void _closeMapStrip() {
-    if (_mapStripItems == null && _panelCluster == null) return;
-    setState(() {
-      _mapStripItems = null;
-      _mapStripFocusId = null;
-      _panelCluster = null;
-    });
-  }
-
-  Future<void> _openStripItem(LibraryMedia item) async {
-    final items = _mapStripItems;
-    if (items == null || items.isEmpty) return;
-    final start = items.indexWhere((m) => m.id == item.id);
-    setState(() => _mapStripFocusId = item.id);
-    await openMediaViewer(
-      context,
-      items: items,
-      initialIndex: start < 0 ? 0 : start,
-    );
-  }
-
-  /// Yan panel / pin: önce alt şerit, ikona dokununca tam ekran.
+  /// Küme / pin’den aç: önce küme, zoom’da görünen tüm medya ile kaydır.
   void _openMapMediaViewer({
     required List<LibraryMedia> clusterItems,
     required int tappedIndex,
@@ -2741,26 +2622,31 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final safeIndex = tappedIndex.clamp(0, clusterItems.length - 1);
     final tapped = clusterItems[safeIndex];
     final repo = context.read<MediaRepository>();
-    final list = <LibraryMedia>[];
-    final seen = <String>{};
-    for (final m in _mediaOnOpenMap(repo)) {
-      if (seen.add(m.id)) list.add(m);
-    }
-    for (final m in clusterItems) {
-      if (seen.add(m.id)) list.add(m);
-    }
-    if (list.isEmpty) return;
-    list.sort((a, b) {
-      final ta = a.takenAt ?? a.addedAt;
-      final tb = b.takenAt ?? b.addedAt;
-      return tb.compareTo(ta);
-    });
-    setState(() {
-      _mapStripItems = list;
-      _mapStripFocusId = tapped.id;
-    });
+
+    // Frame sonrası: fit bittiyse viewport’taki komşular da listeye girer.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollMapStripToId(tapped.id);
+      if (!mounted) return;
+      var list = _mediaInMapViewport(repo);
+      if (list.isEmpty || !list.any((m) => m.id == tapped.id)) {
+        list = List<LibraryMedia>.from(clusterItems);
+      } else {
+        // Kümedekiler viewport dışındaysa (padding) yine ekle.
+        final ids = {for (final m in list) m.id};
+        for (final m in clusterItems) {
+          if (!ids.contains(m.id)) list.add(m);
+        }
+        list.sort((a, b) {
+          final ta = a.takenAt ?? a.addedAt;
+          final tb = b.takenAt ?? b.addedAt;
+          return tb.compareTo(ta);
+        });
+      }
+      final start = list.indexWhere((m) => m.id == tapped.id);
+      openMediaViewer(
+        context,
+        items: list,
+        initialIndex: start < 0 ? 0 : start,
+      );
     });
   }
 
@@ -2828,8 +2714,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         const SingleActivator(LogicalKeyboardKey.escape): () {
           setState(() {
             _panelCluster = null;
-            _mapStripItems = null;
-            _mapStripFocusId = null;
             _places = [];
             _closeMenus();
             if (_showMissing) _showMissing = false;
@@ -2851,18 +2735,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             Expanded(
                               child: _buildMain(clusters, missing, repo),
                             ),
-                            // 3D kürede yan panel harita alanını daraltıp küreyi bozar;
-                            // yalnızca alt şerit kullan.
-                            if (wide &&
-                                _panelCluster != null &&
-                                settings.mapSurface != MapSurface.globe) ...[
+                            if (wide && _panelCluster != null) ...[
                               const VerticalDivider(width: 1),
                               SizedBox(
                                 width: 360,
                                 child: _ClusterSheet(
                                   cluster: _panelCluster!,
                                   repo: repo,
-                                  onClose: _closeMapStrip,
+                                  onClose: () =>
+                                      setState(() => _panelCluster = null),
                                   onOpen: (items, index) => _openMapMediaViewer(
                                     clusterItems: items,
                                     tappedIndex: index,
@@ -2966,7 +2847,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   Positioned(
                     left: 12,
                     right: 12,
-                    bottom: _mapStripItems != null ? 118 : 12,
+                    bottom: 12,
                     child: _statusChip(
                       repo: repo,
                       visible: visible,
@@ -2974,34 +2855,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       missingCount: missing.length,
                     ),
                   ),
-                // Haritada medya: alttaki ikon şeridi → dokununca tam ekran kaydır.
-                if (_mapStripItems != null && !_showMissing)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: _MapMediaStrip(
-                      items: _mapStripItems!,
-                      focusId: _mapStripFocusId,
-                      repo: repo,
-                      scrollController: _mapStripScroll,
-                      onClose: _closeMapStrip,
-                      onOpen: _openStripItem,
-                    ),
-                  ),
                 // Sağ alt: konumum (son birkaç günlük alan).
                 if (!_showMissing)
                   Positioned(
                     right: 14,
-                    bottom: _mapStripItems != null
-                        ? 118
-                        : ((_busy ||
-                                _gpsBgRunning ||
-                                _autoScanRunning ||
-                                _updateDownloading ||
-                                (_status != null && _status!.isNotEmpty))
-                            ? 78
-                            : 20),
+                    bottom: (_busy ||
+                            _gpsBgRunning ||
+                            _autoScanRunning ||
+                            _updateDownloading ||
+                            (_status != null && _status!.isNotEmpty))
+                        ? 78
+                        : 20,
                     child: Material(
                       elevation: 4,
                       color: const Color(0xFF0A1C28),
@@ -3207,8 +3071,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     onPressed: () => setState(() {
                       _showMissing = false;
                       _panelCluster = null;
-                      _mapStripItems = null;
-                      _mapStripFocusId = null;
                       _sourcesOpen = false;
                       _tracksOpen = false;
                       _kindMenu = _kindMenu == 'located' ? null : 'located';
@@ -3221,8 +3083,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     badge: '$missingCount',
                     onPressed: () => setState(() {
                       _panelCluster = null;
-                      _mapStripItems = null;
-                      _mapStripFocusId = null;
                       _sourcesOpen = false;
                       _tracksOpen = false;
                       if (_showMissing) {
@@ -3238,13 +3098,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     tooltip: s.mapLayers,
                     icon: Icons.layers_outlined,
                     onPressed: () => openMapLayerSheet(context),
-                  ),
-                  _TopIcon(
-                    tooltip: s.mapPins,
-                    icon: settings.mapSurface == MapSurface.globe
-                        ? Icons.public
-                        : Icons.photo_size_select_actual_outlined,
-                    onPressed: () => openMapPinStyleSheet(context),
                   ),
                   _TopIcon(
                     tooltip: s.fitAll,
@@ -3948,59 +3801,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     MediaRepository repo,
   ) {
     final trackRepo = context.watch<TrackRepository>();
-    final settings = context.watch<AppSettings>();
     final visibleTracks = trackRepo.visibleTracksList;
-    // Kullanıcı ayarlar menüsünden elle mod değiştirdiyse (bu, hile
-    // dışındaki tek değişim yolu) hile bayrağını sıfırla.
-    if (_lastKnownMapSurface != null &&
-        _lastKnownMapSurface != settings.mapSurface) {
-      _globeZoomOverrideFlat = false;
-    }
-    _lastKnownMapSurface = settings.mapSurface;
-    // iPhone/iPad Safari (PWA dahil): flutter_earth_globe paketinde bilinen,
-    // açık bir hata var — WebKit'te doku hiç çizilmiyor (paket demosunda da
-    // aynı sorun var, çözümü yok). Denemeden sessizce 2D'ye düş — mod ikonu
-    // yine de 3D'de kalır, kullanıcı bunun bir "eksiklik" olduğunu görmez.
-    final useGlobe =
-        settings.mapSurface == MapSurface.globe &&
-        !_globeZoomOverrideFlat &&
-        !hostIsAppleWeb;
-    final mapMarkers =
-        useGlobe ? (heat: const <Marker>[], selected: const <Marker>[]) : _mapMarkersFor(clusters, repo, settings);
+    final mapMarkers = _mapMarkersFor(clusters, repo);
     return Stack(
       children: [
-        if (useGlobe)
-          Positioned.fill(
-            child: MediaGlobeView(
-              key: _globeKey,
-              clusters: clusters,
-              repo: repo,
-              display: settings.mapPinDisplay,
-              mapLayer: settings.mapLayer,
-              onOpenCluster: _openCluster,
-              onMaxZoomReached: _handleGlobeMaxZoom,
-            ),
-          )
-        else
-          FlutterMap(
-            mapController: _map,
-            options: MapOptions(
-              initialCenter: _worldCenter,
-              initialZoom: 2.4,
-              onMapEvent: _onMapEvent,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: settings.mapUrlTemplate,
-                userAgentPackageName: 'com.medyaatlas.app',
-              ),
-              _TrackLinesLayer(tracks: visibleTracks),
-              // Pan/zoom sırasında ısı/resim pinlerini çizme — ANR / kilitlenme.
-              if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
-              _TrackBadgeLayer(tracks: visibleTracks),
-              MarkerLayer(markers: mapMarkers.selected),
-            ],
+        FlutterMap(
+          mapController: _map,
+          options: MapOptions(
+            initialCenter: _worldCenter,
+            initialZoom: 2.4,
+            onMapEvent: _onMapEvent,
           ),
+          children: [
+            TileLayer(
+              urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
+              userAgentPackageName: 'com.medyaatlas.app',
+            ),
+            _TrackLinesLayer(tracks: visibleTracks),
+            // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
+            if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
+            _TrackBadgeLayer(tracks: visibleTracks),
+            MarkerLayer(markers: mapMarkers.selected),
+          ],
+        ),
         if (_places.isNotEmpty)
           Positioned(
             left: 12,
@@ -4037,9 +3860,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         event is MapEventDoubleTapZoomStart ||
         event is MapEventScrollWheelZoom;
     if (!busy) return;
-    if (_globeZoomOverrideFlat && event.camera.zoom <= _globeReturnZoom) {
-      _returnToGlobeFromZoomOverride(event.camera.center);
-    }
     _mapIdleTimer?.cancel();
     if (!_mapInteracting && mounted) {
       setState(() => _mapInteracting = true);
@@ -4053,15 +3873,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   ({List<Marker> heat, List<Marker> selected}) _mapMarkersFor(
     List<LocationCluster> clusters,
     MediaRepository repo,
-    AppSettings settings,
   ) {
-    final display = settings.mapPinDisplay;
-    final styleSig = display.index;
     final selectedId = _panelCluster?.id;
     if (_heatMarkerCache.isNotEmpty &&
         _markerCacheClusterLen == clusters.length &&
         _markerCacheSelectedId == selectedId &&
-        _markerCacheStyleSig == styleSig &&
         identical(clusters, _clusterCache)) {
       return (heat: _heatMarkerCache, selected: _selectedPinCache);
     }
@@ -4073,30 +3889,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (!lat.isFinite || !lng.isFinite) continue;
       if (lat.abs() > 90 || lng.abs() > 180) continue;
       final isSelected = cluster.id == selectedId;
-      if (isSelected || display == MapPinDisplay.photos) {
-        final covers = clusterPinCovers(cluster.items);
-        const box = PhotoMapPin.markerBox;
-        final marker = Marker(
-          point: LatLng(lat, lng),
-          width: box.width,
-          height: box.height,
-          alignment: Alignment.bottomCenter,
-          child: GestureDetector(
-            onTap: () => _openCluster(cluster),
-            behavior: HitTestBehavior.opaque,
-            child: PhotoMapPin(
-              item: covers.cover,
-              repo: repo,
-              count: cluster.items.length,
-              extraCovers: covers.behind,
+      if (isSelected) {
+        selected.add(
+          Marker(
+            point: LatLng(lat, lng),
+            width: 56,
+            height: 68,
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              onTap: () => _openCluster(cluster),
+              child: PhotoMapPin(
+                item: coverMediaOf(cluster.items),
+                repo: repo,
+                count: cluster.items.length,
+              ),
             ),
           ),
         );
-        if (isSelected) {
-          selected.add(marker);
-        } else {
-          heat.add(marker);
-        }
         continue;
       }
       final n = cluster.items.length;
@@ -4118,7 +3927,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _selectedPinCache = selected;
     _markerCacheClusterLen = clusters.length;
     _markerCacheSelectedId = selectedId;
-    _markerCacheStyleSig = styleSig;
     return (heat: heat, selected: selected);
   }
 }
@@ -4209,120 +4017,6 @@ class _MissingList extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _MapMediaStrip extends StatelessWidget {
-  const _MapMediaStrip({
-    required this.items,
-    required this.focusId,
-    required this.repo,
-    required this.scrollController,
-    required this.onClose,
-    required this.onOpen,
-  });
-
-  final List<LibraryMedia> items;
-  final String? focusId;
-  final MediaRepository repo;
-  final ScrollController scrollController;
-  final VoidCallback onClose;
-  final ValueChanged<LibraryMedia> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.paddingOf(context).bottom;
-    return Material(
-      elevation: 16,
-      color: const Color(0xF00A1C28),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(8, 8, 4, 8 + bottomPad),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const SizedBox(width: 8),
-                Text(
-                  '${items.length} medya',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.9),
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Kapat',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close, size: 20),
-                ),
-              ],
-            ),
-            SizedBox(
-              height: 72,
-              child: ListView.separated(
-                controller: scrollController,
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(4, 0, 12, 0),
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
-                itemBuilder: (context, i) {
-                  final item = items[i];
-                  final focused = item.id == focusId;
-                  return GestureDetector(
-                    onTap: () => onOpen(item),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: focused
-                              ? const Color(0xFF2EC4B6)
-                              : Colors.white24,
-                          width: focused ? 2.5 : 1,
-                        ),
-                        boxShadow: focused
-                            ? const [
-                                BoxShadow(
-                                  color: Color(0x662EC4B6),
-                                  blurRadius: 8,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          _Thumb(item: item, repo: repo),
-                          if (item.isVideo)
-                            const Align(
-                              alignment: Alignment.bottomRight,
-                              child: Padding(
-                                padding: EdgeInsets.all(4),
-                                child: Icon(
-                                  Icons.play_circle_fill,
-                                  size: 18,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -4456,7 +4150,7 @@ class _Thumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (item.isVideo) {
-      return CachedVideoThumb(item: item, repo: repo);
+      return _VideoThumbCached(item: item, repo: repo);
     }
     // Web: eski oturumdan kalma blob: yolu şekli hâlâ geçerli görünür ama
     // sayfa kapanınca ölür — mevcut oturumdan doğrula/tazele.
@@ -4521,6 +4215,131 @@ class _Thumb extends StatelessWidget {
   }
 }
 
+/// Tarama sırasında kaydedilen JPEG; yoksa bir kez çıkarır (video_player yok).
+class _VideoThumbCached extends StatefulWidget {
+  const _VideoThumbCached({required this.item, required this.repo});
+
+  final LibraryMedia item;
+  final MediaRepository repo;
+
+  @override
+  State<_VideoThumbCached> createState() => _VideoThumbCachedState();
+}
+
+class _VideoThumbCachedState extends State<_VideoThumbCached> {
+  Uint8List? _bytes;
+  var _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoThumbCached oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id) {
+      _bytes = null;
+      _loading = true;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    // Web: video önizleme için dosya/player okuma yok (3 video = ciddi gecikme).
+    if (kIsWeb) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    final cached =
+        widget.repo.cachedBytes(widget.item.id) ??
+        await widget.repo.bytesOf(widget.item.id);
+    if (cached != null && cached.isNotEmpty && looksLikeJpeg(cached)) {
+      if (mounted) {
+        setState(() {
+          _bytes = cached;
+          _loading = false;
+        });
+      }
+      return;
+    }
+    final extracted = await extractVideoPreviewBytes(
+      localPath: widget.item.localPath,
+      relativePath: widget.item.relativePath,
+    );
+    if (extracted != null && extracted.isNotEmpty) {
+      await widget.repo.putPreviewBytes(widget.item.id, extracted);
+      if (mounted) {
+        setState(() {
+          _bytes = extracted;
+          _loading = false;
+        });
+      }
+      return;
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = _bytes;
+    if (bytes != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, error, stack) => _webOrPathThumb(),
+          ),
+          const Align(
+            alignment: Alignment.bottomRight,
+            child: Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(
+                Icons.play_circle_fill,
+                size: 22,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    if (_loading) {
+      return const ColoredBox(
+        color: Colors.black26,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    return _webOrPathThumb();
+  }
+
+  Widget _webOrPathThumb() {
+    if (kIsWeb) {
+      return ColoredBox(
+        color: const Color(0xFF1A2A36),
+        child: Center(
+          child: Icon(kindVideoIcon(widget.item.kind), color: Colors.white54),
+        ),
+      );
+    }
+    return VideoThumb(
+      path: widget.item.localPath,
+      kind: widget.item.kind,
+      resolveUrl: () => widget.repo.resolvePlayableUrl(widget.item),
+    );
+  }
+}
+
 /// İz çizgileri — RideAtlas gibi pan/zoom’da yeniden kurulmaz (ANR yok).
 ///
 /// [MapCamera] dinlenmez: zoom her karede tüm GPX noktalarını yeniden
@@ -4560,28 +4379,15 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
     return true;
   }
 
-  /// Aynı anda görünen tüm izler için toplam nokta bütçesi (ANR riski —
-  /// UI isolate'ta binlerce nokta) — iz sayısına bölünür, tek iz için de
-  /// makul bir taban tutulur.
-  static const _totalDisplayPointBudget = 6000;
-
   void _rebuildPolylines() {
     final polylines = <Polyline>[];
-    final perTrackCap = widget.tracks.isEmpty
-        ? _totalDisplayPointBudget
-        : math.max(
-            800,
-            _totalDisplayPointBudget ~/ widget.tracks.length,
-          );
     for (final track in widget.tracks) {
       final raw = <LatLng>[
         for (final p in track.points)
           if (isValidGps(p.latitude, p.longitude)) p.latLng,
       ];
-      // Önce mesafeye göre inceltir (köşe/detay korunur), hâlâ gerekiyorsa
-      // indeks adımıyla son bir düşürme yapar — RideAtlas'taki gibi. Eski
-      // sabit indeks-adımı (500 nokta) köşeleri siliyordu.
-      final pts = simplifyLatLngsForDisplay(raw, maxPoints: perTrackCap);
+      // Harita pan için agresif sadeleştirme (tam nokta GPS’te kalır).
+      final pts = _downsampleTrackPoints(raw, maxPoints: 500);
       if (pts.length < 2) continue;
       polylines.add(
         Polyline(
@@ -4594,6 +4400,23 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
       );
     }
     _polylines = polylines;
+  }
+
+  /// Yoğun GPX — UI isolate’ta binlerce nokta ANR riski.
+  static List<LatLng> _downsampleTrackPoints(
+    List<LatLng> pts, {
+    required int maxPoints,
+  }) {
+    if (pts.length <= maxPoints) return pts;
+    final out = <LatLng>[pts.first];
+    final step = pts.length / maxPoints;
+    var cursor = step;
+    while (cursor < pts.length - 1) {
+      out.add(pts[cursor.floor()]);
+      cursor += step;
+    }
+    out.add(pts.last);
+    return out;
   }
 
   @override

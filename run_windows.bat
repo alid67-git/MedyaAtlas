@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
-title MediaAtlas Windows
+title MedyaAtlas Windows
 
 REM Ilk cift tik: ayri pencere.
 if /i not "%~1"=="_go" (
-  start "MediaAtlas Windows" cmd /k call "%~f0" _go
+  start "MedyaAtlas Windows" cmd /k call "%~f0" _go
   exit /b 0
 )
 
@@ -12,7 +12,7 @@ call "%~dp0_medyaatlas_paths.bat"
 call "%~dp0_flutter_env.bat"
 
 echo.
-echo === MediaAtlas Windows ===
+echo === MedyaAtlas Windows ===
 echo Hedef surum: v%MA_EXPECT%
 echo Yerel repo:  %MA_LOCAL%
 echo.

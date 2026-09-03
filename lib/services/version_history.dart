@@ -23,94 +23,10 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
-    version: '1.0.81',
-    tr: 'iPhone/iPad Safari\'de 3D dünya boş görünüyordu (paketin bilinen, çözümsüz WebKit hatası) — artık denemeden sessizce 2D haritaya geçiliyor, mod ikonu yine 3D gösteriyor.',
-    en: 'The 3D globe rendered blank on iPhone/iPad Safari (a known, unresolved WebKit bug in the globe package) — it now falls back to the 2D map without even attempting it, and the mode icon still shows 3D.',
-    de: 'Der 3D-Globus blieb auf iPhone/iPad Safari leer (ein bekannter, ungelöster WebKit-Fehler im Globus-Paket) — jetzt wird ohne Versuch direkt auf die 2D-Karte umgeschaltet, das Modus-Symbol zeigt weiterhin 3D.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.80',
-    tr: '3D→2D zoom geçişi artık gizli: mod ikonu 3D\'de kalır, ters zumda otomatik küreye döner. 2D harita çizgisi ayrı bir katmanda hâlâ 500 noktaya kırpılıyordu — o da RideAtlas gibi köşe koruyarak inceltiliyor.',
-    en: '3D→2D zoom handoff is now hidden: the mode icon stays on 3D, zooming back out returns to the globe automatically. The 2D track line had a separate 500-point cap in the map layer — that now also thins RideAtlas-style, keeping corners.',
-    de: '3D→2D-Zoomübergang ist jetzt versteckt: Modus-Symbol bleibt bei 3D, Zurückzoomen kehrt automatisch zum Globus zurück. Die 2D-Track-Linie hatte in der Kartenebene ein separates 500-Punkte-Limit — auch das dünnt jetzt wie RideAtlas aus, Ecken bleiben erhalten.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.79',
-    tr: 'Performans/bellek: küre pinlerinde artık canlı video oynatıcı yerine hafif statik önizleme (1.0.78\'de eklenen video önizleme telefonda "yetersiz bellekten kapatma"ya yol açıyordu); oturum önbelleği sınırsız büyümüyor; güncelleme kurulumundan sonra eski sürüm bellekte kalmıyor.',
-    en: 'Performance/memory: globe pins use a lightweight static preview instead of a live video player (the 1.0.78 video-preview change was likely causing Android "killed due to low memory"); the session preview cache no longer grows unbounded; the old version no longer lingers in memory after an update installs.',
-    de: 'Performance/Speicher: Globus-Pins nutzen jetzt eine leichte statische Vorschau statt eines Live-Videoplayers (die 1.0.78-Änderung führte wohl zu Android „wegen Speichermangel beendet"); der Sitzungs-Cache wächst nicht mehr unbegrenzt; alte Version bleibt nach einem Update nicht mehr im Speicher.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.78',
-    tr: '2D iz çizimi artık RideAtlas gibi köşeleri koruyor; 3D küre en yakın zoomda otomatik 2D\'ye geçip aynı noktadan büyümeye devam ediyor; açılışta bulunan konuma gidiliyor; Android\'de 3D pinlerde video önizleme; arka plandan dönünce küre yeniden yükleniyor.',
-    en: '2D track drawing now keeps corner detail like RideAtlas; 3D globe auto-switches to 2D at max zoom and keeps zooming into the same spot; app opens at your current location; Android globe video pins now preview; globe reloads its surface after returning from background.',
-    de: '2D-Track zeichnet jetzt wie RideAtlas mit Ecken-Detail; 3D-Erde wechselt bei Maximalzoom automatisch zu 2D und zoomt am selben Punkt weiter; App öffnet am aktuellen Standort; Android-Globus-Pins zeigen jetzt Video-Vorschau; Globus lädt Oberfläche nach Rückkehr aus Hintergrund neu.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.77',
-    tr: '3D dünya: zoom belirgin şekilde büyüyor; pin dokununca yalnızca yakın çevredeki medya önizlenir (tüm dünya değil).',
-    en: '3D globe: zoom now goes noticeably further; tapping a pin previews only nearby media, not the whole world.',
-    de: '3D-Erde: Zoom geht jetzt deutlich weiter; Pin-Tipp zeigt nur Medien in der Nähe, nicht die ganze Welt.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.76',
-    tr: 'Uygulama adı: MediaAtlas (eski MedyaAtlas).',
-    en: 'App name is now MediaAtlas (formerly MedyaAtlas).',
-    de: 'App-Name jetzt MediaAtlas (früher MedyaAtlas).',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.75',
-    tr: '3D dünya: Avrupa pinleri Afrika’da duruyordu (etiket kayması); dönüş hızlandı, medyaya odaklanır.',
-    en: '3D globe: Europe pins no longer sit on Africa (label offset); faster drag, focuses on your media.',
-    de: '3D-Erde: Europa-Pins nicht mehr in Afrika (Label-Versatz); schnelleres Drehen, Fokus auf Medien.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.74',
-    tr: '3D dünya: dokununca bozulma (yan panel / zoom / yeniden çizim) düzeltildi.',
-    en: '3D globe: fixed touch break (side panel / zoom / redraw).',
-    de: '3D-Erde: Touch-Bruch behoben (Seitenpanel / Zoom / Neuzeichnung).',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.73',
-    tr: 'Web: alt banner ile güvenli güncelleme (Service Worker); tek giriş noktası.',
-    en: 'Web: safe update via bottom banner (Service Worker); single entry point.',
-    de: 'Web: sicheres Update per unterem Banner (Service Worker); ein Einstieg.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.72',
-    tr: '3D dünya düzeltmesi (doku + web); resimler yalnızca yuvarlak yığın; küre harita türüne göre.',
-    en: '3D globe fix (texture + web); photos always round stacks; globe follows map type.',
-    de: '3D-Erde-Fix (Textur + Web); Fotos nur runde Stapel; Kugel folgt Kartentyp.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.71',
-    tr: 'Haritada medyaya dokununca altta ikon şeridi; ikona basınca tam ekran kaydırılabilir izleyici.',
-    en: 'Tap map media for a bottom icon strip; tap an icon for fullscreen swipe viewer.',
-    de: 'Kartenmedien antippen: Icon-Leiste unten; Icon tippen → Vollbild-Wischer.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.70',
-    tr: 'Yuvarlak = döndürülebilir 3D dünya; düzlem = 2D harita. Isı/resim ayrı seçilir.',
-    en: 'Globe = rotatable 3D Earth; flat = 2D map. Heat/photos chosen separately.',
-    de: 'Kugel = drehbare 3D-Erde; flach = 2D-Karte. Heat/Fotos separat wählbar.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.69',
-    tr: 'Yuvarlak pin: şekil seçince resim moduna geçer; daire pin yerleşimi düzeltildi.',
-    en: 'Round pins: choosing a shape switches to photos; circular pin layout fixed.',
-    de: 'Runde Pins: Formwahl wechselt zu Fotos; Kreispin-Layout korrigiert.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.68',
-    tr: 'Pin görünümü: ısı veya resim; yuvarlak veya düzlem (kare) — üst çubuktan seçilir.',
-    en: 'Pin style: heat or photos; round or flat (square) — choose from the top bar.',
-    de: 'Pin-Stil: Heatmap oder Fotos; rund oder flach — in der oberen Leiste wählbar.',
-  ),
-  VersionHistoryEntry(
-    version: '1.0.67',
-    tr: 'Haritada medyaya dokununca ekrandaki tüm medya yan yana kaydırılır (zoom ile daraltılmaz).',
-    en: 'Tap map media to swipe all on-screen items side by side (no zoom-in shrink).',
-    de: 'Kartenmedien antippen: alle sichtbaren Medien nebeneinander wischen (kein Zoom).',
+    version: '1.0.82',
+    tr: '1.0.67–1.0.81 arası geri alındı (3D dünya, pin stilleri, ekran ortası şerit vb.) — yavaşlık ve gerek duyulmaması nedeniyle 1.0.66 tabanına dönüldü.',
+    en: 'Reverted 1.0.67–1.0.81 (3D globe, pin styles, media strip, etc.) — rolled back to the 1.0.66 baseline due to slowness and no longer being needed.',
+    de: '1.0.67–1.0.81 zurückgesetzt (3D-Globus, Pin-Stile, Medienleiste usw.) — wegen Verlangsamung und Nichtbedarf auf 1.0.66-Basis zurückgekehrt.',
   ),
   VersionHistoryEntry(
     version: '1.0.66',

@@ -13,7 +13,7 @@ Future<void> main() async {
   // Marker NaN gibi hatalarda tüm uygulama kırmızı ekranda kalmasın.
   ErrorWidget.builder = (details) {
     assert(() {
-      debugPrint('MediaAtlas ErrorWidget: ${details.exceptionAsString()}');
+      debugPrint('MedyaAtlas ErrorWidget: ${details.exceptionAsString()}');
       return true;
     }());
     return const ColoredBox(
@@ -35,11 +35,11 @@ Future<void> main() async {
   await MediaRepository.instance.init();
   await TrackRepository.instance.init();
   await AppSettings.instance.init();
-  runApp(const MediaAtlasApp());
+  runApp(const MedyaAtlasApp());
 }
 
-class MediaAtlasApp extends StatelessWidget {
-  const MediaAtlasApp({super.key});
+class MedyaAtlasApp extends StatelessWidget {
+  const MedyaAtlasApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +50,7 @@ class MediaAtlasApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: AppSettings.instance),
       ],
       child: MaterialApp(
-        title: 'MediaAtlas',
+        title: 'MedyaAtlas',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           brightness: Brightness.dark,

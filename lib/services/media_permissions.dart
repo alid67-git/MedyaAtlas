@@ -32,7 +32,7 @@ Future<MediaPermissionResult> ensureAndroidMediaAccess() async {
     return const MediaPermissionResult(
       ok: false,
       message:
-          'Medya izni yok. Ayarlar → MediaAtlas → Fotoğraf/Video iznini aç.',
+          'Medya izni yok. Ayarlar → MedyaAtlas → Fotoğraf/Video iznini aç.',
     );
   }
   if (!locOk) {
@@ -40,7 +40,7 @@ Future<MediaPermissionResult> ensureAndroidMediaAccess() async {
       ok: false,
       message:
           'Konum (medya) izni yok. Android EXIF GPS için “medya konumu” '
-          'izni gerekir. Ayarlar → MediaAtlas → İzinler.',
+          'izni gerekir. Ayarlar → MedyaAtlas → İzinler.',
     );
   }
   return const MediaPermissionResult(ok: true);
