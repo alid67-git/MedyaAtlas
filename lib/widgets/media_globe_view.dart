@@ -12,7 +12,7 @@ import '../repositories/media_repository.dart';
 import '../services/app_settings.dart';
 import 'photo_map_pin.dart';
 
-/// Döndürülebilir 3D dünya — harita katmanına göre doku; medya yuvarlak yığın.
+/// Döndürülebilir 3D dünya — sabit yarıçap; dokununca layout/etiket patlamasın.
 class MediaGlobeView extends StatefulWidget {
   const MediaGlobeView({
     super.key,
@@ -34,13 +34,20 @@ class MediaGlobeView extends StatefulWidget {
 }
 
 class MediaGlobeViewState extends State<MediaGlobeView> {
-  static const _maxPoints = 280;
+  /// Nokta sayısı (ısı); etiketler ayrıca sınırlı.
+  static const _maxPoints = 160;
+  /// Ağır foto etiketleri — yalnızca en büyük kümeler.
+  static const _maxPhotoLabels = 28;
 
   late final FlutterEarthGlobeController _controller;
   String _syncKey = '';
   MapLayer? _loadedLayer;
   var _surfaceReady = false;
   var _loadFailed = false;
+
+  /// İlk layout’ta kilitlenir — şerit/panel açılınca radius değişmesin.
+  double? _lockedRadius;
+  var _syncingPoints = false;
 
   FlutterEarthGlobeController get controller => _controller;
 
@@ -58,32 +65,37 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
       rotationSpeed: 0.03,
       isRotating: false,
       isZoomEnabled: true,
-      zoom: 0.85,
-      minZoom: -0.4,
-      maxZoom: 3.5,
-      atmosphereOpacity: 0.45,
-      atmosphereThickness: 0.04,
+      // convertedRadius = radius * 2^zoom — yüksek zoom layout’u şişirip bozar.
+      zoom: 0.4,
+      minZoom: 0.1,
+      maxZoom: 0.85,
+      zoomSensitivity: 0.35,
+      panSensitivity: 0.8,
+      zoomToMousePosition: false,
+      atmosphereOpacity: 0.4,
+      atmosphereThickness: 0.035,
       surfaceLightingEnabled: true,
       isDayNightCycleEnabled: false,
       showAtmosphere: true,
       sphereStyle: const SphereStyle(
         showShadow: true,
-        shadowBlurSigma: 28,
+        shadowBlurSigma: 18,
       ),
     );
     _controller.addListener(_onController);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _applyLayerTexture(widget.mapLayer, force: true);
       _syncPoints(force: true);
     });
-    // Doku yüklenmezse kullanıcı boş ekranda kalmasın.
-    Future<void>.delayed(const Duration(seconds: 6), () {
+    Future<void>.delayed(const Duration(seconds: 8), () {
       if (!mounted || _surfaceReady) return;
       setState(() => _loadFailed = true);
     });
   }
 
   void _onController() {
+    if (_syncingPoints) return;
     final ready = _controller.surface != null;
     if (ready != _surfaceReady && mounted) {
       setState(() {
@@ -99,11 +111,21 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
     if (oldWidget.mapLayer != widget.mapLayer) {
       _applyLayerTexture(widget.mapLayer, force: true);
     }
-    if (oldWidget.clusters != widget.clusters ||
-        oldWidget.display != widget.display ||
-        oldWidget.repo != widget.repo) {
+    if (oldWidget.display != widget.display ||
+        oldWidget.repo != widget.repo ||
+        !_sameClusterSet(oldWidget.clusters, widget.clusters)) {
       _syncPoints();
     }
+  }
+
+  bool _sameClusterSet(List<LocationCluster> a, List<LocationCluster> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    // Kısa imza — dokununca parent rebuild’inde gereksiz sync olmasın.
+    if (a.isEmpty) return true;
+    return a.first.id == b.first.id &&
+        a.last.id == b.last.id &&
+        a.length == b.length;
   }
 
   @override
@@ -117,7 +139,6 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
     if (!force && _loadedLayer == layer) return;
     _loadedLayer = layer;
     final img = _textureFor(layer);
-    // Precache sonra load — web/android’de boş küre olmasın.
     precacheImage(img, context).then((_) {
       if (!mounted) return;
       _controller.loadSurface(img);
@@ -163,76 +184,85 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
       widget.clusters.length,
       widget.display.index,
       Object.hashAll([
-        for (final c in widget.clusters.take(40))
+        for (final c in widget.clusters.take(24))
           Object.hash(c.id, c.items.length),
       ]),
     ).toString();
     if (!force && key == _syncKey && _controller.points.isNotEmpty) return;
     _syncKey = key;
 
-    final existing = List<Point>.from(_controller.points);
-    for (final p in existing) {
-      _controller.removePoint(p.id);
-    }
+    _syncingPoints = true;
+    try {
+      // Toplu temizle — her removePoint notifyListener yapmasın diye doğrudan liste.
+      _controller.points.clear();
 
-    final ranked = List<LocationCluster>.from(widget.clusters)
-      ..sort((a, b) => b.items.length.compareTo(a.items.length));
-
-    for (final cluster in ranked.take(_maxPoints)) {
-      final lat = cluster.latitude;
-      final lng = cluster.longitude;
-      if (!lat.isFinite || !lng.isFinite) continue;
-      if (lat.abs() > 90 || lng.abs() > 180) continue;
-      final n = cluster.items.length;
+      final ranked = List<LocationCluster>.from(widget.clusters)
+        ..sort((a, b) => b.items.length.compareTo(a.items.length));
+      final take = ranked.take(_maxPoints).toList();
       final photos = widget.display == MapPinDisplay.photos;
-      final covers = photos ? clusterPinCovers(cluster.items) : null;
-      _controller.addPoint(
-        Point(
-          id: cluster.id,
-          coordinates: GlobeCoordinates(lat, lng),
-          isLabelVisible: photos,
-          labelOffset: const Offset(0, -36),
-          labelBuilder: photos
-              ? (context, point, hovering, visible) {
-                  if (!visible || covers == null) {
-                    return const SizedBox.shrink();
-                  }
-                  return Transform.scale(
-                    scale: hovering ? 1.1 : 1.0,
-                    child: PhotoMapPin(
+      final labelIds = photos
+          ? {for (final c in take.take(_maxPhotoLabels)) c.id}
+          : <String>{};
+
+      for (final cluster in take) {
+        final lat = cluster.latitude;
+        final lng = cluster.longitude;
+        if (!lat.isFinite || !lng.isFinite) continue;
+        if (lat.abs() > 90 || lng.abs() > 180) continue;
+        final n = cluster.items.length;
+        final showLabel = labelIds.contains(cluster.id);
+        final covers = showLabel ? clusterPinCovers(cluster.items) : null;
+        _controller.points.add(
+          Point(
+            id: cluster.id,
+            coordinates: GlobeCoordinates(lat, lng),
+            isLabelVisible: showLabel,
+            labelOffset: const Offset(0, -32),
+            labelBuilder: showLabel && covers != null
+                ? (context, point, hovering, visible) {
+                    if (!visible) return const SizedBox.shrink();
+                    // Hafif: yığın + uç; hover’da scale yok (setState fırtınası).
+                    return PhotoMapPin(
                       item: covers.cover,
                       repo: widget.repo,
                       count: n,
                       extraCovers: covers.behind,
                       showTip: true,
-                    ),
-                  );
-                }
-              : null,
-          style: photos
-              ? PointStyle(
-                  size: 3,
-                  color: Colors.white.withValues(alpha: 0.2),
-                  altitude: 0.03,
-                  transitionDuration: 180,
-                  merge: false,
-                )
-              : PointStyle(
-                  size: _heatSize(n),
-                  color: _heatColor(n),
-                  altitude: 0.05,
-                  transitionDuration: 180,
-                  merge: true,
-                ),
-          onTap: () => widget.onOpenCluster(cluster),
-        ),
-      );
+                    );
+                  }
+                : null,
+            style: photos
+                ? PointStyle(
+                    size: showLabel ? 2.5 : _heatSize(n).clamp(3, 8),
+                    color: showLabel
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : _heatColor(n),
+                    altitude: 0.03,
+                    transitionDuration: 0,
+                    merge: !showLabel,
+                  )
+                : PointStyle(
+                    size: _heatSize(n),
+                    color: _heatColor(n),
+                    altitude: 0.04,
+                    transitionDuration: 0,
+                    merge: true,
+                  ),
+            onTap: () => widget.onOpenCluster(cluster),
+          ),
+        );
+      }
+    } finally {
+      _syncingPoints = false;
     }
+    // Tek bildirim — küre bir kez yenilensin (paket API’sinde toplu sync yok).
+    // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+    _controller.notifyListeners();
   }
 
   static double _heatSize(int count) {
     final n = count.clamp(1, 200);
-    return math.min(14.0, 4.0 + math.sqrt(n) * 1.6);
+    return math.min(12.0, 3.5 + math.sqrt(n) * 1.4);
   }
 
   static Color _heatColor(int count) {
@@ -251,15 +281,26 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
       color: const Color(0xFF050B12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final side = math.min(constraints.maxWidth, constraints.maxHeight);
-          final radius = (side * 0.40).clamp(140.0, 480.0);
+          // İlk çerçevede kilitle — şerit/panel açılınca radius yeniden hesaplanmasın.
+          final mq = MediaQuery.sizeOf(context);
+          final side = math.min(mq.width, mq.height);
+          _lockedRadius ??= (side * 0.32).clamp(130.0, 260.0);
+          final radius = _lockedRadius!;
+          final w = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : mq.width;
+          final h = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : mq.height;
+
           return Stack(
             fit: StackFit.expand,
             children: [
-              Center(
+              // Taşmayı kes — paket zoom’da maxWidth’i şişirir.
+              ClipRect(
                 child: SizedBox(
-                  width: constraints.maxWidth,
-                  height: constraints.maxHeight,
+                  width: w,
+                  height: h,
                   child: FlutterEarthGlobe(
                     controller: _controller,
                     radius: radius,
@@ -268,45 +309,47 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
                 ),
               ),
               if (!_surfaceReady)
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!_loadFailed) ...[
-                        const CircularProgressIndicator(
-                          color: Color(0xFF2EC4B6),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '3D dünya yükleniyor…',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.75),
+                IgnorePointer(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!_loadFailed) ...[
+                          const CircularProgressIndicator(
+                            color: Color(0xFF2EC4B6),
                           ),
-                        ),
-                      ] else ...[
-                        const Icon(Icons.public_off,
-                            color: Colors.white54, size: 40),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Dünya dokusu yüklenemedi.\nHarita türünü değiştirip yeniden deneyin.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
+                          const SizedBox(height: 12),
+                          Text(
+                            '3D dünya yükleniyor…',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _loadFailed = false;
-                              _surfaceReady = false;
-                            });
-                            _applyLayerTexture(widget.mapLayer, force: true);
-                          },
-                          child: const Text('Yeniden dene'),
-                        ),
+                        ] else ...[
+                          const Icon(Icons.public_off,
+                              color: Colors.white54, size: 40),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Dünya dokusu yüklenemedi.\nHarita türünü değiştirip yeniden deneyin.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _loadFailed = false;
+                                _surfaceReady = false;
+                              });
+                              _applyLayerTexture(widget.mapLayer, force: true);
+                            },
+                            child: const Text('Yeniden dene'),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
             ],

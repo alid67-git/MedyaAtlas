@@ -2775,7 +2775,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             Expanded(
                               child: _buildMain(clusters, missing, repo),
                             ),
-                            if (wide && _panelCluster != null) ...[
+                            // 3D kürede yan panel harita alanını daraltıp küreyi bozar;
+                            // yalnızca alt şerit kullan.
+                            if (wide &&
+                                _panelCluster != null &&
+                                settings.mapSurface != MapSurface.globe) ...[
                               const VerticalDivider(width: 1),
                               SizedBox(
                                 width: 360,
