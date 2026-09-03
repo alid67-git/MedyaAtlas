@@ -200,20 +200,12 @@ class _PinThumb extends StatelessWidget {
     if (cached != null) {
       return OrientedMemoryImage(cached, fit: BoxFit.cover);
     }
-    if (kIsWeb) {
-      return VideoThumb(
-        path: item.localPath,
-        kind: item.kind,
-        resolveUrl: () => repo.resolvePlayableUrl(item),
-      );
-    }
-    return ColoredBox(
-      color: const Color(0xFF1A2A36),
-      child: Icon(
-        item.kind == MediaKind.drone ? Icons.flight : Icons.videocam,
-        color: Colors.white54,
-        size: 22,
-      ),
+    // Etiketli pin sayısı zaten sınırlı (_maxPhotoLabels) — foto pinlerle
+    // aynı maliyetle Android/Windows'ta da gerçek video karesi gösterilir.
+    return VideoThumb(
+      path: item.localPath,
+      kind: item.kind,
+      resolveUrl: () => repo.resolvePlayableUrl(item),
     );
   }
 

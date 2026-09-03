@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.78',
+    tr: '2D iz çizimi artık RideAtlas gibi köşeleri koruyor; 3D küre en yakın zoomda otomatik 2D\'ye geçip aynı noktadan büyümeye devam ediyor; açılışta bulunan konuma gidiliyor; Android\'de 3D pinlerde video önizleme; arka plandan dönünce küre yeniden yükleniyor.',
+    en: '2D track drawing now keeps corner detail like RideAtlas; 3D globe auto-switches to 2D at max zoom and keeps zooming into the same spot; app opens at your current location; Android globe video pins now preview; globe reloads its surface after returning from background.',
+    de: '2D-Track zeichnet jetzt wie RideAtlas mit Ecken-Detail; 3D-Erde wechselt bei Maximalzoom automatisch zu 2D und zoomt am selben Punkt weiter; App öffnet am aktuellen Standort; Android-Globus-Pins zeigen jetzt Video-Vorschau; Globus lädt Oberfläche nach Rückkehr aus Hintergrund neu.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.77',
     tr: '3D dünya: zoom belirgin şekilde büyüyor; pin dokununca yalnızca yakın çevredeki medya önizlenir (tüm dünya değil).',
     en: '3D globe: zoom now goes noticeably further; tapping a pin previews only nearby media, not the whole world.',

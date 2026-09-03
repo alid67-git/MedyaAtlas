@@ -1,7 +1,7 @@
 name: medyaatlas
 description: MediaAtlas — Windows, Android ve web GPS medya haritası (yerel kayıt).
 publish_to: 'none'
-version: 1.0.77+105
+version: 1.0.78+106
 
 environment:
   sdk: '>=3.9.0 <4.0.0'

@@ -6,6 +6,7 @@ import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 import 'package:flutter_earth_globe/globe_coordinates.dart';
 import 'package:flutter_earth_globe/point.dart';
 import 'package:flutter_earth_globe/sphere_style.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
@@ -21,6 +22,7 @@ class MediaGlobeView extends StatefulWidget {
     required this.display,
     required this.mapLayer,
     required this.onOpenCluster,
+    this.onMaxZoomReached,
   });
 
   final List<LocationCluster> clusters;
@@ -28,6 +30,12 @@ class MediaGlobeView extends StatefulWidget {
   final MapPinDisplay display;
   final MapLayer mapLayer;
   final ValueChanged<LocationCluster> onOpenCluster;
+
+  /// Küre en yakın zoom'a ulaştığında bir kez tetiklenir — parent 2D
+  /// haritaya geçip aynı noktadan büyütmeye devam edebilsin diye.
+  /// Paket kameranın o anki merkezini dışa açmıyor; en son [focusLatLng]
+  /// ile odaklanılan nokta geçilir (elle döndürülmüşse tam isabet olmayabilir).
+  final ValueChanged<LatLng>? onMaxZoomReached;
 
   @override
   State<MediaGlobeView> createState() => MediaGlobeViewState();
@@ -49,6 +57,11 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
   /// İlk layout’ta kilitlenir — şerit/panel açılınca radius değişmesin.
   double? _lockedRadius;
   var _syncingPoints = false;
+
+  /// En son [focusLatLng] ile odaklanılan nokta — max zoom'da 2D'ye geçişte
+  /// kullanılır (paket kameranın merkezini başka türlü dışa açmıyor).
+  GlobeCoordinates? _lastFocus;
+  var _maxZoomFired = false;
 
   FlutterEarthGlobeController get controller => _controller;
 
@@ -110,6 +123,25 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
         if (ready) _loadFailed = false;
       });
     }
+    _checkMaxZoom();
+  }
+
+  /// Küre en yakın zoom'a ulaştığında bir kez (yeniden uzaklaşıp
+  /// yaklaşana kadar) [MediaGlobeView.onMaxZoomReached] tetiklenir.
+  void _checkMaxZoom() {
+    final onMax = widget.onMaxZoomReached;
+    if (onMax == null) return;
+    final zoom = _controller.zoom;
+    final max = _controller.maxZoom;
+    if (zoom >= max - 0.02) {
+      final focus = _lastFocus;
+      if (!_maxZoomFired && focus != null) {
+        _maxZoomFired = true;
+        onMax(LatLng(focus.latitude, focus.longitude));
+      }
+    } else if (zoom < max - 0.3) {
+      _maxZoomFired = false;
+    }
   }
 
   @override
@@ -142,6 +174,12 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
     super.dispose();
   }
 
+  /// Android'de arka plandan dönünce (GPU yüzeyi kaybolabilir) dokuyu
+  /// yeniden yükle — küre "ilk açılışta görünüyor, sonra görünmüyor"a düşmesin.
+  void reloadSurface() {
+    _applyLayerTexture(widget.mapLayer, force: true);
+  }
+
   void _applyLayerTexture(MapLayer layer, {bool force = false}) {
     if (!force && _loadedLayer == layer) return;
     _loadedLayer = layer;
@@ -160,9 +198,10 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
 
   void focusLatLng(double lat, double lng, {bool animate = true}) {
     if (!lat.isFinite || !lng.isFinite) return;
+    _lastFocus = GlobeCoordinates(lat, lng);
     try {
       _controller.focusOnCoordinates(
-        GlobeCoordinates(lat, lng),
+        _lastFocus!,
         animate: animate,
       );
     } catch (_) {}
