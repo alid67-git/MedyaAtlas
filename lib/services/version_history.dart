@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.85',
+    tr: 'iPhone\'da GPX/KML seçiciyi açınca gereksiz "Fotoğraf Kitaplığı" / "Video Çek" seçenekleri çıkıyordu — artık sadece dosya seçici geliyor.',
+    en: 'Opening the GPX/KML picker on iPhone showed unnecessary "Photo Library" / "Take Photo or Video" options — now only the file browser opens.',
+    de: 'Der GPX/KML-Dateiauswähler auf dem iPhone zeigte unnötige Optionen „Fotomediathek" / „Foto oder Video aufnehmen" — jetzt öffnet sich nur die Dateiauswahl.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.84',
     tr: 'Haritayı çok küçültünce dünya yan yana tekrar tekrar çıkıyordu — artık tek dünyada kilitli.',
     en: 'Zooming the map way out repeated the world side by side — now locked to a single world view.',
