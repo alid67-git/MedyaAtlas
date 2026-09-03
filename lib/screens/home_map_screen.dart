@@ -104,6 +104,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _mapInteracting = false;
   Timer? _mapIdleTimer;
 
+  /// Küre max zoom'a ulaşınca 2D'ye "hile" ile geçiş — [AppSettings.mapSurface]
+  /// değişmez (mod ikonu 3D'de kalır, kullanıcı geçişi fark etmez). Ters zum
+  /// yapılınca otomatik küreye döner. Kullanıcı ayarlar menüsünden elle mod
+  /// değiştirirse [_buildMain] bunu sıfırlar.
+  var _globeZoomOverrideFlat = false;
+  MapSurface? _lastKnownMapSurface;
+  static const _globeReturnZoom = 5.0;
+
   /// Zorunlu güncelleme — harita kullanılmaz.
   AppUpdateInfo? _forceUpdate;
 
@@ -2554,18 +2562,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   /// 3D küre en yakın zoom'a ulaşınca 2D haritaya geç ve aynı noktadan
   /// (yakın bir zoom'la) büyütmeye devam et — 2D ve 3D aynı son noktaya
-  /// kadar büyüsün.
-  Future<void> _handleGlobeMaxZoom(LatLng point) async {
+  /// kadar büyüsün. Bu tamamen dahili bir hile: [AppSettings.mapSurface]
+  /// (ve dolayısıyla mod ikonu) değişmez, kullanıcı hâlâ "3D"de gibi görür.
+  void _handleGlobeMaxZoom(LatLng point) {
     final settings = context.read<AppSettings>();
-    if (settings.mapSurface != MapSurface.globe) return;
-    // setMapSurface yalnızca Hive yazımından sonra notifyListeners çağırıyor;
-    // FlutterMap'in mount olduğu yeniden çizim tamamlanmadan _map.move
-    // çağrılırsa henüz eklenmemiş bir controller'a taşınmaya çalışılır.
-    await settings.setMapSurface(MapSurface.flat);
-    if (!mounted) return;
+    if (settings.mapSurface != MapSurface.globe || _globeZoomOverrideFlat) {
+      return;
+    }
+    setState(() => _globeZoomOverrideFlat = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _map.move(point, 17);
+    });
+  }
+
+  /// Hile 2D'deyken ters zum yapılırsa küreye geri dön — kullanıcı sanki
+  /// hep 3D'deymiş gibi hisseder.
+  void _returnToGlobeFromZoomOverride(LatLng center) {
+    if (!_globeZoomOverrideFlat) return;
+    setState(() => _globeZoomOverrideFlat = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _globeKey.currentState?.focusLatLng(
+        center.latitude,
+        center.longitude,
+        animate: false,
+      );
     });
   }
 
@@ -3928,7 +3950,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final trackRepo = context.watch<TrackRepository>();
     final settings = context.watch<AppSettings>();
     final visibleTracks = trackRepo.visibleTracksList;
-    final useGlobe = settings.mapSurface == MapSurface.globe;
+    // Kullanıcı ayarlar menüsünden elle mod değiştirdiyse (bu, hile
+    // dışındaki tek değişim yolu) hile bayrağını sıfırla.
+    if (_lastKnownMapSurface != null &&
+        _lastKnownMapSurface != settings.mapSurface) {
+      _globeZoomOverrideFlat = false;
+    }
+    _lastKnownMapSurface = settings.mapSurface;
+    // iPhone/iPad Safari (PWA dahil): flutter_earth_globe paketinde bilinen,
+    // açık bir hata var — WebKit'te doku hiç çizilmiyor (paket demosunda da
+    // aynı sorun var, çözümü yok). Denemeden sessizce 2D'ye düş — mod ikonu
+    // yine de 3D'de kalır, kullanıcı bunun bir "eksiklik" olduğunu görmez.
+    final useGlobe =
+        settings.mapSurface == MapSurface.globe &&
+        !_globeZoomOverrideFlat &&
+        !hostIsAppleWeb;
     final mapMarkers =
         useGlobe ? (heat: const <Marker>[], selected: const <Marker>[]) : _mapMarkersFor(clusters, repo, settings);
     return Stack(
@@ -4001,6 +4037,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         event is MapEventDoubleTapZoomStart ||
         event is MapEventScrollWheelZoom;
     if (!busy) return;
+    if (_globeZoomOverrideFlat && event.camera.zoom <= _globeReturnZoom) {
+      _returnToGlobeFromZoomOverride(event.camera.center);
+    }
     _mapIdleTimer?.cancel();
     if (!_mapInteracting && mounted) {
       setState(() => _mapInteracting = true);
@@ -4521,15 +4560,28 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
     return true;
   }
 
+  /// Aynı anda görünen tüm izler için toplam nokta bütçesi (ANR riski —
+  /// UI isolate'ta binlerce nokta) — iz sayısına bölünür, tek iz için de
+  /// makul bir taban tutulur.
+  static const _totalDisplayPointBudget = 6000;
+
   void _rebuildPolylines() {
     final polylines = <Polyline>[];
+    final perTrackCap = widget.tracks.isEmpty
+        ? _totalDisplayPointBudget
+        : math.max(
+            800,
+            _totalDisplayPointBudget ~/ widget.tracks.length,
+          );
     for (final track in widget.tracks) {
       final raw = <LatLng>[
         for (final p in track.points)
           if (isValidGps(p.latitude, p.longitude)) p.latLng,
       ];
-      // Harita pan için agresif sadeleştirme (tam nokta GPS’te kalır).
-      final pts = _downsampleTrackPoints(raw, maxPoints: 500);
+      // Önce mesafeye göre inceltir (köşe/detay korunur), hâlâ gerekiyorsa
+      // indeks adımıyla son bir düşürme yapar — RideAtlas'taki gibi. Eski
+      // sabit indeks-adımı (500 nokta) köşeleri siliyordu.
+      final pts = simplifyLatLngsForDisplay(raw, maxPoints: perTrackCap);
       if (pts.length < 2) continue;
       polylines.add(
         Polyline(
@@ -4542,23 +4594,6 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
       );
     }
     _polylines = polylines;
-  }
-
-  /// Yoğun GPX — UI isolate’ta binlerce nokta ANR riski.
-  static List<LatLng> _downsampleTrackPoints(
-    List<LatLng> pts, {
-    required int maxPoints,
-  }) {
-    if (pts.length <= maxPoints) return pts;
-    final out = <LatLng>[pts.first];
-    final step = pts.length / maxPoints;
-    var cursor = step;
-    while (cursor < pts.length - 1) {
-      out.add(pts[cursor.floor()]);
-      cursor += step;
-    }
-    out.add(pts.last);
-    return out;
   }
 
   @override
