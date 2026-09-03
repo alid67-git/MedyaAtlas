@@ -23,6 +23,24 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.87',
+    tr: 'Çok sayıda iz açıkken hepsi aynı renkti — artık her iz farklı, birbirinden ayırt edilebilir bir renk alıyor.',
+    en: 'With many tracks visible, they all had the same color — each track now gets a distinct, easy-to-tell-apart color.',
+    de: 'Bei vielen sichtbaren Tracks hatten alle dieselbe Farbe — jeder Track bekommt jetzt eine eigene, gut unterscheidbare Farbe.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.86',
+    tr: 'İz çizimi çok kaba kalıyordu: haritanın kendi katmanı, 30 iz açıkken tavanı 500 noktaya kadar düşürüyordu (eski kaba algoritmayla aynı sonuç). O ikinci sınırlama kaldırıldı — RideAtlas gibi tek sadeleştirme katmanı kaldı.',
+    en: 'Track lines were still very coarse: the map\'s own display layer was capping each track down to as low as 500 points when many tracks were visible at once (same result as the old crude algorithm). Removed that second cap — one simplification layer now, like RideAtlas.',
+    de: 'Track-Linien blieben sehr grob: Die eigene Anzeigeebene der Karte begrenzte jeden Track bei vielen sichtbaren Tracks auf bis zu 500 Punkte (gleiches Ergebnis wie der alte grobe Algorithmus). Diese zweite Begrenzung entfernt — jetzt nur noch eine Vereinfachungsebene wie bei RideAtlas.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.85',
+    tr: 'iPhone\'da GPX/KML seçiciyi açınca gereksiz "Fotoğraf Kitaplığı" / "Video Çek" seçenekleri çıkıyordu — artık sadece dosya seçici geliyor.',
+    en: 'Opening the GPX/KML picker on iPhone showed unnecessary "Photo Library" / "Take Photo or Video" options — now only the file browser opens.',
+    de: 'Der GPX/KML-Dateiauswähler auf dem iPhone zeigte unnötige Optionen „Fotomediathek" / „Foto oder Video aufnehmen" — jetzt öffnet sich nur die Dateiauswahl.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.84',
     tr: 'Haritayı çok küçültünce dünya yan yana tekrar tekrar çıkıyordu — artık tek dünyada kilitli.',
     en: 'Zooming the map way out repeated the world side by side — now locked to a single world view.',

@@ -12,18 +12,24 @@ export 'track_file_types.dart';
 /// Uzantılı filtre — Fotoğraflar’ı azaltır ama Drive uzantısızını gizler.
 const _trackAcceptStrict = '.gpx,.kml,.kmz,.xml';
 
-/// [allowAny]=true: uzantısız Drive GPX seçilebilir (içerik sniffer).
-/// iPhone’da Fotoğraflar da görünebilir — foto içerikle elenir.
+/// `accept` boşsa/`*/*` ise Safari resim+video MIME'lerini de eşleştirip
+/// "Fotoğraf Kitaplığı" / "Fotoğraf veya Video Çek" seçeneklerini ekliyor —
+/// bir GPX seçici için anlamsız. `application/octet-stream` tarayıcının tipi
+/// tanıyamadığı (uzantısız Drive GPX gibi) dosyaları da seçilebilir bırakıyor,
+/// resim/video MIME'si eklemeden — o iki seçenek artık hiç çıkmıyor.
+const _trackAcceptNoPhotos =
+    '.gpx,.kml,.kmz,.xml,application/octet-stream,application/gpx+xml,'
+    'application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,'
+    'text/xml,application/xml';
+
+/// [allowAny]=true: uzantısız Drive GPX de seçilebilir (içerik sniffer) ama
+/// "Fotoğraf Kitaplığı" / "Video Çek" iOS seçenekleri çıkmaz.
 Future<TrackPickResult?> pickTrackFiles({bool allowAny = true}) async {
   final done = Completer<TrackPickResult?>();
   final input = web.HTMLInputElement()
     ..type = 'file'
     ..multiple = true;
-  if (allowAny) {
-    input.removeAttribute('accept');
-  } else {
-    input.accept = _trackAcceptStrict;
-  }
+  input.accept = allowAny ? _trackAcceptNoPhotos : _trackAcceptStrict;
   input.removeAttribute('capture');
   input.style
     ..position = 'fixed'
