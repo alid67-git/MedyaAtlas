@@ -3957,8 +3957,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _globeZoomOverrideFlat = false;
     }
     _lastKnownMapSurface = settings.mapSurface;
+    // iPhone/iPad Safari (PWA dahil): flutter_earth_globe paketinde bilinen,
+    // açık bir hata var — WebKit'te doku hiç çizilmiyor (paket demosunda da
+    // aynı sorun var, çözümü yok). Denemeden sessizce 2D'ye düş — mod ikonu
+    // yine de 3D'de kalır, kullanıcı bunun bir "eksiklik" olduğunu görmez.
     final useGlobe =
-        settings.mapSurface == MapSurface.globe && !_globeZoomOverrideFlat;
+        settings.mapSurface == MapSurface.globe &&
+        !_globeZoomOverrideFlat &&
+        !hostIsAppleWeb;
     final mapMarkers =
         useGlobe ? (heat: const <Marker>[], selected: const <Marker>[]) : _mapMarkersFor(clusters, repo, settings);
     return Stack(

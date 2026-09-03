@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.81',
+    tr: 'iPhone/iPad Safari\'de 3D dünya boş görünüyordu (paketin bilinen, çözümsüz WebKit hatası) — artık denemeden sessizce 2D haritaya geçiliyor, mod ikonu yine 3D gösteriyor.',
+    en: 'The 3D globe rendered blank on iPhone/iPad Safari (a known, unresolved WebKit bug in the globe package) — it now falls back to the 2D map without even attempting it, and the mode icon still shows 3D.',
+    de: 'Der 3D-Globus blieb auf iPhone/iPad Safari leer (ein bekannter, ungelöster WebKit-Fehler im Globus-Paket) — jetzt wird ohne Versuch direkt auf die 2D-Karte umgeschaltet, das Modus-Symbol zeigt weiterhin 3D.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.80',
     tr: '3D→2D zoom geçişi artık gizli: mod ikonu 3D\'de kalır, ters zumda otomatik küreye döner. 2D harita çizgisi ayrı bir katmanda hâlâ 500 noktaya kırpılıyordu — o da RideAtlas gibi köşe koruyarak inceltiliyor.',
     en: '3D→2D zoom handoff is now hidden: the mode icon stays on 3D, zooming back out returns to the globe automatically. The 2D track line had a separate 500-point cap in the map layer — that now also thins RideAtlas-style, keeping corners.',
