@@ -200,13 +200,9 @@ class _PinThumb extends StatelessWidget {
     if (cached != null) {
       return OrientedMemoryImage(cached, fit: BoxFit.cover);
     }
-    // Etiketli pin sayısı zaten sınırlı (_maxPhotoLabels) — foto pinlerle
-    // aynı maliyetle Android/Windows'ta da gerçek video karesi gösterilir.
-    return VideoThumb(
-      path: item.localPath,
-      kind: item.kind,
-      resolveUrl: () => repo.resolvePlayableUrl(item),
-    );
+    // Statik JPEG'i önbelleğe alıp gösterir; onlarca MB'lık canlı video
+    // çözücü ([VideoThumb]) açmaz — bir ekran dolusu pin bunu göze alamaz.
+    return CachedVideoThumb(item: item, repo: repo);
   }
 
   Widget _pinBytesFallback({

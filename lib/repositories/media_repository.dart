@@ -40,8 +40,22 @@ class MediaRepository extends ChangeNotifier {
 
   final List<LibraryMedia> _items = [];
   final List<MediaSource> _sources = [];
-  /// Oturum önizleme (Hive’a yazılmaz — kopya yok).
+  /// Oturum önizleme (Hive’a yazılmaz — kopya yok). LRU: [_touchBytesCache]
+  /// sınırın üstüne çıkınca en eski girdileri atar (sınırsız büyüyüp OOM'a
+  /// yol açmasın diye). Telefon taramasından gelenler [_touchBytesCache]
+  /// gerekirse (phoneAssetThumbnailBytes ile) yeniden üretilebilir; sadece
+  /// web'in oturuma özel oynatma bellek baytları kalıcı olarak kaybolur.
   final Map<String, Uint8List> _bytesCache = {};
+  static const _bytesCacheCap = 150;
+
+  void _touchBytesCache(String id, Uint8List bytes) {
+    _bytesCache.remove(id);
+    _bytesCache[id] = bytes;
+    while (_bytesCache.length > _bytesCacheCap) {
+      _bytesCache.remove(_bytesCache.keys.first);
+    }
+  }
+
   /// id → değişmemiş öğenin son üretilmiş (scrub edilmiş) JSON'u.
   /// Binlerce medyalı kütüphanede her ekleme tüm listeyi yeniden
   /// serileştirmesin diye — sadece değişen öğeler yeniden hesaplanır.
@@ -425,11 +439,16 @@ class MediaRepository extends ChangeNotifier {
     return null;
   }
 
-  Uint8List? cachedBytes(String id) => _bytesCache[id];
+  Uint8List? cachedBytes(String id) {
+    final bytes = _bytesCache.remove(id);
+    if (bytes == null) return null;
+    _bytesCache[id] = bytes; // LRU: en son okunan sona taşınır.
+    return bytes;
+  }
 
   Future<Uint8List?> bytesOf(String id) async {
-    // Kalıcı kopya yok — yalnızca oturum önbelleği.
-    return _bytesCache[id];
+    // Kalıcı kopya yok — yalnızca oturum önbelleği (LRU sınırlı).
+    return cachedBytes(id);
   }
 
   @Deprecated('Medya kopyalanmaz; no-op.')
@@ -683,7 +702,7 @@ class MediaRepository extends ChangeNotifier {
     _items.insert(0, media);
     // Dosya kopyası yok — isteğe bağlı oturum önizlemesi yalnızca bellekte.
     if (bytes != null && bytes.isNotEmpty) {
-      _bytesCache[media.id] = bytes;
+      _touchBytesCache(media.id, bytes);
     }
     if (persist) {
       await _persistIndex();
@@ -697,7 +716,7 @@ class MediaRepository extends ChangeNotifier {
   /// Oturum önizleme JPEG’i (diske/Hive’a yazılmaz).
   Future<void> putPreviewBytes(String id, Uint8List bytes) async {
     if (bytes.isEmpty) return;
-    _bytesCache[id] = bytes;
+    _touchBytesCache(id, bytes);
   }
 
   Future<void> updateLocation({
