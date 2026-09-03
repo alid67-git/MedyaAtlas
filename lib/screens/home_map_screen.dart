@@ -4417,7 +4417,7 @@ class _Thumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (item.isVideo) {
-      return _VideoThumbCached(item: item, repo: repo);
+      return CachedVideoThumb(item: item, repo: repo);
     }
     // Web: eski oturumdan kalma blob: yolu şekli hâlâ geçerli görünür ama
     // sayfa kapanınca ölür — mevcut oturumdan doğrula/tazele.
@@ -4478,131 +4478,6 @@ class _Thumb extends StatelessWidget {
         }
         return OrientedMemoryImage(bytes, fit: BoxFit.cover);
       },
-    );
-  }
-}
-
-/// Tarama sırasında kaydedilen JPEG; yoksa bir kez çıkarır (video_player yok).
-class _VideoThumbCached extends StatefulWidget {
-  const _VideoThumbCached({required this.item, required this.repo});
-
-  final LibraryMedia item;
-  final MediaRepository repo;
-
-  @override
-  State<_VideoThumbCached> createState() => _VideoThumbCachedState();
-}
-
-class _VideoThumbCachedState extends State<_VideoThumbCached> {
-  Uint8List? _bytes;
-  var _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void didUpdateWidget(covariant _VideoThumbCached oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.item.id != widget.item.id) {
-      _bytes = null;
-      _loading = true;
-      _load();
-    }
-  }
-
-  Future<void> _load() async {
-    // Web: video önizleme için dosya/player okuma yok (3 video = ciddi gecikme).
-    if (kIsWeb) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-    final cached =
-        widget.repo.cachedBytes(widget.item.id) ??
-        await widget.repo.bytesOf(widget.item.id);
-    if (cached != null && cached.isNotEmpty && looksLikeJpeg(cached)) {
-      if (mounted) {
-        setState(() {
-          _bytes = cached;
-          _loading = false;
-        });
-      }
-      return;
-    }
-    final extracted = await extractVideoPreviewBytes(
-      localPath: widget.item.localPath,
-      relativePath: widget.item.relativePath,
-    );
-    if (extracted != null && extracted.isNotEmpty) {
-      await widget.repo.putPreviewBytes(widget.item.id, extracted);
-      if (mounted) {
-        setState(() {
-          _bytes = extracted;
-          _loading = false;
-        });
-      }
-      return;
-    }
-    if (mounted) setState(() => _loading = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bytes = _bytes;
-    if (bytes != null) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            errorBuilder: (_, error, stack) => _webOrPathThumb(),
-          ),
-          const Align(
-            alignment: Alignment.bottomRight,
-            child: Padding(
-              padding: EdgeInsets.all(4),
-              child: Icon(
-                Icons.play_circle_fill,
-                size: 22,
-                color: Colors.white70,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-    if (_loading) {
-      return const ColoredBox(
-        color: Colors.black26,
-        child: Center(
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-    return _webOrPathThumb();
-  }
-
-  Widget _webOrPathThumb() {
-    if (kIsWeb) {
-      return ColoredBox(
-        color: const Color(0xFF1A2A36),
-        child: Center(
-          child: Icon(kindVideoIcon(widget.item.kind), color: Colors.white54),
-        ),
-      );
-    }
-    return VideoThumb(
-      path: widget.item.localPath,
-      kind: widget.item.kind,
-      resolveUrl: () => widget.repo.resolvePlayableUrl(widget.item),
     );
   }
 }

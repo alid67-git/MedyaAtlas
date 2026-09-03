@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.79',
+    tr: 'Performans/bellek: küre pinlerinde artık canlı video oynatıcı yerine hafif statik önizleme (1.0.78\'de eklenen video önizleme telefonda "yetersiz bellekten kapatma"ya yol açıyordu); oturum önbelleği sınırsız büyümüyor; güncelleme kurulumundan sonra eski sürüm bellekte kalmıyor.',
+    en: 'Performance/memory: globe pins use a lightweight static preview instead of a live video player (the 1.0.78 video-preview change was likely causing Android "killed due to low memory"); the session preview cache no longer grows unbounded; the old version no longer lingers in memory after an update installs.',
+    de: 'Performance/Speicher: Globus-Pins nutzen jetzt eine leichte statische Vorschau statt eines Live-Videoplayers (die 1.0.78-Änderung führte wohl zu Android „wegen Speichermangel beendet"); der Sitzungs-Cache wächst nicht mehr unbegrenzt; alte Version bleibt nach einem Update nicht mehr im Speicher.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.78',
     tr: '2D iz çizimi artık RideAtlas gibi köşeleri koruyor; 3D küre en yakın zoomda otomatik 2D\'ye geçip aynı noktadan büyümeye devam ediyor; açılışta bulunan konuma gidiliyor; Android\'de 3D pinlerde video önizleme; arka plandan dönünce küre yeniden yükleniyor.',
     en: '2D track drawing now keeps corner detail like RideAtlas; 3D globe auto-switches to 2D at max zoom and keeps zooming into the same spot; app opens at your current location; Android globe video pins now preview; globe reloads its surface after returning from background.',
