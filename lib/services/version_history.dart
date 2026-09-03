@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.80',
+    tr: '3D→2D zoom geçişi artık gizli: mod ikonu 3D\'de kalır, ters zumda otomatik küreye döner. 2D harita çizgisi ayrı bir katmanda hâlâ 500 noktaya kırpılıyordu — o da RideAtlas gibi köşe koruyarak inceltiliyor.',
+    en: '3D→2D zoom handoff is now hidden: the mode icon stays on 3D, zooming back out returns to the globe automatically. The 2D track line had a separate 500-point cap in the map layer — that now also thins RideAtlas-style, keeping corners.',
+    de: '3D→2D-Zoomübergang ist jetzt versteckt: Modus-Symbol bleibt bei 3D, Zurückzoomen kehrt automatisch zum Globus zurück. Die 2D-Track-Linie hatte in der Kartenebene ein separates 500-Punkte-Limit — auch das dünnt jetzt wie RideAtlas aus, Ecken bleiben erhalten.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.79',
     tr: 'Performans/bellek: küre pinlerinde artık canlı video oynatıcı yerine hafif statik önizleme (1.0.78\'de eklenen video önizleme telefonda "yetersiz bellekten kapatma"ya yol açıyordu); oturum önbelleği sınırsız büyümüyor; güncelleme kurulumundan sonra eski sürüm bellekte kalmıyor.',
     en: 'Performance/memory: globe pins use a lightweight static preview instead of a live video player (the 1.0.78 video-preview change was likely causing Android "killed due to low memory"); the session preview cache no longer grows unbounded; the old version no longer lingers in memory after an update installs.',
