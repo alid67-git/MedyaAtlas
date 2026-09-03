@@ -35,15 +35,16 @@ class MediaGlobeView extends StatefulWidget {
 
 class MediaGlobeViewState extends State<MediaGlobeView> {
   /// Nokta sayısı (ısı); etiketler ayrıca sınırlı.
-  static const _maxPoints = 160;
+  static const _maxPoints = 120;
   /// Ağır foto etiketleri — yalnızca en büyük kümeler.
-  static const _maxPhotoLabels = 28;
+  static const _maxPhotoLabels = 16;
 
   late final FlutterEarthGlobeController _controller;
   String _syncKey = '';
   MapLayer? _loadedLayer;
   var _surfaceReady = false;
   var _loadFailed = false;
+  var _didFocus = false;
 
   /// İlk layout’ta kilitlenir — şerit/panel açılınca radius değişmesin.
   double? _lockedRadius;
@@ -51,35 +52,39 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
 
   FlutterEarthGlobeController get controller => _controller;
 
-  static AssetImage _textureFor(MapLayer layer) => switch (layer) {
-        MapLayer.satellite => const AssetImage('assets/globe/earth-day.jpg'),
-        MapLayer.streets => const AssetImage('assets/globe/earth-streets.jpg'),
-        MapLayer.topo => const AssetImage('assets/globe/earth-day.jpg'),
-        MapLayer.dark => const AssetImage('assets/globe/earth-night.jpg'),
-      };
+  /// 4K sokak dokusu GPU’yu kilitliyor; küre için 2K yeterli.
+  static ImageProvider _textureFor(MapLayer layer) {
+    final asset = switch (layer) {
+      MapLayer.satellite => const AssetImage('assets/globe/earth-day.jpg'),
+      MapLayer.streets => const AssetImage('assets/globe/earth-streets.jpg'),
+      MapLayer.topo => const AssetImage('assets/globe/earth-day.jpg'),
+      MapLayer.dark => const AssetImage('assets/globe/earth-night.jpg'),
+    };
+    return ResizeImage(asset, width: 2048, height: 1024);
+  }
 
   @override
   void initState() {
     super.initState();
     _controller = FlutterEarthGlobeController(
-      rotationSpeed: 0.03,
+      rotationSpeed: 0.05,
       isRotating: false,
       isZoomEnabled: true,
-      // convertedRadius = radius * 2^zoom — yüksek zoom layout’u şişirip bozar.
-      zoom: 0.4,
-      minZoom: 0.1,
-      maxZoom: 0.85,
-      zoomSensitivity: 0.35,
-      panSensitivity: 0.8,
+      // convertedRadius = radius * 2^zoom — aşırı zoom layout’u şişirir.
+      zoom: 0.55,
+      minZoom: 0.2,
+      maxZoom: 1.15,
+      zoomSensitivity: 0.7,
+      panSensitivity: 1.55,
       zoomToMousePosition: false,
-      atmosphereOpacity: 0.4,
-      atmosphereThickness: 0.035,
-      surfaceLightingEnabled: true,
+      atmosphereOpacity: 0.28,
+      atmosphereThickness: 0.028,
+      surfaceLightingEnabled: false,
       isDayNightCycleEnabled: false,
       showAtmosphere: true,
       sphereStyle: const SphereStyle(
         showShadow: true,
-        shadowBlurSigma: 18,
+        shadowBlurSigma: 12,
       ),
     );
     _controller.addListener(_onController);
@@ -143,9 +148,7 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
       if (!mounted) return;
       _controller.loadSurface(img);
       if (layer == MapLayer.dark) {
-        _controller.loadNightSurface(
-          const AssetImage('assets/globe/earth-night.jpg'),
-        );
+        _controller.loadNightSurface(_textureFor(MapLayer.dark));
       }
     }).catchError((_) {
       if (!mounted) return;
@@ -169,13 +172,12 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
         if (c.latitude.isFinite && c.longitude.isFinite) c,
     ];
     if (pts.isEmpty) return;
-    var lat = 0.0;
-    var lng = 0.0;
+    // En çok medyası olan kümeye bak — ortalama (0,0) Afrika’ya düşmesin.
+    var best = pts.first;
     for (final c in pts) {
-      lat += c.latitude;
-      lng += c.longitude;
+      if (c.items.length > best.items.length) best = c;
     }
-    focusLatLng(lat / pts.length, lng / pts.length);
+    focusLatLng(best.latitude, best.longitude, animate: false);
   }
 
   void _syncPoints({bool force = false}) {
@@ -217,16 +219,17 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
             id: cluster.id,
             coordinates: GlobeCoordinates(lat, lng),
             isLabelVisible: showLabel,
-            labelOffset: const Offset(0, -32),
+            // Paket: top = pos.dy - labelOffset.dy - height.
+            // Negatif dy etiketi güneye iter (Avrupa pinleri Afrika’da görünür).
+            labelOffset: Offset.zero,
             labelBuilder: showLabel && covers != null
                 ? (context, point, hovering, visible) {
                     if (!visible) return const SizedBox.shrink();
-                    // Hafif: yığın + uç; hover’da scale yok (setState fırtınası).
                     return PhotoMapPin(
                       item: covers.cover,
                       repo: widget.repo,
                       count: n,
-                      extraCovers: covers.behind,
+                      extraCovers: const [],
                       showTip: true,
                     );
                   }
@@ -258,6 +261,12 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
     // Tek bildirim — küre bir kez yenilensin (paket API’sinde toplu sync yok).
     // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
     _controller.notifyListeners();
+    if (!_didFocus && _controller.points.isNotEmpty) {
+      _didFocus = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) fitClusters();
+      });
+    }
   }
 
   static double _heatSize(int count) {
@@ -284,7 +293,7 @@ class MediaGlobeViewState extends State<MediaGlobeView> {
           // İlk çerçevede kilitle — şerit/panel açılınca radius yeniden hesaplanmasın.
           final mq = MediaQuery.sizeOf(context);
           final side = math.min(mq.width, mq.height);
-          _lockedRadius ??= (side * 0.32).clamp(130.0, 260.0);
+          _lockedRadius ??= (side * 0.34).clamp(140.0, 280.0);
           final radius = _lockedRadius!;
           final w = constraints.maxWidth.isFinite
               ? constraints.maxWidth

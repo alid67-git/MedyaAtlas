@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.75',
+    tr: '3D dünya: Avrupa pinleri Afrika’da duruyordu (etiket kayması); dönüş hızlandı, medyaya odaklanır.',
+    en: '3D globe: Europe pins no longer sit on Africa (label offset); faster drag, focuses on your media.',
+    de: '3D-Erde: Europa-Pins nicht mehr in Afrika (Label-Versatz); schnelleres Drehen, Fokus auf Medien.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.74',
     tr: '3D dünya: dokununca bozulma (yan panel / zoom / yeniden çizim) düzeltildi.',
     en: '3D globe: fixed touch break (side panel / zoom / redraw).',
