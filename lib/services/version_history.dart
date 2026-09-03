@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.73',
+    tr: 'Web: alt banner ile güvenli güncelleme (Service Worker); tek giriş noktası.',
+    en: 'Web: safe update via bottom banner (Service Worker); single entry point.',
+    de: 'Web: sicheres Update per unterem Banner (Service Worker); ein Einstieg.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.72',
     tr: '3D dünya düzeltmesi (doku + web); resimler yalnızca yuvarlak yığın; küre harita türüne göre.',
     en: '3D globe fix (texture + web); photos always round stacks; globe follows map type.',

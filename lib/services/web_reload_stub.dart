@@ -1,3 +1,6 @@
-Future<void> reloadWebApp() async {
-  throw UnsupportedError('Web yenileme yalnızca tarayıcıda.');
-}
+/// Native / VM — web update banner yok.
+String get webAppReleasePathUrl => '';
+
+Future<void> reloadWebApp() async {}
+
+void triggerWebUpdateCheck() {}

@@ -226,6 +226,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
       return;
     }
+    // Web: tek giriş noktası alt SW banner (update.js) — diyalog/header yok.
+    if (kIsWeb) {
+      triggerWebUpdateCheck();
+      if (manual && mounted) {
+        setState(
+          () => _status =
+              'Güncelleme kontrol edildi. Yeni sürüm varsa altta banner çıkar.',
+        );
+      }
+      return;
+    }
     if (manual && mounted) {
       setState(() => _status = 'Güncelleme kontrol ediliyor…');
     }

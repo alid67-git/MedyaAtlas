@@ -84,7 +84,7 @@ Future<void> openSettingsSheet(
                       title: const Text('Güncelleme kontrol et'),
                       subtitle: Text(
                         kIsWeb
-                            ? 'Web: GitHub sürümü → sayfa yenile'
+                            ? 'Web: yeni sürüm varsa alt banner'
                             : 'GitHub Releases',
                       ),
                       onTap: () {

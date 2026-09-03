@@ -26,9 +26,18 @@ jobs:
 
       - run: flutter pub get
       - run: flutter build web --release --wasm --base-href /MedyaAtlas/ --pwa-strategy=none
+      - name: Stamp web version into SW / update banner
+        run: bash tool/stamp_web_version.sh build/web
 
       - name: Verify version.json
-        run: cat build/web/version.json
+        run: |
+          cat build/web/version.json
+          grep -n "MEDYAATLAS_VERSION\|medyaatlas-v\|Yeni sürüm\|Update available" build/web/app_version.js build/web/sw.js build/web/update.js | head -40
+          # Placeholder kalmamalı
+          if grep -R "__MEDYAATLAS_VERSION__" build/web/app_version.js build/web/sw.js build/web/update.js build/web/index.html; then
+            echo "Version placeholder not stamped" >&2
+            exit 1
+          fi
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
