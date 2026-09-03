@@ -191,6 +191,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdates();
       context.read<MediaRepository>().refreshMountStates();
+      // Açılışta bulunan konuma git (izin varsa) — «konumum» butonuyla aynı yol.
+      _goToMyLocation();
       // UI otursun; izin varsa hafif telefon taraması (yalnızca yeni medya).
       Future<void>.delayed(const Duration(seconds: 2), () {
         if (mounted) _startupPhoneRescan();
@@ -206,6 +208,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _promptUpdate(_forceUpdate!, force: true);
       } else {
         _checkForUpdates();
+      }
+      // Android: arka plandan dönünce GPU yüzeyi/doku kaybolabilir —
+      // küre görünürken sessizce boşalmasın diye yeniden yükle.
+      if (context.read<AppSettings>().mapSurface == MapSurface.globe) {
+        _globeKey.currentState?.reloadSurface();
       }
     }
   }
@@ -2545,6 +2552,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     return _filtered(repo).where((m) => !m.hasLocation).toList();
   }
 
+  /// 3D küre en yakın zoom'a ulaşınca 2D haritaya geç ve aynı noktadan
+  /// (yakın bir zoom'la) büyütmeye devam et — 2D ve 3D aynı son noktaya
+  /// kadar büyüsün.
+  Future<void> _handleGlobeMaxZoom(LatLng point) async {
+    final settings = context.read<AppSettings>();
+    if (settings.mapSurface != MapSurface.globe) return;
+    // setMapSurface yalnızca Hive yazımından sonra notifyListeners çağırıyor;
+    // FlutterMap'in mount olduğu yeniden çizim tamamlanmadan _map.move
+    // çağrılırsa henüz eklenmemiş bir controller'a taşınmaya çalışılır.
+    await settings.setMapSurface(MapSurface.flat);
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _map.move(point, 17);
+    });
+  }
+
   Future<void> _openCluster(LocationCluster cluster) async {
     if (cluster.items.isEmpty) return;
     final list = _mediaListForMapTap(cluster);
@@ -3918,6 +3942,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               display: settings.mapPinDisplay,
               mapLayer: settings.mapLayer,
               onOpenCluster: _openCluster,
+              onMaxZoomReached: _handleGlobeMaxZoom,
             ),
           )
         else
