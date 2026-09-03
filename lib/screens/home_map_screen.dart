@@ -4397,6 +4397,7 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
   /// çizim anında yapıyor; burada sadece geçersiz GPS'i eleriz.
   void _rebuildPolylines() {
     final polylines = <Polyline>[];
+    var colorIndex = 0;
     for (final track in widget.tracks) {
       final pts = <LatLng>[
         for (final p in track.points)
@@ -4407,13 +4408,23 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
         Polyline(
           points: pts,
           strokeWidth: 4.5,
-          color: const Color(0xFFFFB020),
+          color: _trackColor(colorIndex++),
           borderStrokeWidth: 2.5,
           borderColor: const Color(0xE0121C28),
         ),
       );
     }
     _polylines = polylines;
+  }
+
+  /// Altın açı (137.5°) ile döngü — art arda gelen izler bile renk
+  /// çemberinde birbirinden uzak kalır, 30+ iz aynı anda açıkken de
+  /// karışmaz. Tek iz açıkken eski turuncuya (0xFFFFB020) yakın kalır.
+  static Color _trackColor(int index) {
+    const goldenAngle = 137.508;
+    const baseHue = 38.0; // eski sabit turuncunun hue'su
+    final hue = (baseHue + index * goldenAngle) % 360;
+    return HSLColor.fromAHSL(1, hue, 0.85, 0.56).toColor();
   }
 
   @override

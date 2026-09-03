@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.87',
+    tr: 'Çok sayıda iz açıkken hepsi aynı renkti — artık her iz farklı, birbirinden ayırt edilebilir bir renk alıyor.',
+    en: 'With many tracks visible, they all had the same color — each track now gets a distinct, easy-to-tell-apart color.',
+    de: 'Bei vielen sichtbaren Tracks hatten alle dieselbe Farbe — jeder Track bekommt jetzt eine eigene, gut unterscheidbare Farbe.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.86',
     tr: 'İz çizimi çok kaba kalıyordu: haritanın kendi katmanı, 30 iz açıkken tavanı 500 noktaya kadar düşürüyordu (eski kaba algoritmayla aynı sonuç). O ikinci sınırlama kaldırıldı — RideAtlas gibi tek sadeleştirme katmanı kaldı.',
     en: 'Track lines were still very coarse: the map\'s own display layer was capping each track down to as low as 500 points when many tracks were visible at once (same result as the old crude algorithm). Removed that second cap — one simplification layer now, like RideAtlas.',
