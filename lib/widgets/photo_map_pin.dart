@@ -3,226 +3,143 @@ import 'package:flutter/material.dart';
 
 import '../models/library_media.dart';
 import '../repositories/media_repository.dart';
-import '../services/app_settings.dart';
 import '../services/photo_orient.dart';
 import '../services/video_preview.dart';
 import 'photo_source.dart';
 import 'video_surface.dart';
 
-/// Harita pin: yuvarlak (uçlu) veya düzlem (hafif eğik kare) fotoğraf.
+/// Harita / küre pin: her zaman yuvarlak; kümede önde büyük, arkada küçük daireler.
 class PhotoMapPin extends StatelessWidget {
   const PhotoMapPin({
     super.key,
     required this.item,
     required this.repo,
     this.count = 1,
-    this.shape = MapPinShape.round,
-  });
-
-  final LibraryMedia item;
-  final MediaRepository repo;
-  final int count;
-  final MapPinShape shape;
-
-  /// Marker kutusu (flutter_map).
-  static Size markerBox(MapPinShape shape) => switch (shape) {
-        MapPinShape.round => const Size(56, 68),
-        MapPinShape.square => const Size(58, 58),
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (shape) {
-      MapPinShape.round => _RoundPin(item: item, repo: repo, count: count),
-      MapPinShape.square => _SquarePin(item: item, repo: repo, count: count),
-    };
-  }
-}
-
-class _RoundPin extends StatelessWidget {
-  const _RoundPin({
-    required this.item,
-    required this.repo,
-    required this.count,
+    this.extraCovers = const [],
+    this.showTip = true,
   });
 
   final LibraryMedia item;
   final MediaRepository repo;
   final int count;
 
+  /// Arkadaki ek kapaklar (en fazla 2–3); öndeki [item] en büyük.
+  final List<LibraryMedia> extraCovers;
+  final bool showTip;
+
+  static const Size markerBox = Size(72, 78);
+
   @override
   Widget build(BuildContext context) {
-    const pin = 48.0;
+    const front = 48.0;
     const tip = 10.0;
-    // Marker kutusuyla aynı boyut — Column taşması / sıfır boyut olmasın.
+    final stack = extraCovers.take(3).toList();
+    final height = showTip ? front + tip + 8 : front + 12;
     return SizedBox(
-      width: 56,
-      height: 68,
+      width: 72,
+      height: height,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.bottomCenter,
         children: [
-          Positioned(
-            bottom: tip - 1,
-            child: Container(
-              width: pin,
-              height: pin,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF1A2A36),
-                border: Border.all(color: Colors.white, width: 3),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x66000000),
-                    blurRadius: 6,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipOval(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _PinThumb(item: item, repo: repo),
-                    if (count > 1)
-                      Positioned(
-                        right: 2,
-                        bottom: 2,
-                        child: _CountChip(count: count, compact: true),
-                      ),
-                  ],
+          // Arkadan öne: küçük → büyük
+          for (var i = 0; i < stack.length; i++)
+            Positioned(
+              bottom: showTip ? tip + 6 + (stack.length - i) * 3.0 : 8.0 + (stack.length - i) * 3.0,
+              left: 8.0 + (i.isEven ? -10.0 - i * 4 : 18.0 + i * 3),
+              child: Transform.scale(
+                scale: 0.62 + i * 0.08,
+                child: _RoundThumb(
+                  item: stack[stack.length - 1 - i],
+                  repo: repo,
+                  size: front * (0.72 + i * 0.06),
+                  borderWidth: 2,
                 ),
               ),
             ),
-          ),
           Positioned(
-            bottom: 0,
-            child: CustomPaint(
-              size: const Size(18, tip),
-              painter: _PinTipPainter(),
+            bottom: showTip ? tip - 1 : 4,
+            child: _RoundThumb(
+              item: item,
+              repo: repo,
+              size: front,
+              borderWidth: 3,
+              count: count > 1 ? count : null,
             ),
           ),
+          if (showTip)
+            const Positioned(
+              bottom: 0,
+              child: CustomPaint(
+                size: Size(18, tip),
+                painter: _PinTipPainter(),
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-class _SquarePin extends StatelessWidget {
-  const _SquarePin({
+class _RoundThumb extends StatelessWidget {
+  const _RoundThumb({
     required this.item,
     required this.repo,
-    required this.count,
+    required this.size,
+    this.borderWidth = 3,
+    this.count,
   });
 
   final LibraryMedia item;
   final MediaRepository repo;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    const side = 44.0;
-    // Hafif eğim — FotoMap tarzı dağınık kareler.
-    final tilt = ((item.id.hashCode % 17) - 8) * 0.035;
-    return SizedBox(
-      width: 58,
-      height: 58,
-      child: Center(
-        child: Transform.rotate(
-          angle: tilt,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: side,
-                height: side,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: Colors.white, width: 2.5),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x55000000),
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(1),
-                  child: _PinThumb(item: item, repo: repo),
-                ),
-              ),
-              if (count > 1)
-                Positioned(
-                  right: -4,
-                  top: -4,
-                  child: _CountBadge(count: count),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CountChip extends StatelessWidget {
-  const _CountChip({required this.count, this.compact = false});
-
-  final int count;
-  final bool compact;
+  final double size;
+  final double borderWidth;
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 5 : 6,
-        vertical: compact ? 1 : 2,
-      ),
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: const Color(0xE0050E16),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        count > 99 ? '99+' : '$count',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: compact ? 10 : 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = count > 99 ? '99+' : '$count';
-    return Container(
-      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2EC4B6),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: Colors.white, width: 1.5),
+        shape: BoxShape.circle,
+        color: const Color(0xFF1A2A36),
+        border: Border.all(color: Colors.white, width: borderWidth),
         boxShadow: const [
-          BoxShadow(color: Color(0x44000000), blurRadius: 3),
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
         ],
       ),
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          height: 1.1,
+      child: ClipOval(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _PinThumb(item: item, repo: repo),
+            if (count != null && count! > 1)
+              Positioned(
+                right: 2,
+                bottom: 2,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xE0050E16),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    count! > 99 ? '99+' : '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -230,6 +147,8 @@ class _CountBadge extends StatelessWidget {
 }
 
 class _PinTipPainter extends CustomPainter {
+  const _PinTipPainter();
+
   @override
   void paint(Canvas canvas, Size size) {
     final path = Path()
@@ -237,10 +156,7 @@ class _PinTipPainter extends CustomPainter {
       ..lineTo(0, 0)
       ..lineTo(size.width, 0)
       ..close();
-    canvas.drawPath(
-      path,
-      Paint()..color = Colors.white,
-    );
+    canvas.drawPath(path, Paint()..color = Colors.white);
     canvas.drawPath(
       path,
       Paint()
@@ -263,8 +179,6 @@ class _PinThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!item.isVideo) {
-      // Web: eski oturumdan kalma blob: yolu şekli hâlâ geçerli görünür ama
-      // sayfa kapanınca ölür — mevcut oturumdan doğrula/tazele.
       if (kIsWeb) {
         return FutureBuilder<String?>(
           future: repo.resolvePlayableUrl(item),
@@ -272,8 +186,7 @@ class _PinThumb extends StatelessWidget {
             if (snap.connectionState != ConnectionState.done) {
               return const ColoredBox(color: Color(0xFF1A2A36));
             }
-            final fromSession =
-                photoFromPath(snap.data, fit: BoxFit.cover);
+            final fromSession = photoFromPath(snap.data, fit: BoxFit.cover);
             if (fromSession != null) return fromSession;
             return _pinBytesFallback(item: item, repo: repo);
           },
@@ -287,7 +200,6 @@ class _PinThumb extends StatelessWidget {
     if (cached != null) {
       return OrientedMemoryImage(cached, fit: BoxFit.cover);
     }
-    // Web video: oturum blob’undan ilk kare; yoksa kamera ikonu.
     if (kIsWeb) {
       return VideoThumb(
         path: item.localPath,
@@ -332,4 +244,27 @@ class _PinThumb extends StatelessWidget {
       },
     );
   }
+}
+
+/// Küme öğelerinden öndeki kapak + arkadaki 2 ek kapak.
+({LibraryMedia cover, List<LibraryMedia> behind}) clusterPinCovers(
+  List<LibraryMedia> items,
+) {
+  if (items.isEmpty) {
+    throw ArgumentError('clusterPinCovers boş liste');
+  }
+  final sorted = [...items]
+    ..sort((a, b) {
+      final ta = a.takenAt ?? a.addedAt;
+      final tb = b.takenAt ?? b.addedAt;
+      return tb.compareTo(ta);
+    });
+  final cover = sorted.first;
+  final behind = <LibraryMedia>[];
+  for (final m in sorted.skip(1)) {
+    if (behind.length >= 2) break;
+    if (m.id == cover.id) continue;
+    behind.add(m);
+  }
+  return (cover: cover, behind: behind);
 }
