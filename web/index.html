@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MedyaAtlas">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=__MEDYAATLAS_VERSION__">
   <title>MedyaAtlas</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#071018">
@@ -25,18 +25,10 @@
 </head>
 <body>
   <div class="boot" id="boot">MedyaAtlas…</div>
+  <script src="app_version.js?v=__MEDYAATLAS_VERSION__"></script>
+  <script src="update.js?v=__MEDYAATLAS_VERSION__"></script>
   <script>
-    (async function () {
-      try {
-        if ('serviceWorker' in navigator) {
-          var regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map(function (r) { return r.unregister(); }));
-        }
-        if (window.caches && caches.keys) {
-          var keys = await caches.keys();
-          await Promise.all(keys.map(function (k) { return caches.delete(k); }));
-        }
-      } catch (e) {}
+    (function () {
       var s = document.createElement('script');
       s.src = 'flutter_bootstrap.js';
       s.async = true;
