@@ -4388,29 +4388,20 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
     return true;
   }
 
-  /// Aynı anda görünen tüm izler için toplam nokta bütçesi (bellek + çizim
-  /// maliyeti) — iz sayısına bölünür, tek iz için de makul bir taban tutulur.
-  /// PolylineLayer zaten zoom'a göre kendi (simplificationTolerance) ek
-  /// sadeleştirmesini yapıyor; bu sadece kaynak veriyi sınırlar.
-  static const _totalDisplayPointBudget = 3000;
-
+  /// RideAtlas'ta olduğu gibi TEK sadeleştirme katmanı: iz zaten depolama
+  /// aşamasında (track_parse.dart, mesafe-inceltme + köşe koruma) makul bir
+  /// tavana indirilmiş durumda — burada onun üstüne ikinci, iz sayısına
+  /// bölünen bir tavan daha koymak yanlıştı (30 iz açıkken tavan 500'e
+  /// düşüyor, eski kaba algoritmayla aynı sonucu veriyordu). PolylineLayer
+  /// zaten zoom'a göre kendi (simplificationTolerance) ek sadeleştirmesini
+  /// çizim anında yapıyor; burada sadece geçersiz GPS'i eleriz.
   void _rebuildPolylines() {
     final polylines = <Polyline>[];
-    final perTrackCap = widget.tracks.isEmpty
-        ? _totalDisplayPointBudget
-        : math.max(
-            500,
-            _totalDisplayPointBudget ~/ widget.tracks.length,
-          );
     for (final track in widget.tracks) {
-      final raw = <LatLng>[
+      final pts = <LatLng>[
         for (final p in track.points)
           if (isValidGps(p.latitude, p.longitude)) p.latLng,
       ];
-      // Önce mesafeye göre inceltir (köşe/detay korunur), hâlâ gerekiyorsa
-      // indeks adımıyla son bir düşürme yapar — RideAtlas'taki gibi. Eski
-      // sabit indeks-adımı (500 nokta) köşeleri siliyordu.
-      final pts = simplifyLatLngsForDisplay(raw, maxPoints: perTrackCap);
       if (pts.length < 2) continue;
       polylines.add(
         Polyline(

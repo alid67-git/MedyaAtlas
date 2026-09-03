@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.86',
+    tr: 'İz çizimi çok kaba kalıyordu: haritanın kendi katmanı, 30 iz açıkken tavanı 500 noktaya kadar düşürüyordu (eski kaba algoritmayla aynı sonuç). O ikinci sınırlama kaldırıldı — RideAtlas gibi tek sadeleştirme katmanı kaldı.',
+    en: 'Track lines were still very coarse: the map\'s own display layer was capping each track down to as low as 500 points when many tracks were visible at once (same result as the old crude algorithm). Removed that second cap — one simplification layer now, like RideAtlas.',
+    de: 'Track-Linien blieben sehr grob: Die eigene Anzeigeebene der Karte begrenzte jeden Track bei vielen sichtbaren Tracks auf bis zu 500 Punkte (gleiches Ergebnis wie der alte grobe Algorithmus). Diese zweite Begrenzung entfernt — jetzt nur noch eine Vereinfachungsebene wie bei RideAtlas.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.85',
     tr: 'iPhone\'da GPX/KML seçiciyi açınca gereksiz "Fotoğraf Kitaplığı" / "Video Çek" seçenekleri çıkıyordu — artık sadece dosya seçici geliyor.',
     en: 'Opening the GPX/KML picker on iPhone showed unnecessary "Photo Library" / "Take Photo or Video" options — now only the file browser opens.',
