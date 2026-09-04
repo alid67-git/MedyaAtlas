@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.88',
+    tr: '"Sığdır", dünya çapında yayılan izleri (ör. Amerika + Tayland + Avrupa) tam gösteremiyordu — 1.0.84\'te dünya tekrarını önlemek için eklenen sabit minZoom, gereken düşük zoom\'u engelliyordu. Kaldırıldı.',
+    en: '"Fit all" couldn\'t show tracks spread across the whole world (e.g. America + Thailand + Europe) - the fixed minZoom added in 1.0.84 to stop the world repeating was blocking the lower zoom that fit needed. Removed.',
+    de: '"Alles einpassen" konnte weltweit verteilte Tracks (z. B. Amerika + Thailand + Europa) nicht vollständig zeigen — der in 1.0.84 gegen die Weltwiederholung hinzugefügte feste minZoom blockierte den dafür nötigen niedrigeren Zoom. Entfernt.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.87',
     tr: 'Çok sayıda iz açıkken hepsi aynı renkti — artık her iz farklı, birbirinden ayırt edilebilir bir renk alıyor.',
     en: 'With many tracks visible, they all had the same color — each track now gets a distinct, easy-to-tell-apart color.',

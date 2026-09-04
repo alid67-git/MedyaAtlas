@@ -3811,8 +3811,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             initialCenter: _worldCenter,
             initialZoom: 2.4,
             // Kısıt yoksa küçültünce dünya yan yana tekrarlanıyordu —
-            // kamerayı tek dünya sınırına kilitle.
-            minZoom: 2.2,
+            // kamerayı tek dünya sınırına kilitle. Sabit bir minZoom da
+            // eklemiştik ama o, "sığdır" ile Amerika+Tayland+Avrupa gibi
+            // gerçekten geniş yayılan izleri sığdırmak için gereken daha
+            // düşük zoom'u da engelliyordu — cameraConstraint tek başına
+            // (ekran boyutuna duyarlı) aynı taşma korumasını sağlıyor.
             cameraConstraint: CameraConstraint.contain(
               bounds: LatLngBounds(
                 const LatLng(-85.0511, -180),
