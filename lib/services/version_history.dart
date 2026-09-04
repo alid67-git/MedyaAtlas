@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.91',
+    tr: 'Zum / sığdır ikonu: dünya-kısıtı ideal zoom’u reddedince harita hiç kıpırdamıyordu — artık en uygun zoom’a düşüp yine sığdırıyor.',
+    en: 'Fit/zoom icon: when the world-repeat guard rejected the ideal zoom the map did nothing — now climbs to the nearest allowed zoom and still fits.',
+    de: 'Einpassen/Zoom: Wenn die Welt-Wiederholungsbegrenzung den Idealzoom ablehnte, bewegte sich die Karte nicht — jetzt zum nächsten erlaubten Zoom und trotzdem einpassen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.90',
     tr: 'Uygulama adı yeniden MediaAtlas oldu. İz çizgisindeki aşırı ekran-üstü sadeleştirme (2.5→0.4) dağ geçidi gibi virajlı yollarda köşeleri kesip yolu takip etmeyen kaba bir çizgi bırakıyordu — düzeltildi. Görüntüleyicide fotoğraf/video silme tuşu eklendi. İz rozetine tıklayınca ismi bir etiket kutusunda gösterir, tekrar tıklayınca gizler. Medya/iz/konum/tür açılır kutuları artık dışarıya tıklayınca kapanıyor.',
     en: 'App name is MediaAtlas again. Track lines had overly aggressive on-screen simplification (2.5→0.4) that cut corners on winding roads like mountain passes into a blocky line not following the road — fixed. Added a delete button in the media viewer. Tapping a track badge now shows its name in a label; tapping again hides it. The media/track/location/kind dropdown panels now close on an outside tap.',
