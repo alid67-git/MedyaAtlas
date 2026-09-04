@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.93',
+    tr: '"Sığdır" geniş enlem/boylam yayılımında (ör. Amerika + Tayland + Avrupa) dar telefon ekranında ortalıyor ama kenarlardaki izleri dışarıda bırakıyordu — enlemi dünya sınırında tutan zoom, boylamı sığdırmak için gerekenden daha yakın kalıyordu. İdeal sığdırma reddedilirse artık her noktayı kapsayan tüm-dünya görünümüne düşüyor.',
+    en: '"Fit all" on a very wide spread (e.g. America + Thailand + Europe) centered on a narrow phone screen but left the edge tracks out of view — the zoom that kept latitude within world bounds stayed too close-in to also fit the longitude spread. When the ideal fit is rejected it now falls back to a whole-world view that always covers every point.',
+    de: '"Alles einpassen" bei sehr weiter Streuung (z. B. Amerika + Thailand + Europa) zentrierte auf einem schmalen Telefonbildschirm, ließ aber die Tracks am Rand außen vor — der Zoom, der die Breite innerhalb der Weltgrenzen hielt, blieb zu nah, um auch die Längengrad-Streuung einzupassen. Wird die ideale Einpassung abgelehnt, fällt es jetzt auf eine Weltansicht zurück, die immer jeden Punkt abdeckt.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.92',
     tr: 'Güncelleme: kurulumdan dönünce aynı sürümü tekrar tekrar önermiyordu; her zaman doğrudan en son APK (ara sürüm yok).',
     en: 'Updates: no more re-prompting the same version after install; always jumps straight to the latest APK (skips intermediates).',
