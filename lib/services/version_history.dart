@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.97',
+    tr: 'İz ismi etiketi ekran kenarında kesiliyordu — artık ekran içinde kalacak şekilde kaydırılıyor.',
+    en: 'Track name labels were clipped at the screen edge — they now stay fully inside the viewport.',
+    de: 'Track-Namensschilder wurden am Bildschirmrand abgeschnitten — sie bleiben jetzt vollständig im sichtbaren Bereich.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.96',
     tr: 'Haritayı küçültünce yan yana birden fazla dünya açılması engellendi — en uzak zoom artık ekranın sığdırabildiği tek dünyanın tamamı. "Sığdır" da aynı tek-dünya tabanına saygı duyuyor.',
     en: 'Pinching out no longer tiles multiple worlds side by side — the farthest zoom is now exactly one full world that fits the screen. "Fit all" respects that same single-world floor.',

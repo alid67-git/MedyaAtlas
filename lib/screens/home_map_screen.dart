@@ -84,9 +84,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _locating = false;
   bool _sourcesOpen = false;
   bool _tracksOpen = false;
-  /// Haritada ismi gösterilen iz — rozetine veya çizgisine tıklanınca
-  /// açılır/kapanır.
-  String? _selectedTrackId;
+  /// Haritada ismi gösterilen iz — çizgiye/rozete tıklanınca; etiket ekran
+  /// içinde tutulur (kenardan taşmaz).
+  ({String id, String name, LatLng point})? _trackNameLabel;
   final _trackHitNotifier = ValueNotifier<LayerHitResult<String>?>(null);
   /// Haritada medya: tümü / görünen izlere yakın / gizle.
   _TrackMediaFilter _trackMediaFilter = _TrackMediaFilter.all;
@@ -2642,6 +2642,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _sourcesOpen = false;
       _tracksOpen = false;
       _kindMenu = null;
+      _trackNameLabel = null;
     });
     if (_isDesktop || MediaQuery.sizeOf(context).width >= 960) {
       return;
@@ -3972,13 +3973,34 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             cameraConstraint: _worldEdgeConstraint,
             onMapEvent: _onMapEvent,
             // İz çizgisinin herhangi bir noktasına dokununca ismini
-            // aç/kapa — sadece küçük rozete değil.
-            onTap: (_, __) {
+            // aç/kapa — etiket tıklanan noktada, ekran içinde kalır.
+            onTap: (_, latlng) {
               final hits = _trackHitNotifier.value?.hitValues;
-              if (hits == null || hits.isEmpty) return;
+              if (hits == null || hits.isEmpty) {
+                if (_trackNameLabel == null) return;
+                setState(() => _trackNameLabel = null);
+                return;
+              }
               final id = hits.first;
+              MapTrack? found;
+              for (final t in visibleTracks) {
+                if (t.id == id) {
+                  found = t;
+                  break;
+                }
+              }
+              final track = found;
+              if (track == null) return;
               setState(() {
-                _selectedTrackId = _selectedTrackId == id ? null : id;
+                if (_trackNameLabel?.id == id) {
+                  _trackNameLabel = null;
+                } else {
+                  _trackNameLabel = (
+                    id: id,
+                    name: track.name,
+                    point: latlng,
+                  );
+                }
               });
             },
           ),
@@ -3995,14 +4017,40 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
             _TrackBadgeLayer(
               tracks: visibleTracks,
-              selectedTrackId: _selectedTrackId,
-              onTap: (id) => setState(() {
-                _selectedTrackId = _selectedTrackId == id ? null : id;
-              }),
+              selectedTrackId: _trackNameLabel?.id,
+              onTap: (id, anchor) {
+                MapTrack? found;
+                for (final t in visibleTracks) {
+                  if (t.id == id) {
+                    found = t;
+                    break;
+                  }
+                }
+                final track = found;
+                if (track == null) return;
+                setState(() {
+                  if (_trackNameLabel?.id == id) {
+                    _trackNameLabel = null;
+                  } else {
+                    _trackNameLabel = (
+                      id: id,
+                      name: track.name,
+                      point: anchor,
+                    );
+                  }
+                });
+              },
             ),
             MarkerLayer(markers: mapMarkers.selected),
           ],
         ),
+        if (_trackNameLabel != null)
+          _ClampedTrackNameLabel(
+            mapController: _map,
+            point: _trackNameLabel!.point,
+            name: _trackNameLabel!.name,
+            onTap: () => setState(() => _trackNameLabel = null),
+          ),
         if (_places.isNotEmpty)
           Positioned(
             left: 12,
@@ -4615,7 +4663,8 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
   }
 }
 
-/// İz rozetleri — sabit boyut; pan/zoom’da Marker listesi yeniden kurulmaz.
+/// İz rozetleri — yalnızca küçük nokta; isim etiketi [_ClampedTrackNameLabel]
+/// ile ekran içinde gösterilir (Marker taşması yok).
 class _TrackBadgeLayer extends StatefulWidget {
   const _TrackBadgeLayer({
     required this.tracks,
@@ -4625,7 +4674,7 @@ class _TrackBadgeLayer extends StatefulWidget {
 
   final List<MapTrack> tracks;
   final String? selectedTrackId;
-  final ValueChanged<String> onTap;
+  final void Function(String id, LatLng anchor) onTap;
 
   @override
   State<_TrackBadgeLayer> createState() => _TrackBadgeLayerState();
@@ -4668,15 +4717,151 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
       markers.add(
         Marker(
           point: center,
-          width: selected ? 220 : size,
-          height: selected ? 28 : size,
-          alignment: selected ? Alignment.centerLeft : Alignment.center,
+          width: size,
+          height: size,
+          alignment: Alignment.center,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => widget.onTap(track.id),
-            child: selected
-                ? Align(
-                    alignment: Alignment.centerLeft,
+            onTap: () => widget.onTap(track.id, center),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFFFF8C12)
+                    : const Color(0xE8FF8C12),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? const Color(0xFFFFFFFF) : Colors.white,
+                  width: selected ? 2.5 : 1.5,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x44000000),
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.route,
+                color: Colors.white,
+                size: 10,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    _markers = markers;
+  }
+
+  LatLng? _trackAnchor(MapTrack track) {
+    final b = track.bounds;
+    if (b != null &&
+        b.south.isFinite &&
+        b.north.isFinite &&
+        b.west.isFinite &&
+        b.east.isFinite) {
+      return LatLng((b.south + b.north) / 2, (b.west + b.east) / 2);
+    }
+    final pts = [
+      for (final p in track.points)
+        if (isValidGps(p.latitude, p.longitude)) p.latLng,
+    ];
+    if (pts.isEmpty) return null;
+    return pts[pts.length ~/ 2];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_markers.isEmpty) return const SizedBox.shrink();
+    return MarkerLayer(markers: _markers);
+  }
+}
+
+/// Rota ismi — harita Marker'ı yerine ekran koordinatında; kenarlardan
+/// taşmasın diye left/top clamp edilir. Harita pan/zoom olunca güncellenir.
+class _ClampedTrackNameLabel extends StatefulWidget {
+  const _ClampedTrackNameLabel({
+    required this.mapController,
+    required this.point,
+    required this.name,
+    required this.onTap,
+  });
+
+  final MapController mapController;
+  final LatLng point;
+  final String name;
+  final VoidCallback onTap;
+
+  @override
+  State<_ClampedTrackNameLabel> createState() => _ClampedTrackNameLabelState();
+}
+
+class _ClampedTrackNameLabelState extends State<_ClampedTrackNameLabel> {
+  StreamSubscription<MapEvent>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = widget.mapController.mapEventStream.listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _ClampedTrackNameLabel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mapController != widget.mapController) {
+      _sub?.cancel();
+      _sub = widget.mapController.mapEventStream.listen((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, box) {
+          Offset screen;
+          try {
+            screen =
+                widget.mapController.camera.latLngToScreenOffset(widget.point);
+          } catch (_) {
+            return const SizedBox.shrink();
+          }
+          if (!screen.dx.isFinite || !screen.dy.isFinite) {
+            return const SizedBox.shrink();
+          }
+
+          const margin = 8.0;
+          const maxW = 220.0;
+          const h = 32.0;
+          // Noktanın üstünde, yatayda ortalı; taşarsa kenara yasla.
+          var left = screen.dx - maxW / 2;
+          var top = screen.dy - h - 12;
+          final maxLeft = math.max(margin, box.maxWidth - maxW - margin);
+          final maxTop = math.max(margin, box.maxHeight - h - margin);
+          left = left.clamp(margin, maxLeft);
+          top = top.clamp(margin, maxTop);
+
+          return Stack(
+            children: [
+              Positioned(
+                left: left,
+                top: top,
+                width: maxW,
+                child: GestureDetector(
+                  onTap: widget.onTap,
+                  child: Align(
+                    alignment: Alignment.center,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -4708,8 +4893,9 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              track.name,
+                              widget.name,
                               overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -4720,53 +4906,13 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
                         ],
                       ),
                     ),
-                  )
-                : DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xE8FF8C12),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x44000000),
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.route,
-                      color: Colors.white,
-                      size: 10,
-                    ),
                   ),
-          ),
-        ),
-      );
-    }
-    _markers = markers;
-  }
-
-  LatLng? _trackAnchor(MapTrack track) {
-    final b = track.bounds;
-    if (b != null &&
-        b.south.isFinite &&
-        b.north.isFinite &&
-        b.west.isFinite &&
-        b.east.isFinite) {
-      return LatLng((b.south + b.north) / 2, (b.west + b.east) / 2);
-    }
-    final pts = [
-      for (final p in track.points)
-        if (isValidGps(p.latitude, p.longitude)) p.latLng,
-    ];
-    if (pts.isEmpty) return null;
-    return pts[pts.length ~/ 2];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_markers.isEmpty) return const SizedBox.shrink();
-    return MarkerLayer(markers: _markers);
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 }
