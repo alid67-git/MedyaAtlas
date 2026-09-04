@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.92',
+    tr: 'Güncelleme: kurulumdan dönünce aynı sürümü tekrar tekrar önermiyordu; her zaman doğrudan en son APK (ara sürüm yok).',
+    en: 'Updates: no more re-prompting the same version after install; always jumps straight to the latest APK (skips intermediates).',
+    de: 'Updates: dieselbe Version nach der Installation nicht erneut anbieten; immer direkt die neueste APK (Zwischenversionen überspringen).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.91',
     tr: 'Zum / sığdır ikonu: dünya-kısıtı ideal zoom’u reddedince harita hiç kıpırdamıyordu — artık en uygun zoom’a düşüp yine sığdırıyor.',
     en: 'Fit/zoom icon: when the world-repeat guard rejected the ideal zoom the map did nothing — now climbs to the nearest allowed zoom and still fits.',

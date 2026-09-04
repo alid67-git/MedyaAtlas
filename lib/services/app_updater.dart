@@ -78,6 +78,7 @@ UpdatePlatform? get currentUpdatePlatform {
 /// GitHub Releases’ten son sürümü oku.
 /// Web’de ayrıca canlı [version.json] kontrol edilir — yalnızca Pages
 /// deploy edildiğinde de güncelleme uyarısı çıksın.
+/// İndirme her zaman rolling URL’dendir (ara sürüm atlanır).
 Future<AppUpdateInfo?> fetchLatestRelease() async {
   final platform = currentUpdatePlatform;
   if (platform == null) return null;
@@ -111,8 +112,11 @@ Future<AppUpdateInfo?> _fetchFromWebVersionJson() async {
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) return null;
     final json = jsonDecode(res.body) as Map<String, dynamic>;
-    final ver = (json['version'] as String? ?? '').replaceFirst('v', '').trim();
-    if (ver.isEmpty) return null;
+    final ver = _normalizeVersion(
+      (json['version'] as String? ?? '').trim(),
+    );
+    if (ver == null) return null;
+    // Zaten bu sürümdeysek null sayma — isNewer false döner.
     return AppUpdateInfo(
       latestVersion: ver,
       downloadUrl: webAppRootUrl,
@@ -132,48 +136,54 @@ Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
       return null;
     }
 
-    final rollingTag = platform == UpdatePlatform.android
-        ? androidLatestTag
-        : windowsLatestTag;
     final preferred = platform == UpdatePlatform.android
         ? apkAssetName
         : windowsZipAssetName;
     final fallbackUrl = platform == UpdatePlatform.android
         ? apkLatestUrl
         : windowsZipLatestUrl;
+    final rollingTag = platform == UpdatePlatform.android
+        ? androidLatestTag
+        : windowsLatestTag;
 
-    final res = await http
-        .get(
-          Uri.parse(
-            'https://api.github.com/repos/$githubRepo/releases/tags/$rollingTag',
-          ),
-          headers: {
-            'Accept': 'application/vnd.github+json',
-            'User-Agent': 'MediaAtlas/$appVersion',
-          },
-        )
-        .timeout(const Duration(seconds: 20));
-    if (res.statusCode != 200) return null;
-    final json = jsonDecode(res.body) as Map<String, dynamic>;
-    final notes = (json['body'] as String?)?.trim() ?? '';
-    final ver = _versionFromRollingRelease(json);
+    // 1) Rolling etiket (android-latest / windows-latest) — dosya + sürüm notu.
+    final rolling = await _getReleaseJson(rollingTag);
+    final rollingRaw =
+        rolling == null ? null : _versionFromRollingRelease(rolling);
+    final rollingVer =
+        rollingRaw == null ? null : _normalizeVersion(rollingRaw);
+
+    // 2) En yeni v* sürüm etiketi — rolling adı gecikirse ara sürüme takılma.
+    final newestTagVer = await _newestVersionedRelease();
+
+    String? ver = rollingVer;
+    if (newestTagVer != null) {
+      if (ver == null || compareVersions(newestTagVer, ver) > 0) {
+        ver = newestTagVer;
+      }
+    }
     if (ver == null || ver.isEmpty) return null;
 
-    final assets = (json['assets'] as List?) ?? const [];
     var sizeBytes = 0;
-    for (final a in assets) {
-      if (a is! Map) continue;
-      final name = a['name'] as String? ?? '';
-      final match = platform == UpdatePlatform.android
-          ? (name == apkAssetName || name.endsWith('.apk'))
-          : (name == windowsZipAssetName ||
-              (name.endsWith('.zip') && name.toLowerCase().contains('windows')));
-      if (!match) continue;
-      sizeBytes = (a['size'] as num?)?.toInt() ?? 0;
-      if (name == preferred) break;
+    if (rolling != null) {
+      final assets = (rolling['assets'] as List?) ?? const [];
+      for (final a in assets) {
+        if (a is! Map) continue;
+        final name = a['name'] as String? ?? '';
+        final match = platform == UpdatePlatform.android
+            ? (name == apkAssetName || name.endsWith('.apk'))
+            : (name == windowsZipAssetName ||
+                (name.endsWith('.zip') &&
+                    name.toLowerCase().contains('windows')));
+        if (!match) continue;
+        sizeBytes = (a['size'] as num?)?.toInt() ?? 0;
+        if (name == preferred) break;
+      }
     }
 
-    // Her zaman sabit URL — ara sürüm / versioned asset yok.
+    final notes = (rolling?['body'] as String?)?.trim() ?? '';
+
+    // Her zaman sabit rolling URL — v1.0.88 → v1.0.89 zinciri yok.
     return AppUpdateInfo(
       latestVersion: ver,
       downloadUrl: fallbackUrl,
@@ -182,6 +192,56 @@ Future<AppUpdateInfo?> _fetchFromGitHubReleases(UpdatePlatform platform) async {
       releaseNotes: notes,
       sizeBytes: sizeBytes,
     );
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<Map<String, dynamic>?> _getReleaseJson(String tag) async {
+  final res = await http
+      .get(
+        Uri.parse(
+          'https://api.github.com/repos/$githubRepo/releases/tags/$tag',
+        ),
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'User-Agent': 'MediaAtlas/$appVersion',
+        },
+      )
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) return null;
+  return jsonDecode(res.body) as Map<String, dynamic>;
+}
+
+/// En yüksek `vX.Y.Z` etiketli yayın (ara sürüm atlamak için).
+Future<String?> _newestVersionedRelease() async {
+  try {
+    final res = await http
+        .get(
+          Uri.parse(
+            'https://api.github.com/repos/$githubRepo/releases?per_page=15',
+          ),
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'MediaAtlas/$appVersion',
+          },
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) return null;
+    final list = jsonDecode(res.body);
+    if (list is! List) return null;
+    String? best;
+    for (final raw in list) {
+      if (raw is! Map) continue;
+      if (raw['draft'] == true || raw['prerelease'] == true) continue;
+      final tag = (raw['tag_name'] as String? ?? '').trim();
+      final ver = _normalizeVersion(tag);
+      if (ver == null) continue;
+      // Rolling etiketleri atla.
+      if (tag == androidLatestTag || tag == windowsLatestTag) continue;
+      if (best == null || compareVersions(ver, best) > 0) best = ver;
+    }
+    return best;
   } catch (_) {
     return null;
   }
@@ -199,6 +259,13 @@ String? _versionFromRollingRelease(Map<String, dynamic> json) {
   ).firstMatch(body)?.group(1);
   if (fromBody != null) return fromBody;
   return RegExp(r'(\d+\.\d+\.\d+)').firstMatch(body)?.group(1);
+}
+
+/// `v1.0.91` / `1.0.91+119` → `1.0.91`; geçersizse null.
+String? _normalizeVersion(String raw) {
+  final cleaned = raw.trim().replaceFirst(RegExp(r'^[vV]'), '');
+  final m = RegExp(r'^(\d+\.\d+\.\d+)').firstMatch(cleaned);
+  return m?.group(1);
 }
 
 /// Güncelleme: APK kurulum / Windows zip / web sayfa yenileme.

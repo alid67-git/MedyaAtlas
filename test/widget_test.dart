@@ -321,6 +321,8 @@ void main() {
     expect(compareVersions('0.7.3', '0.7.3'), 0);
     expect(compareVersions('1.0.0', '0.9.9'), 1);
     expect(compareVersions('v0.8.0', '0.7.3'), 1);
+    expect(compareVersions('1.0.91', '1.0.91'), 0);
+    expect(compareVersions('1.0.92', '1.0.91'), 1);
   });
 
   test('zorunlu güncelleme 2 sürüm geride', () {
