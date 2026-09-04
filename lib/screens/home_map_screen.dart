@@ -108,9 +108,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   /// Harita pan/zoom sırasında ısı pinlerini gizle — ANR önlemi.
   bool _mapInteracting = false;
   Timer? _mapIdleTimer;
-  /// En uzak (tek dünya) zoom’a yakınken sürükleme dengesizleşmesin diye
-  /// pan kilitlenir; merkez dengeli dünyaya oturtulur.
-  bool _mapNearMinZoom = false;
 
   /// Zorunlu güncelleme — harita kullanılmaz.
   AppUpdateInfo? _forceUpdate;
@@ -2352,49 +2349,35 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
   }
 
-  /// Kısıtlanmış dünya-tekrarı sınırı: -85.0511..85.0511 enlem (Web Mercator
-  /// tavanı), -180..180 boylam. Kenarlar bu kutunun dışına çıkamaz → yan yana
-  /// ikinci dünya görünmez; en uzak zoom = ekranın sığdırabildiği tek dünya.
+  /// Dünya kutusu — merkez bu sınırlarda kalır (containCenter).
+  /// Kenar kilidi (contain) YOK: dikey telefonda boylamı sığdırmak için
+  /// kutuplar kesilebilir; böylece tüm dünya yatayda görünür.
   static final _worldBounds = LatLngBounds(
     const LatLng(-85.0511, -180),
     const LatLng(85.0511, 180),
   );
 
-  static final _worldEdgeConstraint =
-      CameraConstraint.contain(bounds: _worldBounds);
+  static final _worldCenterConstraint =
+      CameraConstraint.containCenter(bounds: _worldBounds);
 
-  /// Bu merkez + zoom, dünya kenar-kısıtı altında geçerli mi?
-  bool _worldZoomAllowed(LatLng center, double zoom) {
-    if (!zoom.isFinite || !center.latitude.isFinite) return false;
-    final cam = _map.camera.withPosition(center: center, zoom: zoom);
-    return _worldEdgeConstraint.constrain(cam) != null;
-  }
-
-  /// Verilen merkezde kısıtın izin verdiği en uzak (en küçük) zoom —
-  /// yani ekranda tek dünyanın tamamının sığdığı sınır.
-  double? _minWorldZoom(LatLng center) {
-    final c = LatLng(
-      center.latitude.clamp(_worldBounds.south, _worldBounds.north),
-      center.longitude.clamp(_worldBounds.west, _worldBounds.east),
-    );
-    if (!_worldZoomAllowed(c, 22)) return null;
-    if (_worldZoomAllowed(c, 0)) return 0;
-    var lo = 0.0;
-    var hi = 22.0;
-    for (var i = 0; i < 24; i++) {
-      final mid = (lo + hi) / 2;
-      if (_worldZoomAllowed(c, mid)) {
-        hi = mid;
-      } else {
-        lo = mid;
+  /// Ekran genişliğine tam 360° boylam sığdıran en küçük zoom.
+  /// (Web Mercator: zoom 0’da dünya = 256 px.) Üst/alt kutuplar kesilebilir.
+  double _minZoomForFullWorldWidth([Size? size]) {
+    final w = size?.width ?? (() {
+      try {
+        return _map.camera.size.width;
+      } catch (_) {
+        return 0.0;
       }
-    }
-    return hi;
+    })();
+    if (!w.isFinite || w < 32) return 1.0;
+    final z = math.log(w / 256.0) / math.ln2;
+    if (!z.isFinite) return 1.0;
+    return z.clamp(0.0, 5.0);
   }
 
-  /// Sığdır: mümkünse tüm noktalar; kısıt ideal uzaklığı reddederse (dikey
-  /// telefonda geniş boylam) aynı merkezde izin verilen en uzak tek-dünya
-  /// zoom'una düş — yan yana dünya kopyası açılmaz.
+  /// Sığdır: mümkünse tüm noktalar; gerekirse tam-boylam tabanına in
+  /// (kutuplar kesilebilir — yan yana ikinci dünya yok).
   bool _fitMapToBounds(
     LatLngBounds bounds, {
     required EdgeInsets padding,
@@ -2413,29 +2396,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       return false;
     }
 
-    final minZ = _minWorldZoom(fitted.center);
-    // İdeal zoom kısıtın altında kalıyorsa (çok uzak), tek-dünya tabanına çek
-    // ve merkezi (0,0)’a oturt — uçlarda kaydırınca dengesizlik olmasın.
-    final hittingFloor = minZ != null && fitted.zoom < minZ;
+    final minZ = _minZoomForFullWorldWidth(camera.size);
+    final hittingFloor = fitted.zoom < minZ;
     final targetZoom = hittingFloor ? minZ : fitted.zoom;
     final targetCenter =
         hittingFloor ? const LatLng(0, 0) : fitted.center;
 
     _map.move(targetCenter, targetZoom);
-    if ((_map.camera.zoom - targetZoom).abs() < 0.08) {
-      if (hittingFloor && mounted) {
-        setState(() => _mapNearMinZoom = true);
-      }
-      return true;
-    }
+    if ((_map.camera.zoom - targetZoom).abs() < 0.08) return true;
     if (_isNear(_map.camera, fitted)) return true;
 
-    // Kısıt merkezi kaydırdıysa: güncel merkezde tekrar dene.
     final mid = hittingFloor ? const LatLng(0, 0) : _map.camera.center;
-    final minMid = _minWorldZoom(mid) ?? targetZoom;
-    final z2 = fitted.zoom < minMid ? minMid : fitted.zoom;
-    _map.move(mid, z2);
-    return (_map.camera.zoom - z2).abs() < 0.08 ||
+    _map.move(mid, targetZoom);
+    return (_map.camera.zoom - targetZoom).abs() < 0.08 ||
         _map.move(fitted.center, camera.zoom);
   }
 
@@ -3952,98 +3925,93 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final mapMarkers = _mapMarkersFor(clusters, repo);
     return Stack(
       children: [
-        FlutterMap(
-          mapController: _map,
-          options: MapOptions(
-            initialCenter: _worldCenter,
-            initialZoom: 2.4,
-            // Kenarları tek dünya kutusuna kilitle: pinch ile küçültünce yan
-            // yana ikinci/üçüncü dünya açılmaz. İzin verilen en uzak zoom,
-            // ekranın sığdırabildiği tek dünyanın tamamıdır (ekran boyuna
-            // göre dinamik — sabit minZoom yok).
-            cameraConstraint: _worldEdgeConstraint,
-            // En uzak zoom’da sürükleme / fling, kenar kısıtıyla “takılıp
-            // zıplama” hissi veriyor — pan’i kapat, pinch-zoom ile geri aç.
-            interactionOptions: InteractionOptions(
-              flags: _mapNearMinZoom
-                  ? (InteractiveFlag.all &
-                      ~InteractiveFlag.drag &
-                      ~InteractiveFlag.flingAnimation &
-                      ~InteractiveFlag.pinchMove)
-                  : InteractiveFlag.all,
-            ),
-            onMapEvent: _onMapEvent,
-            // İz çizgisinin herhangi bir noktasına dokununca ismini
-            // aç/kapa — etiket tıklanan noktada, ekran içinde kalır.
-            onTap: (_, latlng) {
-              final hits = _trackHitNotifier.value?.hitValues;
-              if (hits == null || hits.isEmpty) {
-                if (_trackNameLabel == null) return;
-                setState(() => _trackNameLabel = null);
-                return;
-              }
-              final id = hits.first;
-              MapTrack? found;
-              for (final t in visibleTracks) {
-                if (t.id == id) {
-                  found = t;
-                  break;
-                }
-              }
-              final track = found;
-              if (track == null) return;
-              setState(() {
-                if (_trackNameLabel?.id == id) {
-                  _trackNameLabel = null;
-                } else {
-                  _trackNameLabel = (
-                    id: id,
-                    name: track.name,
-                    point: latlng,
-                  );
-                }
-              });
-            },
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
-              userAgentPackageName: 'com.medyaatlas.app',
-            ),
-            _TrackLinesLayer(
-              tracks: visibleTracks,
-              hitNotifier: _trackHitNotifier,
-            ),
-            // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
-            if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
-            _TrackBadgeLayer(
-              tracks: visibleTracks,
-              selectedTrackId: _trackNameLabel?.id,
-              onTap: (id, anchor) {
-                MapTrack? found;
-                for (final t in visibleTracks) {
-                  if (t.id == id) {
-                    found = t;
-                    break;
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final minZ = _minZoomForFullWorldWidth(constraints.biggest);
+            return FlutterMap(
+              mapController: _map,
+              options: MapOptions(
+                initialCenter: _worldCenter,
+                initialZoom: math.max(2.4, minZ + 0.3),
+                minZoom: minZ,
+                // Merkez dünyada kalsın; kenar kilidi yok — dikey telefonda
+                // üst/alt (kutup) kesilerek tam boylam (tüm dünya yatay)
+                // görünsün. Pan her zoom’da açık.
+                cameraConstraint: _worldCenterConstraint,
+                onMapEvent: _onMapEvent,
+                // İz çizgisinin herhangi bir noktasına dokununca ismini
+                // aç/kapa — etiket tıklanan noktada, ekran içinde kalır.
+                onTap: (_, latlng) {
+                  final hits = _trackHitNotifier.value?.hitValues;
+                  if (hits == null || hits.isEmpty) {
+                    if (_trackNameLabel == null) return;
+                    setState(() => _trackNameLabel = null);
+                    return;
                   }
-                }
-                final track = found;
-                if (track == null) return;
-                setState(() {
-                  if (_trackNameLabel?.id == id) {
-                    _trackNameLabel = null;
-                  } else {
-                    _trackNameLabel = (
-                      id: id,
-                      name: track.name,
-                      point: anchor,
-                    );
+                  final id = hits.first;
+                  MapTrack? found;
+                  for (final t in visibleTracks) {
+                    if (t.id == id) {
+                      found = t;
+                      break;
+                    }
                   }
-                });
-              },
-            ),
-            MarkerLayer(markers: mapMarkers.selected),
-          ],
+                  final track = found;
+                  if (track == null) return;
+                  setState(() {
+                    if (_trackNameLabel?.id == id) {
+                      _trackNameLabel = null;
+                    } else {
+                      _trackNameLabel = (
+                        id: id,
+                        name: track.name,
+                        point: latlng,
+                      );
+                    }
+                  });
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
+                  userAgentPackageName: 'com.medyaatlas.app',
+                ),
+                _TrackLinesLayer(
+                  tracks: visibleTracks,
+                  hitNotifier: _trackHitNotifier,
+                ),
+                // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
+                if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
+                _TrackBadgeLayer(
+                  tracks: visibleTracks,
+                  selectedTrackId: _trackNameLabel?.id,
+                  onTap: (id, anchor) {
+                    MapTrack? found;
+                    for (final t in visibleTracks) {
+                      if (t.id == id) {
+                        found = t;
+                        break;
+                      }
+                    }
+                    final track = found;
+                    if (track == null) return;
+                    setState(() {
+                      if (_trackNameLabel?.id == id) {
+                        _trackNameLabel = null;
+                      } else {
+                        _trackNameLabel = (
+                          id: id,
+                          name: track.name,
+                          point: anchor,
+                        );
+                      }
+                    });
+                  },
+                ),
+                MarkerLayer(markers: mapMarkers.selected),
+              ],
+            );
+          },
         ),
         if (_trackNameLabel != null)
           _ClampedTrackNameLabel(
@@ -4087,47 +4055,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         event is MapEventRotateStart ||
         event is MapEventDoubleTapZoomStart ||
         event is MapEventScrollWheelZoom;
-    if (busy) {
-      _mapIdleTimer?.cancel();
-      if (!_mapInteracting && mounted) {
-        setState(() => _mapInteracting = true);
-      }
-      _mapIdleTimer = Timer(const Duration(milliseconds: 220), () {
-        if (!mounted || !_mapInteracting) return;
-        setState(() => _mapInteracting = false);
-      });
+    if (!busy) return;
+    _mapIdleTimer?.cancel();
+    if (!_mapInteracting && mounted) {
+      setState(() => _mapInteracting = true);
     }
-
-    final ended = event is MapEventMoveEnd ||
-        event is MapEventFlingAnimationEnd ||
-        event is MapEventDoubleTapZoomEnd;
-    if (ended || event is MapEventMove) {
-      _syncMinZoomLock(snapCenter: ended);
-    }
-  }
-
-  /// Tek-dünya tabanına yaklaşınca merkezi (0,0)’a oturt ve pan’i kilitle.
-  void _syncMinZoomLock({required bool snapCenter}) {
-    try {
-      final cam = _map.camera;
-      final minZ = _minWorldZoom(const LatLng(0, 0));
-      if (minZ == null) return;
-      final near = cam.zoom <= minZ + 0.22;
-      if (near != _mapNearMinZoom && mounted) {
-        setState(() => _mapNearMinZoom = near);
-      }
-      if (!near || !snapCenter) return;
-      const home = LatLng(0, 0);
-      final z = math.max(cam.zoom, minZ);
-      final need = (cam.center.latitude - home.latitude).abs() > 0.4 ||
-          (cam.center.longitude - home.longitude).abs() > 0.4 ||
-          cam.zoom < minZ - 0.01;
-      if (need) {
-        _map.move(home, z);
-      }
-    } catch (_) {
-      /* harita henüz bağlı değil */
-    }
+    _mapIdleTimer = Timer(const Duration(milliseconds: 220), () {
+      if (!mounted || !_mapInteracting) return;
+      setState(() => _mapInteracting = false);
+    });
   }
 
   ({List<Marker> heat, List<Marker> selected}) _mapMarkersFor(
