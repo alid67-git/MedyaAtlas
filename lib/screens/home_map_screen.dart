@@ -2340,8 +2340,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
   }
 
-  /// Sığdır: dünya-tekrarı kısıtı ideal zoom'u reddederse zoom'u yükselterek
-  /// yeniden dene — aksi halde zum ikonu hiç tepki vermiyormuş gibi kalır.
+  /// Kısıtlanmış dünya-tekrarı sınırı: -85.0511..85.0511 enlem (Web Mercator
+  /// tavanı), -180..180 boylam.
+  static final _worldBounds = LatLngBounds(
+    const LatLng(-85.0511, -180),
+    const LatLng(85.0511, 180),
+  );
+
+  /// Sığdır: geniş enlem/boylam yayılımı (ör. Amerika + Tayland + Avrupa)
+  /// dar/uzun bir telefon ekranında TEK bir zoom'a sığmayabilir — enlemi
+  /// dünya sınırında tutan zoom, boylamı sığdırmak için gerekenden daha
+  /// yüksek (daha yakın) kalabiliyordu; bu da "ortalıyor ama kenarlardaki
+  /// izler dışarıda kalıyor" görünümüne yol açıyordu. İdeal sığdırma kısıt
+  /// tarafından reddedilirse, aranan her nokta zaten dünya sınırları
+  /// içinde olduğundan onları hep kapsayan tüm-dünya görünümüne düş.
   bool _fitMapToBounds(
     LatLngBounds bounds, {
     required EdgeInsets padding,
@@ -2356,37 +2368,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       padding: padding,
       maxZoom: maxZoom,
     ).fit(camera);
-    if (!fitted.zoom.isFinite || !fitted.center.latitude.isFinite) {
-      return false;
-    }
-    // İdeal sığdırma.
-    if (_map.move(fitted.center, fitted.zoom)) return true;
-    // Kısıt zoom'u reddetti (viewport dünyadan büyük). Yakınlaştırarak kabul
-    // edilen en uzak zoom'u bul.
-    var lo = fitted.zoom;
-    var hi = math.min(maxZoom, camera.maxZoom ?? maxZoom);
-    if (hi <= lo) {
-      return _map.move(fitted.center, camera.zoom);
-    }
-    var best = camera.zoom;
-    var moved = false;
-    for (var i = 0; i < 14; i++) {
-      final mid = (lo + hi) / 2;
-      if (_map.move(fitted.center, mid)) {
-        moved = true;
-        best = mid;
-        hi = mid; // daha uzak (düşük zoom) dene
-      } else {
-        lo = mid;
-      }
-      if ((hi - lo).abs() < 0.05) break;
-    }
-    if (moved) {
-      _map.move(fitted.center, best);
+    if (fitted.zoom.isFinite &&
+        fitted.center.latitude.isFinite &&
+        _map.move(fitted.center, fitted.zoom)) {
       return true;
     }
-    // Son çare: mevcut zoom’da ortala.
-    return _map.move(fitted.center, camera.zoom);
+    final worldFit =
+        CameraFit.bounds(bounds: _worldBounds, padding: EdgeInsets.zero)
+            .fit(camera);
+    if (worldFit.zoom.isFinite && _map.move(worldFit.center, worldFit.zoom)) {
+      return true;
+    }
+    return _map.move(camera.center, camera.zoom);
   }
 
   /// Cihaz konumu; yakındaki son günlerin medyası varsa onlarla sığdır.
@@ -3894,12 +3887,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             // gerçekten geniş yayılan izleri sığdırmak için gereken daha
             // düşük zoom'u da engelliyordu — cameraConstraint tek başına
             // (ekran boyutuna duyarlı) aynı taşma korumasını sağlıyor.
-            cameraConstraint: CameraConstraint.contain(
-              bounds: LatLngBounds(
-                const LatLng(-85.0511, -180),
-                const LatLng(85.0511, 180),
-              ),
-            ),
+            cameraConstraint: CameraConstraint.contain(bounds: _worldBounds),
             onMapEvent: _onMapEvent,
           ),
           children: [
