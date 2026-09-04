@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.100',
+    tr: 'En uzak zoom artık ekran genişliğine tam dünyayı (360°) sığdırıyor — gerekirse kutuplar üstten/alttan kesilir. Bu zoom’da sağa-sola kaydırma yine açık (önce yakınlaştırma şart değil).',
+    en: 'Max zoom-out now fits the full world width (360°) to the screen — poles may be cropped top/bottom if needed. Panning left/right stays enabled at that zoom (no need to zoom in first).',
+    de: 'Maximaler Zoom-out passt jetzt die volle Weltbreite (360°) auf den Bildschirm — Pole können oben/unten beschnitten werden. Schwenken links/rechts bleibt auf diesem Zoom möglich (kein vorheriges Reinzoomen nötig).',
+  ),
+  VersionHistoryEntry(
     version: '1.0.99',
     tr: 'Pine tıklayınca önizleme artık yalnızca o kümenin birkaç medyasını değil, o an haritada görünen TÜM medyayı listeliyor (harita görünümü bozulmadan).',
     en: 'Tapping a pin now previews ALL media currently visible on the map, not just the few items in that cluster — without zooming the map away.',
