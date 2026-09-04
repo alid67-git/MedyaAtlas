@@ -2417,7 +2417,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     // İdeal zoom kısıtın altında kalıyorsa (çok uzak), tek-dünya tabanına çek
     // ve merkezi (0,0)’a oturt — uçlarda kaydırınca dengesizlik olmasın.
     final hittingFloor = minZ != null && fitted.zoom < minZ;
-    final targetZoom = hittingFloor ? minZ! : fitted.zoom;
+    final targetZoom = hittingFloor ? minZ : fitted.zoom;
     final targetCenter =
         hittingFloor ? const LatLng(0, 0) : fitted.center;
 
