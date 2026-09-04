@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.98',
+    tr: 'Güncelleme: kurulum ekranı açılınca eski süreç artık tamamen kapanıyor (görev listesinden de silinir). Harita en uzak zoom’da sürüklenince uçlarda takılıp zıplama hissi giderildi — tek dünya ortalanır, pan kilitlenir; yakınlaşınca yine kaydırılabilir.',
+    en: 'Update: when the installer opens, the old process now fully exits (also removed from recents). At max zoom-out, edge pan jitter is gone — the single world stays centered and panning locks until you zoom back in.',
+    de: 'Update: Beim Öffnen des Installers beendet sich der alte Prozess jetzt vollständig (auch aus den Letzten Apps). Beim maximalen Herauszoomen kein Kanten-Ruckeln mehr — die eine Welt bleibt zentriert, Schwenken ist gesperrt bis zum Reinzoomen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.97',
     tr: 'İz ismi etiketi ekran kenarında kesiliyordu — artık ekran içinde kalacak şekilde kaydırılıyor.',
     en: 'Track name labels were clipped at the screen edge — they now stay fully inside the viewport.',

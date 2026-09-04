@@ -99,11 +99,20 @@ class MainActivity : FlutterActivity() {
             )
         }
         startActivity(intent)
-        // Kurulum ekranı açıldıktan sonra eski sürümü kapat.
+        // Kurulum ekranı açıldıktan sonra eski sürümü tamamen kapat —
+        // finishAffinity yetmez: görev listesinde kalıp yükleme bitince
+        // eski sürece geri dönülebiliyor.
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            if (!isFinishing) {
-                finishAffinity()
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    finishAndRemoveTask()
+                } else {
+                    finishAffinity()
+                }
+            } catch (_: Exception) {
+                finish()
             }
-        }, 400)
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }, 500)
     }
 }

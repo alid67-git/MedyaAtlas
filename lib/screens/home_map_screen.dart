@@ -108,6 +108,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   /// Harita pan/zoom sırasında ısı pinlerini gizle — ANR önlemi.
   bool _mapInteracting = false;
   Timer? _mapIdleTimer;
+  /// En uzak (tek dünya) zoom’a yakınken sürükleme dengesizleşmesin diye
+  /// pan kilitlenir; merkez dengeli dünyaya oturtulur.
+  bool _mapNearMinZoom = false;
 
   /// Zorunlu güncelleme — harita kullanılmaz.
   AppUpdateInfo? _forceUpdate;
@@ -2411,16 +2414,24 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
 
     final minZ = _minWorldZoom(fitted.center);
-    // İdeal zoom kısıtın altında kalıyorsa (çok uzak), tek-dünya tabanına çek.
-    final targetZoom =
-        (minZ != null && fitted.zoom < minZ) ? minZ : fitted.zoom;
+    // İdeal zoom kısıtın altında kalıyorsa (çok uzak), tek-dünya tabanına çek
+    // ve merkezi (0,0)’a oturt — uçlarda kaydırınca dengesizlik olmasın.
+    final hittingFloor = minZ != null && fitted.zoom < minZ;
+    final targetZoom = hittingFloor ? minZ! : fitted.zoom;
+    final targetCenter =
+        hittingFloor ? const LatLng(0, 0) : fitted.center;
 
-    _map.move(fitted.center, targetZoom);
-    if ((_map.camera.zoom - targetZoom).abs() < 0.08) return true;
+    _map.move(targetCenter, targetZoom);
+    if ((_map.camera.zoom - targetZoom).abs() < 0.08) {
+      if (hittingFloor && mounted) {
+        setState(() => _mapNearMinZoom = true);
+      }
+      return true;
+    }
     if (_isNear(_map.camera, fitted)) return true;
 
     // Kısıt merkezi kaydırdıysa: güncel merkezde tekrar dene.
-    final mid = _map.camera.center;
+    final mid = hittingFloor ? const LatLng(0, 0) : _map.camera.center;
     final minMid = _minWorldZoom(mid) ?? targetZoom;
     final z2 = fitted.zoom < minMid ? minMid : fitted.zoom;
     _map.move(mid, z2);
@@ -3971,6 +3982,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             // ekranın sığdırabildiği tek dünyanın tamamıdır (ekran boyuna
             // göre dinamik — sabit minZoom yok).
             cameraConstraint: _worldEdgeConstraint,
+            // En uzak zoom’da sürükleme / fling, kenar kısıtıyla “takılıp
+            // zıplama” hissi veriyor — pan’i kapat, pinch-zoom ile geri aç.
+            interactionOptions: InteractionOptions(
+              flags: _mapNearMinZoom
+                  ? (InteractiveFlag.all &
+                      ~InteractiveFlag.drag &
+                      ~InteractiveFlag.flingAnimation &
+                      ~InteractiveFlag.pinchMove)
+                  : InteractiveFlag.all,
+            ),
             onMapEvent: _onMapEvent,
             // İz çizgisinin herhangi bir noktasına dokununca ismini
             // aç/kapa — etiket tıklanan noktada, ekran içinde kalır.
@@ -4086,15 +4107,47 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         event is MapEventRotateStart ||
         event is MapEventDoubleTapZoomStart ||
         event is MapEventScrollWheelZoom;
-    if (!busy) return;
-    _mapIdleTimer?.cancel();
-    if (!_mapInteracting && mounted) {
-      setState(() => _mapInteracting = true);
+    if (busy) {
+      _mapIdleTimer?.cancel();
+      if (!_mapInteracting && mounted) {
+        setState(() => _mapInteracting = true);
+      }
+      _mapIdleTimer = Timer(const Duration(milliseconds: 220), () {
+        if (!mounted || !_mapInteracting) return;
+        setState(() => _mapInteracting = false);
+      });
     }
-    _mapIdleTimer = Timer(const Duration(milliseconds: 220), () {
-      if (!mounted || !_mapInteracting) return;
-      setState(() => _mapInteracting = false);
-    });
+
+    final ended = event is MapEventMoveEnd ||
+        event is MapEventFlingAnimationEnd ||
+        event is MapEventDoubleTapZoomEnd;
+    if (ended || event is MapEventMove) {
+      _syncMinZoomLock(snapCenter: ended);
+    }
+  }
+
+  /// Tek-dünya tabanına yaklaşınca merkezi (0,0)’a oturt ve pan’i kilitle.
+  void _syncMinZoomLock({required bool snapCenter}) {
+    try {
+      final cam = _map.camera;
+      final minZ = _minWorldZoom(const LatLng(0, 0));
+      if (minZ == null) return;
+      final near = cam.zoom <= minZ + 0.22;
+      if (near != _mapNearMinZoom && mounted) {
+        setState(() => _mapNearMinZoom = near);
+      }
+      if (!near || !snapCenter) return;
+      const home = LatLng(0, 0);
+      final z = math.max(cam.zoom, minZ);
+      final need = (cam.center.latitude - home.latitude).abs() > 0.4 ||
+          (cam.center.longitude - home.longitude).abs() > 0.4 ||
+          cam.zoom < minZ - 0.01;
+      if (need) {
+        _map.move(home, z);
+      }
+    } catch (_) {
+      /* harita henüz bağlı değil */
+    }
   }
 
   ({List<Marker> heat, List<Marker> selected}) _mapMarkersFor(
