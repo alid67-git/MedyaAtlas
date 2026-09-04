@@ -2638,15 +2638,25 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _openCluster(LocationCluster cluster) async {
-    // _fitCluster haritayı bu kümeye kilitlemeden ÖNCE, o anda ekranda ne
-    // varsa onu sakla — aksi halde önizleme açılınca "viewport" zaten tek
-    // kümeye daralmış oluyor ve dokunulan medya tek başına geliyor. Kamera
-    // da aynı sebeple saklanır: önizleme (veya panel) kapanınca haritayı
-    // kümeye zumlamadan önceki hâline döndürebilelim.
-    _clusterTapViewportSnapshot =
-        _mediaInMapViewport(context.read<MediaRepository>());
+    // Tıklama anında ekranda görünen tüm medya — paneli / önizleyiciyi
+    // yalnızca bu kümenin 2–3 öğesiyle sınırlamayalım. Kamerayı küçültüp
+    // sığdırmıyoruz; aksi halde «görünen harita» listesi anlamsızlaşır.
+    final viewport = _mediaInMapViewport(context.read<MediaRepository>());
+    final items = <LibraryMedia>[];
+    final seen = <String>{};
+    for (final m in viewport) {
+      if (seen.add(m.id)) items.add(m);
+    }
+    for (final m in cluster.items) {
+      if (seen.add(m.id)) items.add(m);
+    }
+    items.sort((a, b) {
+      final ta = a.takenAt ?? a.addedAt;
+      final tb = b.takenAt ?? b.addedAt;
+      return tb.compareTo(ta);
+    });
+    _clusterTapViewportSnapshot = items;
     _clusterTapCameraSnapshot = _map.camera;
-    _fitCluster(cluster);
     setState(() {
       _panelCluster = cluster;
       _showMissing = false;
@@ -2670,12 +2680,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         return SizedBox(
           height: h.clamp(320.0, 640.0),
           child: _ClusterSheet(
-            cluster: cluster,
+            items: items,
             repo: live,
-            onOpen: (items, index) {
+            viewportWide: items.length > cluster.items.length,
+            onOpen: (openItems, index) {
               Navigator.pop(ctx);
               _openMapMediaViewer(
-                clusterItems: items,
+                clusterItems: openItems,
                 tappedIndex: index,
               );
             },
@@ -2684,9 +2695,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       },
     );
     if (mounted) setState(() => _panelCluster = null);
-    // Küme paneli hiçbir şey açmadan kapandıysa (ör. dışarı tıklama) kamera
-    // hâlâ burada — geri al. Bir medya açıldıysa _openMapMediaViewer bunu
-    // zaten null’a çekmiştir, o yüzden burada tekrar geri almayız.
+    // Panel hiçbir şey açmadan kapandıysa kamerayı geri al (şimna sığdırma
+    // yok ama snapshot yine temizlensin).
     _restoreClusterCameraIfPending();
   }
 
@@ -2891,17 +2901,27 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                               const VerticalDivider(width: 1),
                               SizedBox(
                                 width: 360,
-                                child: _ClusterSheet(
-                                  cluster: _panelCluster!,
-                                  repo: repo,
-                                  onClose: () {
-                                    setState(() => _panelCluster = null);
-                                    _restoreClusterCameraIfPending();
+                                child: Builder(
+                                  builder: (context) {
+                                    final viewport =
+                                        _clusterTapViewportSnapshot ??
+                                            _panelCluster!.items;
+                                    return _ClusterSheet(
+                                      items: viewport,
+                                      repo: repo,
+                                      viewportWide: viewport.length >
+                                          _panelCluster!.items.length,
+                                      onClose: () {
+                                        setState(() => _panelCluster = null);
+                                        _restoreClusterCameraIfPending();
+                                      },
+                                      onOpen: (items, index) =>
+                                          _openMapMediaViewer(
+                                        clusterItems: items,
+                                        tappedIndex: index,
+                                      ),
+                                    );
                                   },
-                                  onOpen: (items, index) => _openMapMediaViewer(
-                                    clusterItems: items,
-                                    tappedIndex: index,
-                                  ),
                                 ),
                               ),
                             ],
@@ -4303,20 +4323,22 @@ class _MissingList extends StatelessWidget {
 
 class _ClusterSheet extends StatelessWidget {
   const _ClusterSheet({
-    required this.cluster,
+    required this.items,
     required this.repo,
     required this.onOpen,
     this.onClose,
+    this.viewportWide = false,
   });
 
-  final LocationCluster cluster;
+  final List<LibraryMedia> items;
   final MediaRepository repo;
   final void Function(List<LibraryMedia> items, int index) onOpen;
   final VoidCallback? onClose;
+  /// true: liste tıklanan kümeden geniş — haritada o an görünen tüm medya.
+  final bool viewportWide;
 
   @override
   Widget build(BuildContext context) {
-    final items = cluster.items;
     final groups = groupMediaByDay(items);
     final range = mediaDateRangeLabel(items);
     // Düz indeks: tüm öğeler yeniden eskiye (gruplarla aynı sıra).
@@ -4344,16 +4366,25 @@ class _ClusterSheet extends StatelessWidget {
                           height: 1.15,
                         ),
                       ),
-                      if (range != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          range,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
+                      Builder(
+                        builder: (context) {
+                          final sub = [
+                            if (viewportWide) 'Haritada görünen',
+                            if (range != null) range,
+                          ].join(' · ');
+                          if (sub.isEmpty) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              sub,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -4368,52 +4399,57 @@ class _ClusterSheet extends StatelessWidget {
           ),
           const Divider(height: 1),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-              itemCount: groups.length,
-              itemBuilder: (context, gi) {
-                final g = groups[gi];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(4, gi == 0 ? 4 : 14, 4, 8),
-                      child: Text(
-                        g.title,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white.withValues(alpha: 0.85),
-                        ),
-                      ),
-                    ),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 6,
-                            crossAxisSpacing: 6,
+            child: items.isEmpty
+                ? const Center(child: Text('Bu görünümde medya yok.'))
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                    itemCount: groups.length,
+                    itemBuilder: (context, gi) {
+                      final g = groups[gi];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding:
+                                EdgeInsets.fromLTRB(4, gi == 0 ? 4 : 14, 4, 8),
+                            child: Text(
+                              g.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white.withValues(alpha: 0.85),
+                              ),
+                            ),
                           ),
-                      itemCount: g.items.length,
-                      itemBuilder: (context, i) {
-                        final item = g.items[i];
-                        final flatIndex = flat.indexOf(item);
-                        return GestureDetector(
-                          onTap: () =>
-                              onOpen(flat, flatIndex < 0 ? 0 : flatIndex),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: _Thumb(item: item, repo: repo),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              mainAxisSpacing: 6,
+                              crossAxisSpacing: 6,
+                            ),
+                            itemCount: g.items.length,
+                            itemBuilder: (context, i) {
+                              final item = g.items[i];
+                              final flatIndex = flat.indexOf(item);
+                              return GestureDetector(
+                                onTap: () => onOpen(
+                                  flat,
+                                  flatIndex < 0 ? 0 : flatIndex,
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: _Thumb(item: item, repo: repo),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                  ],
-                );
-              },
-            ),
+                        ],
+                      );
+                    },
+                  ),
           ),
         ],
       ),
