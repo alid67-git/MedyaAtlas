@@ -84,8 +84,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _locating = false;
   bool _sourcesOpen = false;
   bool _tracksOpen = false;
-  /// Haritada ismi gösterilen iz — rozetine tıklanınca açılır/kapanır.
-  String? _selectedTrackId;
+  /// Haritada iz ismi — çizginin herhangi bir yerine tıklanınca tap
+  /// noktasında çıkar; aynı ize / etikete / boş alana tıklanınca kapanır.
+  ({String id, String name, LatLng point})? _trackNamePopup;
+  /// İz çizgisi GestureDetector ile MapOptions.onTap yarışırsa etiket
+  /// hemen silinmesin.
+  var _ignoreNextMapTap = false;
   /// Haritada medya: tümü / görünen izlere yakın / gizle.
   _TrackMediaFilter _trackMediaFilter = _TrackMediaFilter.all;
   String? _kindMenu;
@@ -2587,6 +2591,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _sourcesOpen = false;
       _tracksOpen = false;
       _kindMenu = null;
+      _trackNamePopup = null;
     });
     if (_isDesktop || MediaQuery.sizeOf(context).width >= 960) {
       return;
@@ -3901,22 +3906,75 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
             onMapEvent: _onMapEvent,
+            onTap: (_, _) {
+              if (_ignoreNextMapTap) {
+                _ignoreNextMapTap = false;
+                return;
+              }
+              if (_trackNamePopup == null) return;
+              setState(() => _trackNamePopup = null);
+            },
           ),
           children: [
             TileLayer(
               urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
               userAgentPackageName: 'com.medyaatlas.app',
             ),
-            _TrackLinesLayer(tracks: visibleTracks),
+            _TrackLinesLayer(
+              tracks: visibleTracks,
+              onTrackTap: _onTrackLineTap,
+            ),
             // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
             if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
-            _TrackBadgeLayer(
-              tracks: visibleTracks,
-              selectedTrackId: _selectedTrackId,
-              onTap: (id) => setState(() {
-                _selectedTrackId = _selectedTrackId == id ? null : id;
-              }),
-            ),
+            if (_trackNamePopup != null)
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _trackNamePopup!.point,
+                    width: 220,
+                    height: 32,
+                    alignment: Alignment.bottomCenter,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setState(() => _trackNamePopup = null),
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xE8121C28),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xE8FF8C12),
+                              width: 1.5,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x44000000),
+                                blurRadius: 3,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            _trackNamePopup!.name,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             MarkerLayer(markers: mapMarkers.selected),
           ],
         ),
@@ -3944,6 +4002,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ),
       ],
     );
+  }
+
+  void _onTrackLineTap(String id, String name, LatLng point) {
+    // Harita onTap ile yarışırsa etiketi hemen silmesin.
+    _ignoreNextMapTap = true;
+    setState(() {
+      if (_trackNamePopup?.id == id) {
+        _trackNamePopup = null;
+      } else {
+        _trackNamePopup = (id: id, name: name, point: point);
+      }
+    });
   }
 
   void _onMapEvent(MapEvent event) {
@@ -4440,22 +4510,38 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
 ///
 /// [MapCamera] dinlenmez: zoom her karede tüm GPX noktalarını yeniden
 /// LatLng/Polyline yapınca Android «yanıt vermiyor» veriyordu.
+///
+/// Tıklanınca iz ismi için hitNotifier (yuvarlak rozet yok — çizginin
+/// herhangi bir yeri).
+typedef _TrackHit = ({String id, String name});
+
 class _TrackLinesLayer extends StatefulWidget {
-  const _TrackLinesLayer({required this.tracks});
+  const _TrackLinesLayer({
+    required this.tracks,
+    required this.onTrackTap,
+  });
 
   final List<MapTrack> tracks;
+  final void Function(String id, String name, LatLng point) onTrackTap;
 
   @override
   State<_TrackLinesLayer> createState() => _TrackLinesLayerState();
 }
 
 class _TrackLinesLayerState extends State<_TrackLinesLayer> {
-  List<Polyline> _polylines = const [];
+  List<Polyline<_TrackHit>> _polylines = const [];
+  final LayerHitNotifier<_TrackHit> _hitNotifier = ValueNotifier(null);
 
   @override
   void initState() {
     super.initState();
     _rebuildPolylines();
+  }
+
+  @override
+  void dispose() {
+    _hitNotifier.dispose();
+    super.dispose();
   }
 
   @override
@@ -4483,7 +4569,7 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
   /// zaten zoom'a göre kendi (simplificationTolerance) ek sadeleştirmesini
   /// çizim anında yapıyor; burada sadece geçersiz GPS'i eleriz.
   void _rebuildPolylines() {
-    final polylines = <Polyline>[];
+    final polylines = <Polyline<_TrackHit>>[];
     var colorIndex = 0;
     for (final track in widget.tracks) {
       final pts = <LatLng>[
@@ -4492,12 +4578,13 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
       ];
       if (pts.length < 2) continue;
       polylines.add(
-        Polyline(
+        Polyline<_TrackHit>(
           points: pts,
           strokeWidth: 4.5,
           color: _trackColor(colorIndex++),
           borderStrokeWidth: 2.5,
           borderColor: const Color(0xE0121C28),
+          hitValue: (id: track.id, name: track.name),
         ),
       );
     }
@@ -4514,173 +4601,32 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
     return HSLColor.fromAHSL(1, hue, 0.85, 0.56).toColor();
   }
 
+  void _handleTap() {
+    final hit = _hitNotifier.value;
+    if (hit == null || hit.hitValues.isEmpty) return;
+    final track = hit.hitValues.first;
+    widget.onTrackTap(track.id, track.name, hit.coordinate);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_polylines.isEmpty) return const SizedBox.shrink();
-    return PolylineLayer(
-      polylines: _polylines,
-      cullingMargin: 40,
-      // 2.5 idi: dağ geçidi gibi sık virajlı izlerde köşeleri kesip yolu
-      // takip etmeyen kaba bir çizgiye dönüştürüyordu. Küçük bir tolerans
-      // hâlâ 30+ iz açıkken çizim maliyetini düşürür ama viraj detayını
-      // korur.
-      simplificationTolerance: 0.4,
+    return GestureDetector(
+      behavior: HitTestBehavior.deferToChild,
+      onTap: _handleTap,
+      child: PolylineLayer<_TrackHit>(
+        polylines: _polylines,
+        hitNotifier: _hitNotifier,
+        // İnce çizgiye parmakla vurmayı kolaylaştır.
+        minimumHitbox: 16,
+        cullingMargin: 40,
+        // 2.5 idi: dağ geçidi gibi sık virajlı izlerde köşeleri kesip yolu
+        // takip etmeyen kaba bir çizgiye dönüştürüyordu. Küçük bir tolerans
+        // hâlâ 30+ iz açıkken çizim maliyetini düşürür ama viraj detayını
+        // korur.
+        simplificationTolerance: 0.4,
+      ),
     );
   }
 }
 
-/// İz rozetleri — sabit boyut; pan/zoom’da Marker listesi yeniden kurulmaz.
-class _TrackBadgeLayer extends StatefulWidget {
-  const _TrackBadgeLayer({
-    required this.tracks,
-    this.selectedTrackId,
-    required this.onTap,
-  });
-
-  final List<MapTrack> tracks;
-  final String? selectedTrackId;
-  final ValueChanged<String> onTap;
-
-  @override
-  State<_TrackBadgeLayer> createState() => _TrackBadgeLayerState();
-}
-
-class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
-  List<Marker> _markers = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    _rebuildMarkers();
-  }
-
-  @override
-  void didUpdateWidget(covariant _TrackBadgeLayer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_sameTrackRefs(oldWidget.tracks, widget.tracks) ||
-        oldWidget.selectedTrackId != widget.selectedTrackId) {
-      _rebuildMarkers();
-    }
-  }
-
-  bool _sameTrackRefs(List<MapTrack> a, List<MapTrack> b) {
-    if (identical(a, b)) return true;
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (!identical(a[i], b[i])) return false;
-    }
-    return true;
-  }
-
-  void _rebuildMarkers() {
-    const size = 18.0;
-    final markers = <Marker>[];
-    for (final track in widget.tracks) {
-      final center = _trackAnchor(track);
-      if (center == null) continue;
-      final selected = track.id == widget.selectedTrackId;
-      markers.add(
-        Marker(
-          point: center,
-          width: selected ? 220 : size,
-          height: selected ? 28 : size,
-          alignment: selected ? Alignment.centerLeft : Alignment.center,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => widget.onTap(track.id),
-            child: selected
-                ? Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xE8121C28),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xE8FF8C12),
-                          width: 1.5,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x44000000),
-                            blurRadius: 3,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.route,
-                            color: Color(0xFFFF8C12),
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              track.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xE8FF8C12),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x44000000),
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.route,
-                      color: Colors.white,
-                      size: 10,
-                    ),
-                  ),
-          ),
-        ),
-      );
-    }
-    _markers = markers;
-  }
-
-  LatLng? _trackAnchor(MapTrack track) {
-    final b = track.bounds;
-    if (b != null &&
-        b.south.isFinite &&
-        b.north.isFinite &&
-        b.west.isFinite &&
-        b.east.isFinite) {
-      return LatLng((b.south + b.north) / 2, (b.west + b.east) / 2);
-    }
-    final pts = [
-      for (final p in track.points)
-        if (isValidGps(p.latitude, p.longitude)) p.latLng,
-    ];
-    if (pts.isEmpty) return null;
-    return pts[pts.length ~/ 2];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_markers.isEmpty) return const SizedBox.shrink();
-    return MarkerLayer(markers: _markers);
-  }
-}

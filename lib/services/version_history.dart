@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.93',
+    tr: 'İz ismi: yuvarlak rozet kalktı — çizginin herhangi bir yerine tıklayınca isim o noktada çıkar; etikete veya boş alana / aynı ize tekrar tıklayınca kaybolur.',
+    en: 'Track name: round badge removed — tap anywhere on the line to show the name at that spot; tap the label, empty map, or the same track again to dismiss.',
+    de: 'Track-Name: rundes Abzeichen entfernt — Tippen irgendwo auf die Linie zeigt den Namen an dieser Stelle; Tippen auf Label, leere Karte oder denselben Track blendet aus.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.92',
     tr: 'Güncelleme: kurulumdan dönünce aynı sürümü tekrar tekrar önermiyordu; her zaman doğrudan en son APK (ara sürüm yok).',
     en: 'Updates: no more re-prompting the same version after install; always jumps straight to the latest APK (skips intermediates).',
