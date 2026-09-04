@@ -80,7 +80,7 @@ class MediaRepository extends ChangeNotifier {
           ),
         );
     } catch (e) {
-      debugPrint('MedyaAtlas: medya indeksi okunamadı, sıfırlanıyor: $e');
+      debugPrint('MediaAtlas: medya indeksi okunamadı, sıfırlanıyor: $e');
       _items.clear();
       await _indexBox!.delete(_indexKey);
     }
@@ -96,7 +96,7 @@ class MediaRepository extends ChangeNotifier {
           ),
         );
     } catch (e) {
-      debugPrint('MedyaAtlas: kaynak indeksi okunamadı, sıfırlanıyor: $e');
+      debugPrint('MediaAtlas: kaynak indeksi okunamadı, sıfırlanıyor: $e');
       _sources.clear();
       await _sourcesBox!.delete(_indexKey);
     }
@@ -487,7 +487,7 @@ class MediaRepository extends ChangeNotifier {
       await _indexBox!.put(_indexKey, buffer.toString());
     } catch (e, st) {
       // Tarama / harita ayakta kalsın — NaN yüzünden tüm klasör düşmesin.
-      debugPrint('MedyaAtlas: medya indeksi yazılamadı: $e\n$st');
+      debugPrint('MediaAtlas: medya indeksi yazılamadı: $e\n$st');
     }
   }
 
@@ -498,7 +498,7 @@ class MediaRepository extends ChangeNotifier {
         jsonEncode(_sources.map((s) => s.toJson()).toList()),
       );
     } catch (e, st) {
-      debugPrint('MedyaAtlas: kaynak indeksi yazılamadı: $e\n$st');
+      debugPrint('MediaAtlas: kaynak indeksi yazılamadı: $e\n$st');
     }
   }
 

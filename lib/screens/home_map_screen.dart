@@ -84,6 +84,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _locating = false;
   bool _sourcesOpen = false;
   bool _tracksOpen = false;
+  /// Haritada ismi gösterilen iz — rozetine tıklanınca açılır/kapanır.
+  String? _selectedTrackId;
   /// Haritada medya: tümü / görünen izlere yakın / gizle.
   _TrackMediaFilter _trackMediaFilter = _TrackMediaFilter.all;
   String? _kindMenu;
@@ -2766,12 +2768,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           ],
                         ),
                 ),
-                // İzler paneli açıkken dışarı tıklayınca kapat (çarpı da durur).
-                if (_tracksOpen)
+                // Açılır kutulardan biri açıkken dışarı tıklayınca kapat.
+                if (_sourcesOpen || _tracksOpen || _kindMenu != null)
                   Positioned.fill(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () => setState(() => _tracksOpen = false),
+                      onTap: () => setState(() {
+                        _sourcesOpen = false;
+                        _tracksOpen = false;
+                        _kindMenu = null;
+                      }),
                       child: const ColoredBox(color: Color(0x33000000)),
                     ),
                   ),
@@ -2801,7 +2807,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             color: const Color(0xFF0A1C28),
                             borderRadius: BorderRadius.circular(12),
                             clipBehavior: Clip.antiAlias,
-                            child: _sourcesPanel(repo),
+                            // Panel içi tıklamalar bariyere gitmesin.
+                            child: GestureDetector(
+                              onTap: () {},
+                              child: _sourcesPanel(repo),
+                            ),
                           ),
                         ),
                       if (_tracksOpen)
@@ -2827,10 +2837,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             color: const Color(0xFF0A1C28),
                             borderRadius: BorderRadius.circular(12),
                             clipBehavior: Clip.antiAlias,
-                            child: _kindsPanel(
-                              located: _kindMenu == 'located',
-                              locatedItems: visible.where((m) => m.hasLocation),
-                              missingItems: missing,
+                            // Panel içi tıklamalar bariyere gitmesin.
+                            child: GestureDetector(
+                              onTap: () {},
+                              child: _kindsPanel(
+                                located: _kindMenu == 'located',
+                                locatedItems:
+                                    visible.where((m) => m.hasLocation),
+                                missingItems: missing,
+                              ),
                             ),
                           ),
                         ),
@@ -3844,7 +3859,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             _TrackLinesLayer(tracks: visibleTracks),
             // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
             if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
-            _TrackBadgeLayer(tracks: visibleTracks),
+            _TrackBadgeLayer(
+              tracks: visibleTracks,
+              selectedTrackId: _selectedTrackId,
+              onTap: (id) => setState(() {
+                _selectedTrackId = _selectedTrackId == id ? null : id;
+              }),
+            ),
             MarkerLayer(markers: mapMarkers.selected),
           ],
         ),
@@ -4448,16 +4469,26 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
     return PolylineLayer(
       polylines: _polylines,
       cullingMargin: 40,
-      simplificationTolerance: 2.5,
+      // 2.5 idi: dağ geçidi gibi sık virajlı izlerde köşeleri kesip yolu
+      // takip etmeyen kaba bir çizgiye dönüştürüyordu. Küçük bir tolerans
+      // hâlâ 30+ iz açıkken çizim maliyetini düşürür ama viraj detayını
+      // korur.
+      simplificationTolerance: 0.4,
     );
   }
 }
 
 /// İz rozetleri — sabit boyut; pan/zoom’da Marker listesi yeniden kurulmaz.
 class _TrackBadgeLayer extends StatefulWidget {
-  const _TrackBadgeLayer({required this.tracks});
+  const _TrackBadgeLayer({
+    required this.tracks,
+    this.selectedTrackId,
+    required this.onTap,
+  });
 
   final List<MapTrack> tracks;
+  final String? selectedTrackId;
+  final ValueChanged<String> onTap;
 
   @override
   State<_TrackBadgeLayer> createState() => _TrackBadgeLayerState();
@@ -4475,7 +4506,8 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
   @override
   void didUpdateWidget(covariant _TrackBadgeLayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_sameTrackRefs(oldWidget.tracks, widget.tracks)) {
+    if (!_sameTrackRefs(oldWidget.tracks, widget.tracks) ||
+        oldWidget.selectedTrackId != widget.selectedTrackId) {
       _rebuildMarkers();
     }
   }
@@ -4495,25 +4527,82 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
     for (final track in widget.tracks) {
       final center = _trackAnchor(track);
       if (center == null) continue;
+      final selected = track.id == widget.selectedTrackId;
       markers.add(
         Marker(
           point: center,
-          width: size,
-          height: size,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xE8FF8C12),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 1.5),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x44000000),
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.route, color: Colors.white, size: 10),
+          width: selected ? 220 : size,
+          height: selected ? 28 : size,
+          alignment: selected ? Alignment.centerLeft : Alignment.center,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => widget.onTap(track.id),
+            child: selected
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xE8121C28),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xE8FF8C12),
+                          width: 1.5,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x44000000),
+                            blurRadius: 3,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.route,
+                            color: Color(0xFFFF8C12),
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              track.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xE8FF8C12),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x44000000),
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.route,
+                      color: Colors.white,
+                      size: 10,
+                    ),
+                  ),
           ),
         ),
       );

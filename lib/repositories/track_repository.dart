@@ -79,7 +79,7 @@ class TrackRepository extends ChangeNotifier {
         if (_tracks.isNotEmpty) await _persist();
       }
     } catch (e) {
-      debugPrint('MedyaAtlas: iz indeksi okunamadı: $e');
+      debugPrint('MediaAtlas: iz indeksi okunamadı: $e');
       _tracks.clear();
       _refreshVisibleCache();
       await _box!.delete(_tracksKey);
@@ -95,7 +95,7 @@ class TrackRepository extends ChangeNotifier {
         jsonEncode(_tracks.map((t) => t.toJson()).toList()),
       );
     } catch (e, st) {
-      debugPrint('MedyaAtlas: iz indeksi yazılamadı: $e\n$st');
+      debugPrint('MediaAtlas: iz indeksi yazılamadı: $e\n$st');
     }
   }
 
