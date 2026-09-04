@@ -44,11 +44,13 @@ class MediaViewer extends StatefulWidget {
 class _MediaViewerState extends State<MediaViewer> {
   late final PageController _pages;
   late int _index;
+  late List<LibraryMedia> _items;
 
   @override
   void initState() {
     super.initState();
-    _index = widget.initialIndex.clamp(0, widget.items.length - 1);
+    _items = List.of(widget.items);
+    _index = widget.initialIndex.clamp(0, _items.length - 1);
     _pages = PageController(initialPage: _index);
   }
 
@@ -58,7 +60,43 @@ class _MediaViewerState extends State<MediaViewer> {
     super.dispose();
   }
 
-  LibraryMedia get _current => widget.items[_index];
+  LibraryMedia get _current => _items[_index];
+
+  Future<void> _confirmDelete() async {
+    final media = _current;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Medyayı sil'),
+        content: Text('"${media.name}" MediaAtlas’tan silinsin mi?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    await context.read<MediaRepository>().remove(media.id);
+    if (!mounted) return;
+
+    if (_items.length <= 1) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() {
+      final removedIndex = _index;
+      _items.removeAt(removedIndex);
+      _index = removedIndex.clamp(0, _items.length - 1);
+    });
+    _pages.jumpToPage(_index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,13 +113,18 @@ class _MediaViewerState extends State<MediaViewer> {
         automaticallyImplyLeading: false,
         title: Text(media.name, overflow: TextOverflow.ellipsis),
         actions: [
-          if (widget.items.length > 1)
+          if (_items.length > 1)
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: Text('${_index + 1}/${widget.items.length}'),
+                child: Text('${_index + 1}/${_items.length}'),
               ),
             ),
+          IconButton(
+            tooltip: 'Sil',
+            onPressed: _confirmDelete,
+            icon: const Icon(Icons.delete_outline),
+          ),
           IconButton(
             tooltip: 'Kapat',
             onPressed: () => Navigator.pop(context),
@@ -94,12 +137,12 @@ class _MediaViewerState extends State<MediaViewer> {
           Expanded(
             child: PageView.builder(
               controller: _pages,
-              itemCount: widget.items.length,
+              itemCount: _items.length,
               // Ölçek 1 iken yatay kaydırma sayfalar arası geçsin.
               allowImplicitScrolling: false,
               onPageChanged: (i) => setState(() => _index = i),
               itemBuilder: (context, i) => _Page(
-                media: widget.items[i],
+                media: _items[i],
                 active: i == _index,
               ),
             ),

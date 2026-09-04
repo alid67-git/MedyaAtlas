@@ -29,7 +29,7 @@ Future<String?> downloadUrlToPath(
   final client = http.Client();
   try {
     final req = http.Request('GET', Uri.parse(url));
-    req.headers['User-Agent'] = 'MedyaAtlas/$appVersion';
+    req.headers['User-Agent'] = 'MediaAtlas/$appVersion';
     final res = await client.send(req).timeout(const Duration(minutes: 8));
     if (res.statusCode != 200) {
       return 'İndirme başarısız (${res.statusCode}).';

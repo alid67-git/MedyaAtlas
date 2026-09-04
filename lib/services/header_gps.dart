@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'geo.dart';
 
-/// MedyaAtlas `fastLocationExtract` hızlı kademesi: dosyanın tamamı değil,
+/// MediaAtlas `fastLocationExtract` hızlı kademesi: dosyanın tamamı değil,
 /// başındaki etiketler (ISO6709 / ©xyz). GoPro GPMF bu yolda yok.
 final _iso6709 = RegExp(
   r'([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)(?:[+-]\d+(?:\.\d+)?)?/',

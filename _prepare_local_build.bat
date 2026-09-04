@@ -66,7 +66,7 @@ set "CACHE=%ROOT%\windows\CMakeCache.txt"
 if not exist "%CACHE%" goto :eof
 findstr /i /c:"google drive" "%CACHE%" >nul 2>&1
 if not errorlevel 1 goto :do_scrub
-findstr /i /c:"MedyaAtlasApp" "%CACHE%" >nul 2>&1
+findstr /i /c:"MediaAtlasApp" "%CACHE%" >nul 2>&1
 if not errorlevel 1 goto :do_scrub
 REM Cache baska kaynaktan uretilmisse (yol uyusmazligi) sil.
 findstr /i /c:"C:/src/MedyaAtlas" "%CACHE%" >nul 2>&1
