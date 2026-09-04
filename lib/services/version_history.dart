@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.96',
+    tr: 'Haritayı küçültünce yan yana birden fazla dünya açılması engellendi — en uzak zoom artık ekranın sığdırabildiği tek dünyanın tamamı. "Sığdır" da aynı tek-dünya tabanına saygı duyuyor.',
+    en: 'Pinching out no longer tiles multiple worlds side by side — the farthest zoom is now exactly one full world that fits the screen. "Fit all" respects that same single-world floor.',
+    de: 'Herauszoomen zeigt keine mehreren Welten nebeneinander mehr — der weiteste Zoom ist genau eine volle Welt, die auf den Bildschirm passt. „Alles einpassen“ respektiert dieselbe Ein-Welt-Untergrenze.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.95',
     tr: '"Sığdır" tuşu dünya kenar-kısıtı yüzünden geniş yayılan iz/medyayı (ör. Amerika + Tayland) dikey telefonda hiç sığdıramıyordu — kamera artık yalnızca merkezi dünyada tutuyor; tüm görünür iz ve medya tek bakışta sığdırılıyor.',
     en: '"Fit all" could not fit widely spread tracks/media (e.g. America + Thailand) on a tall phone because the world edge constraint blocked the required zoom-out — the camera now only keeps its center in the world, so every visible track and media item fits in one view.',

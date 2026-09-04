@@ -2350,17 +2350,48 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   /// Kısıtlanmış dünya-tekrarı sınırı: -85.0511..85.0511 enlem (Web Mercator
-  /// tavanı), -180..180 boylam.
+  /// tavanı), -180..180 boylam. Kenarlar bu kutunun dışına çıkamaz → yan yana
+  /// ikinci dünya görünmez; en uzak zoom = ekranın sığdırabildiği tek dünya.
   static final _worldBounds = LatLngBounds(
     const LatLng(-85.0511, -180),
     const LatLng(85.0511, 180),
   );
 
-  /// Sığdır: tüm seçili noktaları tek bakışta gösterecek zoom/merkez.
-  ///
-  /// [CameraConstraint.containCenter] altında ideal sığdırma artık kenar
-  /// kısıtı yüzünden reddedilmez. move() false dönerse bu çoğu zaman
-  /// "zaten oradayız" demektir — gerçek kamerayı doğrularız.
+  static final _worldEdgeConstraint =
+      CameraConstraint.contain(bounds: _worldBounds);
+
+  /// Bu merkez + zoom, dünya kenar-kısıtı altında geçerli mi?
+  bool _worldZoomAllowed(LatLng center, double zoom) {
+    if (!zoom.isFinite || !center.latitude.isFinite) return false;
+    final cam = _map.camera.withPosition(center: center, zoom: zoom);
+    return _worldEdgeConstraint.constrain(cam) != null;
+  }
+
+  /// Verilen merkezde kısıtın izin verdiği en uzak (en küçük) zoom —
+  /// yani ekranda tek dünyanın tamamının sığdığı sınır.
+  double? _minWorldZoom(LatLng center) {
+    final c = LatLng(
+      center.latitude.clamp(_worldBounds.south, _worldBounds.north),
+      center.longitude.clamp(_worldBounds.west, _worldBounds.east),
+    );
+    if (!_worldZoomAllowed(c, 22)) return null;
+    if (_worldZoomAllowed(c, 0)) return 0;
+    var lo = 0.0;
+    var hi = 22.0;
+    for (var i = 0; i < 24; i++) {
+      final mid = (lo + hi) / 2;
+      if (_worldZoomAllowed(c, mid)) {
+        hi = mid;
+      } else {
+        lo = mid;
+      }
+    }
+    return hi;
+  }
+
+  /// Sığdır: mümkünse tüm noktalar; kısıt ideal uzaklığı reddederse (dikey
+  /// telefonda geniş boylam) aynı merkezde izin verilen en uzak tek-dünya
+  /// zoom'una düş — yan yana dünya kopyası açılmaz.
   bool _fitMapToBounds(
     LatLngBounds bounds, {
     required EdgeInsets padding,
@@ -2379,17 +2410,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       return false;
     }
 
-    _map.move(fitted.center, fitted.zoom);
+    final minZ = _minWorldZoom(fitted.center);
+    // İdeal zoom kısıtın altında kalıyorsa (çok uzak), tek-dünya tabanına çek.
+    final targetZoom =
+        (minZ != null && fitted.zoom < minZ) ? minZ : fitted.zoom;
+
+    _map.move(fitted.center, targetZoom);
+    if ((_map.camera.zoom - targetZoom).abs() < 0.08) return true;
     if (_isNear(_map.camera, fitted)) return true;
 
-    // Merkez clamp'lendiyse: güncel merkezde ideal zoom'u tekrar dene.
+    // Kısıt merkezi kaydırdıysa: güncel merkezde tekrar dene.
     final mid = _map.camera.center;
-    _map.move(mid, fitted.zoom);
-    if ((_map.camera.zoom - fitted.zoom).abs() < 0.08) return true;
-
-    // En kötü ihtimal: mevcut zoom'da ortala (hareket hiç olmasın diye).
-    return _map.move(fitted.center, camera.zoom) ||
-        _isNear(_map.camera, fitted);
+    final minMid = _minWorldZoom(mid) ?? targetZoom;
+    final z2 = fitted.zoom < minMid ? minMid : fitted.zoom;
+    _map.move(mid, z2);
+    return (_map.camera.zoom - z2).abs() < 0.08 ||
+        _map.move(fitted.center, camera.zoom);
   }
 
   /// [actual] kamera, hedeflenen [target] sığdırmaya (zoom + merkez) yeterince
@@ -3929,14 +3965,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           options: MapOptions(
             initialCenter: _worldCenter,
             initialZoom: 2.4,
-            // Kameranın KENARLARINI dünya kutusuna kilitlemek (contain)
-            // dikey telefonda boylamı sığdırmak için gereken uzak zoom'u
-            // imkânsız kılıyordu (Amerika+Tayland tek bakışta görünmez;
-            // "sığdır" tuşu sessizce no-op oluyordu). Merkezi dünyada
-            // tutmak (containCenter) hem aşırı kaymayı sınırlar hem de
-            // tüm iz/medyayı tek bakışta sığdırmaya izin verir.
-            cameraConstraint:
-                CameraConstraint.containCenter(bounds: _worldBounds),
+            // Kenarları tek dünya kutusuna kilitle: pinch ile küçültünce yan
+            // yana ikinci/üçüncü dünya açılmaz. İzin verilen en uzak zoom,
+            // ekranın sığdırabildiği tek dünyanın tamamıdır (ekran boyuna
+            // göre dinamik — sabit minZoom yok).
+            cameraConstraint: _worldEdgeConstraint,
             onMapEvent: _onMapEvent,
             // İz çizgisinin herhangi bir noktasına dokununca ismini
             // aç/kapa — sadece küçük rozete değil.
