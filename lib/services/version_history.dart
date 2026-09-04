@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.99',
+    tr: 'Pine tıklayınca önizleme artık yalnızca o kümenin birkaç medyasını değil, o an haritada görünen TÜM medyayı listeliyor (harita görünümü bozulmadan).',
+    en: 'Tapping a pin now previews ALL media currently visible on the map, not just the few items in that cluster — without zooming the map away.',
+    de: 'Tippen auf einen Pin zeigt jetzt ALLE aktuell auf der Karte sichtbaren Medien in der Vorschau, nicht nur die wenigen des Clusters — ohne die Karte wegzuzoomen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.98',
     tr: 'Güncelleme: kurulum ekranı açılınca eski süreç artık tamamen kapanıyor (görev listesinden de silinir). Harita en uzak zoom’da sürüklenince uçlarda takılıp zıplama hissi giderildi — tek dünya ortalanır, pan kilitlenir; yakınlaşınca yine kaydırılabilir.',
     en: 'Update: when the installer opens, the old process now fully exits (also removed from recents). At max zoom-out, edge pan jitter is gone — the single world stays centered and panning locks until you zoom back in.',
