@@ -2253,12 +2253,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
     if (place.bbox != null && place.bbox!.length == 4) {
       final b = place.bbox!;
-      _map.fitCamera(
-        CameraFit.bounds(
-          bounds: LatLngBounds(LatLng(b[0], b[2]), LatLng(b[1], b[3])),
-          padding: const EdgeInsets.all(48),
-          maxZoom: 14,
-        ),
+      _fitMapToBounds(
+        LatLngBounds(LatLng(b[0], b[2]), LatLng(b[1], b[3])),
+        padding: const EdgeInsets.all(48),
+        maxZoom: 14,
       );
     } else {
       _map.move(LatLng(place.latitude, place.longitude), 12);
@@ -2298,36 +2296,73 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
-        // Yamuk / döndürülmüş haritayı kuzey yukarı al, sonra ekranı kapla.
-        _map.rotate(0);
         if (points.length == 1) {
           _map.moveAndRotate(points.first, 13, 0);
           return;
         }
         final bounds = LatLngBounds.fromPoints(points);
-        // Sınırlar zaten dünya ölçeğine yakınsa (ör. Amerika + Tayland +
-        // Avrupa) büyük dolgu (özellikle üstteki 120px) fitCamera'nın
-        // gereğinden fazla uzaklaşmasını istemesine yol açıyordu — bu da
-        // dünya-tekrarını önleyen cameraConstraint tarafından kesiliyor ve
-        // sonuç uzak noktaları kırpıyordu. Geniş sınırlarda dolguyu azalt.
-        final latSpan = bounds.north - bounds.south;
-        final lngSpan = bounds.east - bounds.west;
-        final wide = latSpan > 90 || lngSpan > 180;
+        final latSpan = (bounds.north - bounds.south).abs();
+        final lngSpan = (bounds.east - bounds.west).abs();
+        // Geniş yayılımda büyük dolgu, dünya-kısıtıyla çakışıp fitCamera'nın
+        // zoom'unu reddettiriyordu (harita hiç kıpırdamıyordu).
+        final wide = latSpan > 55 || lngSpan > 100;
         final padding = wide
-            ? const EdgeInsets.fromLTRB(16, 60, 16, 32)
+            ? const EdgeInsets.fromLTRB(12, 48, 12, 24)
             : const EdgeInsets.fromLTRB(36, 120, 36, 72);
-        _map.fitCamera(
-          CameraFit.bounds(
-            bounds: bounds,
-            padding: padding,
-            maxZoom: 15,
-          ),
-        );
-        _map.rotate(0);
+        _fitMapToBounds(bounds, padding: padding, maxZoom: 15);
       } catch (_) {
         /* harita henüz bağlı değil */
       }
     });
+  }
+
+  /// Sığdır: dünya-tekrarı kısıtı ideal zoom'u reddederse zoom'u yükselterek
+  /// yeniden dene — aksi halde zum ikonu hiç tepki vermiyormuş gibi kalır.
+  bool _fitMapToBounds(
+    LatLngBounds bounds, {
+    required EdgeInsets padding,
+    double maxZoom = 15,
+  }) {
+    try {
+      _map.rotate(0);
+    } catch (_) {}
+    final camera = _map.camera;
+    final fitted = CameraFit.bounds(
+      bounds: bounds,
+      padding: padding,
+      maxZoom: maxZoom,
+    ).fit(camera);
+    if (!fitted.zoom.isFinite || !fitted.center.latitude.isFinite) {
+      return false;
+    }
+    // İdeal sığdırma.
+    if (_map.move(fitted.center, fitted.zoom)) return true;
+    // Kısıt zoom'u reddetti (viewport dünyadan büyük). Yakınlaştırarak kabul
+    // edilen en uzak zoom'u bul.
+    var lo = fitted.zoom;
+    var hi = math.min(maxZoom, camera.maxZoom ?? maxZoom);
+    if (hi <= lo) {
+      return _map.move(fitted.center, camera.zoom);
+    }
+    var best = camera.zoom;
+    var moved = false;
+    for (var i = 0; i < 14; i++) {
+      final mid = (lo + hi) / 2;
+      if (_map.move(fitted.center, mid)) {
+        moved = true;
+        best = mid;
+        hi = mid; // daha uzak (düşük zoom) dene
+      } else {
+        lo = mid;
+      }
+      if ((hi - lo).abs() < 0.05) break;
+    }
+    if (moved) {
+      _map.move(fitted.center, best);
+      return true;
+    }
+    // Son çare: mevcut zoom’da ortala.
+    return _map.move(fitted.center, camera.zoom);
   }
 
   /// Cihaz konumu; yakındaki son günlerin medyası varsa onlarla sığdır.
@@ -2384,9 +2419,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       await Future<void>.delayed(const Duration(milliseconds: 80));
       if (!mounted) return;
       try {
-        _map.rotate(0);
         if (fitPoints.length <= 1) {
-          _map.move(me, 15);
+          _map.moveAndRotate(me, 15, 0);
           return;
         }
         final bounds = _expandBoundsMinSpan(
@@ -2394,14 +2428,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           minLatSpan: 0.012,
           minLngSpan: 0.012,
         );
-        _map.fitCamera(
-          CameraFit.bounds(
-            bounds: bounds,
-            padding: const EdgeInsets.fromLTRB(36, 120, 36, 72),
-            maxZoom: 15,
-          ),
+        _fitMapToBounds(
+          bounds,
+          padding: const EdgeInsets.fromLTRB(36, 120, 36, 72),
+          maxZoom: 15,
         );
-        _map.rotate(0);
       } catch (_) {
         _map.move(me, 15);
       }
@@ -2580,7 +2611,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
-        _map.rotate(0);
         if (points.length == 1) {
           _map.moveAndRotate(points.first, 15, 0);
           return;
@@ -2596,14 +2626,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             LatLng(bounds.north + pad, bounds.east + pad),
           );
         }
-        _map.fitCamera(
-          CameraFit.bounds(
-            bounds: bounds,
-            padding: const EdgeInsets.fromLTRB(48, 140, 48, 200),
-            maxZoom: 16,
-          ),
+        _fitMapToBounds(
+          bounds,
+          padding: const EdgeInsets.fromLTRB(48, 140, 48, 200),
+          maxZoom: 16,
         );
-        _map.rotate(0);
       } catch (_) {}
     });
   }
