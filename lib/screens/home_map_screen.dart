@@ -2336,11 +2336,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         final bounds = LatLngBounds.fromPoints(points);
         final latSpan = (bounds.north - bounds.south).abs();
         final lngSpan = (bounds.east - bounds.west).abs();
-        // Geniş yayılımda büyük dolgu, dünya-kısıtıyla çakışıp fitCamera'nın
-        // zoom'unu reddettiriyordu (harita hiç kıpırdamıyordu).
-        final wide = latSpan > 55 || lngSpan > 100;
+        // Geniş yayılımda büyük UI dolgusu zoom'u gereksiz uzaklaştırır;
+        // dar yayılımda üst çubuk/panel için daha fazla boşluk bırak.
+        final wide = latSpan > 40 || lngSpan > 80;
         final padding = wide
-            ? const EdgeInsets.fromLTRB(12, 48, 12, 24)
+            ? const EdgeInsets.fromLTRB(16, 56, 16, 28)
             : const EdgeInsets.fromLTRB(36, 120, 36, 72);
         _fitMapToBounds(bounds, padding: padding, maxZoom: 15);
       } catch (_) {
@@ -2356,13 +2356,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     const LatLng(85.0511, 180),
   );
 
-  /// Sığdır: geniş enlem/boylam yayılımı (ör. Amerika + Tayland + Avrupa)
-  /// dar/uzun bir telefon ekranında TEK bir zoom'a sığmayabilir — enlemi
-  /// dünya sınırında tutan zoom, boylamı sığdırmak için gerekenden daha
-  /// yüksek (daha yakın) kalabiliyordu; bu da "ortalıyor ama kenarlardaki
-  /// izler dışarıda kalıyor" görünümüne yol açıyordu. İdeal sığdırma kısıt
-  /// tarafından reddedilirse, aranan her nokta zaten dünya sınırları
-  /// içinde olduğundan onları hep kapsayan tüm-dünya görünümüne düş.
+  /// Sığdır: tüm seçili noktaları tek bakışta gösterecek zoom/merkez.
+  ///
+  /// [CameraConstraint.containCenter] altında ideal sığdırma artık kenar
+  /// kısıtı yüzünden reddedilmez. move() false dönerse bu çoğu zaman
+  /// "zaten oradayız" demektir — gerçek kamerayı doğrularız.
   bool _fitMapToBounds(
     LatLngBounds bounds, {
     required EdgeInsets padding,
@@ -2377,31 +2375,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       padding: padding,
       maxZoom: maxZoom,
     ).fit(camera);
-    if (fitted.zoom.isFinite && fitted.center.latitude.isFinite) {
-      _map.move(fitted.center, fitted.zoom);
-      // move() döndürdüğü false hem "kısıt reddetti" hem de "kamera zaten
-      // orada, yapacak bir şey yok" anlamına gelebiliyor — ikisini ayırt
-      // etmek için dönüş değerine değil, hareketten SONRAKİ gerçek kamera
-      // konumuna bak. Zaten hedefteyse (ör. tekrar tekrar basılırsa) bunu
-      // "reddedildi" sayıp anlamsızca tüm dünyaya zum yapmayalım.
-      if (_isNear(_map.camera, fitted)) return true;
+    if (!fitted.zoom.isFinite || !fitted.center.latitude.isFinite) {
+      return false;
     }
-    final worldFit =
-        CameraFit.bounds(bounds: _worldBounds, padding: EdgeInsets.zero)
-            .fit(camera);
-    if (worldFit.zoom.isFinite) {
-      _map.move(worldFit.center, worldFit.zoom);
-      if (_isNear(_map.camera, worldFit)) return true;
-    }
-    return _map.move(camera.center, camera.zoom);
+
+    _map.move(fitted.center, fitted.zoom);
+    if (_isNear(_map.camera, fitted)) return true;
+
+    // Merkez clamp'lendiyse: güncel merkezde ideal zoom'u tekrar dene.
+    final mid = _map.camera.center;
+    _map.move(mid, fitted.zoom);
+    if ((_map.camera.zoom - fitted.zoom).abs() < 0.08) return true;
+
+    // En kötü ihtimal: mevcut zoom'da ortala (hareket hiç olmasın diye).
+    return _map.move(fitted.center, camera.zoom) ||
+        _isNear(_map.camera, fitted);
   }
 
   /// [actual] kamera, hedeflenen [target] sığdırmaya (zoom + merkez) yeterince
   /// yakın mı — move()'un dönüş değeri yerine gerçek sonucu doğrulamak için.
   bool _isNear(MapCamera actual, MapCamera target) {
-    return (actual.zoom - target.zoom).abs() < 0.05 &&
-        (actual.center.latitude - target.center.latitude).abs() < 0.5 &&
-        (actual.center.longitude - target.center.longitude).abs() < 0.5;
+    return (actual.zoom - target.zoom).abs() < 0.08 &&
+        (actual.center.latitude - target.center.latitude).abs() < 0.75 &&
+        (actual.center.longitude - target.center.longitude).abs() < 0.75;
   }
 
   /// Cihaz konumu; yakındaki son günlerin medyası varsa onlarla sığdır.
@@ -3933,13 +3929,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           options: MapOptions(
             initialCenter: _worldCenter,
             initialZoom: 2.4,
-            // Kısıt yoksa küçültünce dünya yan yana tekrarlanıyordu —
-            // kamerayı tek dünya sınırına kilitle. Sabit bir minZoom da
-            // eklemiştik ama o, "sığdır" ile Amerika+Tayland+Avrupa gibi
-            // gerçekten geniş yayılan izleri sığdırmak için gereken daha
-            // düşük zoom'u da engelliyordu — cameraConstraint tek başına
-            // (ekran boyutuna duyarlı) aynı taşma korumasını sağlıyor.
-            cameraConstraint: CameraConstraint.contain(bounds: _worldBounds),
+            // Kameranın KENARLARINI dünya kutusuna kilitlemek (contain)
+            // dikey telefonda boylamı sığdırmak için gereken uzak zoom'u
+            // imkânsız kılıyordu (Amerika+Tayland tek bakışta görünmez;
+            // "sığdır" tuşu sessizce no-op oluyordu). Merkezi dünyada
+            // tutmak (containCenter) hem aşırı kaymayı sınırlar hem de
+            // tüm iz/medyayı tek bakışta sığdırmaya izin verir.
+            cameraConstraint:
+                CameraConstraint.containCenter(bounds: _worldBounds),
             onMapEvent: _onMapEvent,
             // İz çizgisinin herhangi bir noktasına dokununca ismini
             // aç/kapa — sadece küçük rozete değil.
