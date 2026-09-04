@@ -2709,46 +2709,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } catch (_) {}
   }
 
-  /// Kümedeki tüm medya haritada görünsün (sokak dip zoom değil).
-  void _fitCluster(LocationCluster cluster) {
-    final points = <LatLng>[
-      for (final m in cluster.items)
-        if (m.latLng != null) m.latLng!,
-    ];
-    if (points.isEmpty) {
-      final c = cluster.latLng;
-      if (c.latitude.isFinite && c.longitude.isFinite) {
-        points.add(c);
-      }
-    }
-    if (points.isEmpty) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      try {
-        if (points.length == 1) {
-          _map.moveAndRotate(points.first, 15, 0);
-          return;
-        }
-        var bounds = LatLngBounds.fromPoints(points);
-        final latSpan = (bounds.north - bounds.south).abs();
-        final lngSpan = (bounds.east - bounds.west).abs();
-        // Aynı noktaya yakın küme: biraz aç ki tüm pinler görünsün.
-        if (latSpan < 0.0008 || lngSpan < 0.0008) {
-          const pad = 0.002;
-          bounds = LatLngBounds(
-            LatLng(bounds.south - pad, bounds.west - pad),
-            LatLng(bounds.north + pad, bounds.east + pad),
-          );
-        }
-        _fitMapToBounds(
-          bounds,
-          padding: const EdgeInsets.fromLTRB(48, 140, 48, 200),
-          maxZoom: 16,
-        );
-      } catch (_) {}
-    });
-  }
-
   /// Mevcut harita zoom’undaki GPS’li medya (yeniden eskiye).
   List<LibraryMedia> _mediaInMapViewport(MediaRepository repo) {
     try {
