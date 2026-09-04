@@ -2302,10 +2302,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           _map.moveAndRotate(points.first, 13, 0);
           return;
         }
+        final bounds = LatLngBounds.fromPoints(points);
+        // Sınırlar zaten dünya ölçeğine yakınsa (ör. Amerika + Tayland +
+        // Avrupa) büyük dolgu (özellikle üstteki 120px) fitCamera'nın
+        // gereğinden fazla uzaklaşmasını istemesine yol açıyordu — bu da
+        // dünya-tekrarını önleyen cameraConstraint tarafından kesiliyor ve
+        // sonuç uzak noktaları kırpıyordu. Geniş sınırlarda dolguyu azalt.
+        final latSpan = bounds.north - bounds.south;
+        final lngSpan = bounds.east - bounds.west;
+        final wide = latSpan > 90 || lngSpan > 180;
+        final padding = wide
+            ? const EdgeInsets.fromLTRB(16, 60, 16, 32)
+            : const EdgeInsets.fromLTRB(36, 120, 36, 72);
         _map.fitCamera(
           CameraFit.bounds(
-            bounds: LatLngBounds.fromPoints(points),
-            padding: const EdgeInsets.fromLTRB(36, 120, 36, 72),
+            bounds: bounds,
+            padding: padding,
             maxZoom: 15,
           ),
         );

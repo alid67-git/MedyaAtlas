@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.89',
+    tr: '"Sığdır" hâlâ dünya çapında yayılan veriyi tam gösteremiyordu: büyük dolgu (özellikle üst boşluk), dünya-tekrarını önleyen kısıtla çakışıp gereken uzaklaşmayı engelliyordu. Sınırlar zaten dünya ölçeğine yakınsa dolgu otomatik azalıyor.',
+    en: '"Fit all" still couldn\'t fully show world-spanning data: the large padding (especially the top gap) conflicted with the world-repeat guard, blocking the zoom-out it needed. Padding now shrinks automatically when the bounds are already near world scale.',
+    de: '"Alles einpassen" zeigte weltweit verteilte Daten immer noch nicht vollständig: der große Abstand (besonders oben) kollidierte mit dem Schutz gegen Weltwiederholung und blockierte das nötige Herauszoomen. Abstand schrumpft jetzt automatisch, wenn die Grenzen schon Weltmaßstab haben.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.88',
     tr: '"Sığdır", dünya çapında yayılan izleri (ör. Amerika + Tayland + Avrupa) tam gösteremiyordu — 1.0.84\'te dünya tekrarını önlemek için eklenen sabit minZoom, gereken düşük zoom\'u engelliyordu. Kaldırıldı.',
     en: '"Fit all" couldn\'t show tracks spread across the whole world (e.g. America + Thailand + Europe) - the fixed minZoom added in 1.0.84 to stop the world repeating was blocking the lower zoom that fit needed. Removed.',
