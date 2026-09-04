@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.94',
+    tr: 'Android güncellemesi: kurulum ekranı açıldıktan sonra eski süreç artık kendini kapatıyor — eskisine geri dönülmüyor. "Sığdır" tuşu, harita zaten hedefteyken de reddedilmiş sayıp anlamsızca tüm dünyaya zumluyordu — düzeltildi. İz artık sadece rozetinden değil, çizginin herhangi bir noktasından da isim etiketini açıp kapatıyor. Bir pine tıklayınca önizleme, tıklanan tek medya yerine o an haritada gözüken TÜM medyayla açılıyor; önizleme kapanınca harita, küme için zumlamadan önceki hâline dönüyor.',
+    en: 'Android update: after the installer opens, the old process now closes itself instead of leaving you back in the stale version. "Fit all" was treating an already-on-target map as a rejection and zooming out to the whole world for no reason — fixed. Tracks now toggle their name label from any point along the line, not just the small badge. Tapping a pin now opens the preview with ALL media currently visible on the map, not just the one tapped; closing the preview returns the map to its view from before it zoomed into that cluster.',
+    de: 'Android-Update: Nach dem Öffnen des Installers beendet sich der alte Prozess jetzt selbst, statt in der alten Version zu bleiben. "Alles einpassen" behandelte eine bereits am Ziel befindliche Karte fälschlich als abgelehnt und zoomte grundlos auf die ganze Welt — behoben. Tracks zeigen ihr Namensschild jetzt bei Tipp auf einen beliebigen Punkt der Linie, nicht nur auf das kleine Abzeichen. Tippen auf einen Pin öffnet die Vorschau jetzt mit ALLEN aktuell auf der Karte sichtbaren Medien statt nur dem angetippten; beim Schließen kehrt die Karte zur Ansicht vor dem Einzoomen in den Cluster zurück.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.93',
     tr: '"Sığdır" geniş enlem/boylam yayılımında (ör. Amerika + Tayland + Avrupa) dar telefon ekranında ortalıyor ama kenarlardaki izleri dışarıda bırakıyordu — enlemi dünya sınırında tutan zoom, boylamı sığdırmak için gerekenden daha yakın kalıyordu. İdeal sığdırma reddedilirse artık her noktayı kapsayan tüm-dünya görünümüne düşüyor.',
     en: '"Fit all" on a very wide spread (e.g. America + Thailand + Europe) centered on a narrow phone screen but left the edge tracks out of view — the zoom that kept latitude within world bounds stayed too close-in to also fit the longitude spread. When the ideal fit is rejected it now falls back to a whole-world view that always covers every point.',

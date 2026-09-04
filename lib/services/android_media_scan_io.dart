@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -30,6 +31,12 @@ Future<String?> installApkFile(String path) async {
       return 'Bilinmeyen uygulamalar iznini açıp tekrar Güncelle’ye basın.';
     }
     await _installerChannel.invokeMethod<void>('installApk', {'path': path});
+    // Kurulum ekranı açıldıktan sonra bu süreci kapat — aksi halde yükleme
+    // bitince kullanıcı eski (hâlâ bellekte açık) MedyaAtlas sürecine geri
+    // dönebiliyor, yeni APK sadece diskte kalıyor.
+    unawaited(Future<void>.delayed(const Duration(milliseconds: 600), () {
+      SystemNavigator.pop();
+    }));
     return null;
   } on PlatformException catch (e) {
     return e.message ?? 'Kurulum açılamadı (${e.code}).';
