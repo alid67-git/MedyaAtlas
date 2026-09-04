@@ -84,8 +84,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _locating = false;
   bool _sourcesOpen = false;
   bool _tracksOpen = false;
-  /// Haritada ismi gösterilen iz — rozetine tıklanınca açılır/kapanır.
+  /// Haritada ismi gösterilen iz — rozetine veya çizgisine tıklanınca
+  /// açılır/kapanır.
   String? _selectedTrackId;
+  final _trackHitNotifier = ValueNotifier<LayerHitResult<String>?>(null);
   /// Haritada medya: tümü / görünen izlere yakın / gizle.
   _TrackMediaFilter _trackMediaFilter = _TrackMediaFilter.all;
   String? _kindMenu;
@@ -94,6 +96,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   final _query = '';
   List<PlaceHit> _places = [];
   LocationCluster? _panelCluster;
+  /// Bir küme açılıp haritayı ona kilitlemeden ÖNCESİNDE ekranda görünen
+  /// medya — önizleyici bunu, kilitlenmiş dar haritayı değil kullanır.
+  List<LibraryMedia>? _clusterTapViewportSnapshot;
+  /// Aynı şekilde: kümeyi sığdırmadan önceki kamera — önizleme kapanınca
+  /// (veya küme paneli hiç açılmadan kapatılırsa) haritayı buraya döndür.
+  MapCamera? _clusterTapCameraSnapshot;
   final Set<MediaKind> _kinds = {...MediaKind.values};
   Timer? _mountTimer;
 
@@ -215,6 +223,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.removeObserver(this);
     _mountTimer?.cancel();
     _mapIdleTimer?.cancel();
+    _trackHitNotifier.dispose();
     super.dispose();
   }
 
@@ -2368,18 +2377,31 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       padding: padding,
       maxZoom: maxZoom,
     ).fit(camera);
-    if (fitted.zoom.isFinite &&
-        fitted.center.latitude.isFinite &&
-        _map.move(fitted.center, fitted.zoom)) {
-      return true;
+    if (fitted.zoom.isFinite && fitted.center.latitude.isFinite) {
+      _map.move(fitted.center, fitted.zoom);
+      // move() döndürdüğü false hem "kısıt reddetti" hem de "kamera zaten
+      // orada, yapacak bir şey yok" anlamına gelebiliyor — ikisini ayırt
+      // etmek için dönüş değerine değil, hareketten SONRAKİ gerçek kamera
+      // konumuna bak. Zaten hedefteyse (ör. tekrar tekrar basılırsa) bunu
+      // "reddedildi" sayıp anlamsızca tüm dünyaya zum yapmayalım.
+      if (_isNear(_map.camera, fitted)) return true;
     }
     final worldFit =
         CameraFit.bounds(bounds: _worldBounds, padding: EdgeInsets.zero)
             .fit(camera);
-    if (worldFit.zoom.isFinite && _map.move(worldFit.center, worldFit.zoom)) {
-      return true;
+    if (worldFit.zoom.isFinite) {
+      _map.move(worldFit.center, worldFit.zoom);
+      if (_isNear(_map.camera, worldFit)) return true;
     }
     return _map.move(camera.center, camera.zoom);
+  }
+
+  /// [actual] kamera, hedeflenen [target] sığdırmaya (zoom + merkez) yeterince
+  /// yakın mı — move()'un dönüş değeri yerine gerçek sonucu doğrulamak için.
+  bool _isNear(MapCamera actual, MapCamera target) {
+    return (actual.zoom - target.zoom).abs() < 0.05 &&
+        (actual.center.latitude - target.center.latitude).abs() < 0.5 &&
+        (actual.center.longitude - target.center.longitude).abs() < 0.5;
   }
 
   /// Cihaz konumu; yakındaki son günlerin medyası varsa onlarla sığdır.
@@ -2573,6 +2595,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _openCluster(LocationCluster cluster) async {
+    // _fitCluster haritayı bu kümeye kilitlemeden ÖNCE, o anda ekranda ne
+    // varsa onu sakla — aksi halde önizleme açılınca "viewport" zaten tek
+    // kümeye daralmış oluyor ve dokunulan medya tek başına geliyor. Kamera
+    // da aynı sebeple saklanır: önizleme (veya panel) kapanınca haritayı
+    // kümeye zumlamadan önceki hâline döndürebilelim.
+    _clusterTapViewportSnapshot =
+        _mediaInMapViewport(context.read<MediaRepository>());
+    _clusterTapCameraSnapshot = _map.camera;
     _fitCluster(cluster);
     setState(() {
       _panelCluster = cluster;
@@ -2610,6 +2640,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       },
     );
     if (mounted) setState(() => _panelCluster = null);
+    // Küme paneli hiçbir şey açmadan kapandıysa (ör. dışarı tıklama) kamera
+    // hâlâ burada — geri al. Bir medya açıldıysa _openMapMediaViewer bunu
+    // zaten null’a çekmiştir, o yüzden burada tekrar geri almayız.
+    _restoreClusterCameraIfPending();
+  }
+
+  void _restoreClusterCameraIfPending() {
+    final snapshot = _clusterTapCameraSnapshot;
+    _clusterTapCameraSnapshot = null;
+    if (snapshot == null || !mounted) return;
+    try {
+      _map.moveAndRotate(snapshot.center, snapshot.zoom, snapshot.rotation);
+    } catch (_) {}
   }
 
   /// Kümedeki tüm medya haritada görünsün (sokak dip zoom değil).
@@ -2671,7 +2714,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  /// Küme / pin’den aç: önce küme, zoom’da görünen tüm medya ile kaydır.
+  /// Küme / pin’den aç: önce küme, o an haritada görünen tüm medya ile
+  /// kaydır (kümeyi sığdırmak için haritayı daraltmadan ÖNCEki görünüm —
+  /// bkz. [_clusterTapViewportSnapshot]).
   void _openMapMediaViewer({
     required List<LibraryMedia> clusterItems,
     required int tappedIndex,
@@ -2680,11 +2725,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final safeIndex = tappedIndex.clamp(0, clusterItems.length - 1);
     final tapped = clusterItems[safeIndex];
     final repo = context.read<MediaRepository>();
+    final viewportSnapshot = _clusterTapViewportSnapshot;
+    // _openCluster'ın kapanışta tekrar geri almaması için burada tüket.
+    _clusterTapViewportSnapshot = null;
 
     // Frame sonrası: fit bittiyse viewport’taki komşular da listeye girer.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      var list = _mediaInMapViewport(repo);
+      var list = viewportSnapshot ?? _mediaInMapViewport(repo);
       if (list.isEmpty || !list.any((m) => m.id == tapped.id)) {
         list = List<LibraryMedia>.from(clusterItems);
       } else {
@@ -2700,11 +2748,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         });
       }
       final start = list.indexWhere((m) => m.id == tapped.id);
-      openMediaViewer(
+      await openMediaViewer(
         context,
         items: list,
         initialIndex: start < 0 ? 0 : start,
       );
+      // Önizleme kapandı — haritayı kümeye zumlamadan önceki hâline döndür.
+      _restoreClusterCameraIfPending();
     });
   }
 
@@ -2800,8 +2850,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                                 child: _ClusterSheet(
                                   cluster: _panelCluster!,
                                   repo: repo,
-                                  onClose: () =>
-                                      setState(() => _panelCluster = null),
+                                  onClose: () {
+                                    setState(() => _panelCluster = null);
+                                    _restoreClusterCameraIfPending();
+                                  },
                                   onOpen: (items, index) => _openMapMediaViewer(
                                     clusterItems: items,
                                     tappedIndex: index,
@@ -3889,13 +3941,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             // (ekran boyutuna duyarlı) aynı taşma korumasını sağlıyor.
             cameraConstraint: CameraConstraint.contain(bounds: _worldBounds),
             onMapEvent: _onMapEvent,
+            // İz çizgisinin herhangi bir noktasına dokununca ismini
+            // aç/kapa — sadece küçük rozete değil.
+            onTap: (_, __) {
+              final hits = _trackHitNotifier.value?.hitValues;
+              if (hits == null || hits.isEmpty) return;
+              final id = hits.first;
+              setState(() {
+                _selectedTrackId = _selectedTrackId == id ? null : id;
+              });
+            },
           ),
           children: [
             TileLayer(
               urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
               userAgentPackageName: 'com.medyaatlas.app',
             ),
-            _TrackLinesLayer(tracks: visibleTracks),
+            _TrackLinesLayer(
+              tracks: visibleTracks,
+              hitNotifier: _trackHitNotifier,
+            ),
             // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
             if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
             _TrackBadgeLayer(
@@ -4429,16 +4494,17 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
 /// [MapCamera] dinlenmez: zoom her karede tüm GPX noktalarını yeniden
 /// LatLng/Polyline yapınca Android «yanıt vermiyor» veriyordu.
 class _TrackLinesLayer extends StatefulWidget {
-  const _TrackLinesLayer({required this.tracks});
+  const _TrackLinesLayer({required this.tracks, required this.hitNotifier});
 
   final List<MapTrack> tracks;
+  final LayerHitNotifier<String> hitNotifier;
 
   @override
   State<_TrackLinesLayer> createState() => _TrackLinesLayerState();
 }
 
 class _TrackLinesLayerState extends State<_TrackLinesLayer> {
-  List<Polyline> _polylines = const [];
+  List<Polyline<String>> _polylines = const [];
 
   @override
   void initState() {
@@ -4471,7 +4537,7 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
   /// zaten zoom'a göre kendi (simplificationTolerance) ek sadeleştirmesini
   /// çizim anında yapıyor; burada sadece geçersiz GPS'i eleriz.
   void _rebuildPolylines() {
-    final polylines = <Polyline>[];
+    final polylines = <Polyline<String>>[];
     var colorIndex = 0;
     for (final track in widget.tracks) {
       final pts = <LatLng>[
@@ -4480,12 +4546,13 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
       ];
       if (pts.length < 2) continue;
       polylines.add(
-        Polyline(
+        Polyline<String>(
           points: pts,
           strokeWidth: 4.5,
           color: _trackColor(colorIndex++),
           borderStrokeWidth: 2.5,
           borderColor: const Color(0xE0121C28),
+          hitValue: track.id,
         ),
       );
     }
@@ -4505,7 +4572,7 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
   @override
   Widget build(BuildContext context) {
     if (_polylines.isEmpty) return const SizedBox.shrink();
-    return PolylineLayer(
+    return PolylineLayer<String>(
       polylines: _polylines,
       cullingMargin: 40,
       // 2.5 idi: dağ geçidi gibi sık virajlı izlerde köşeleri kesip yolu
@@ -4513,6 +4580,7 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
       // hâlâ 30+ iz açıkken çizim maliyetini düşürür ama viraj detayını
       // korur.
       simplificationTolerance: 0.4,
+      hitNotifier: widget.hitNotifier,
     );
   }
 }
