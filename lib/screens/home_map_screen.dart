@@ -109,6 +109,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   var _updateDialogOpen = false;
   /// APK indirme arka planda — harita kilitlenmez.
   bool _updateDownloading = false;
+  /// Bu oturumda önerilen / indirilen sürüm — resume’da aynı APK’yı tekrar
+  /// önermesin (kurulumdan dönünce eski süreç hâlâ eski appVersion ile çalışır).
+  String? _updateHandledVersion;
 
   /// Tarama sırasında harita pinlerini dondur — ara notifyListeners NaN pin
   /// ile MarkerLayer'ı düşürmesin.
@@ -196,10 +199,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       context.read<MediaRepository>().refreshMountStates();
-      if (_forceUpdate != null && !_updateDialogOpen) {
+      // Her resume’da sürüm kontrolü YAPMA: güncelle / kurulum ekranından
+      // dönünce eski süreç aynı «1.0.91» uyarısını defalarca açıyordu.
+      if (_forceUpdate != null &&
+          !_updateDialogOpen &&
+          !_updateDownloading &&
+          _updateHandledVersion != _forceUpdate!.latestVersion) {
         _promptUpdate(_forceUpdate!, force: true);
-      } else {
-        _checkForUpdates();
       }
     }
   }
@@ -219,6 +225,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
       return;
     }
+    if (_updateDownloading || _updateDialogOpen) {
+      if (manual && mounted) {
+        setState(() => _status = 'Güncelleme zaten sürüyor…');
+      }
+      return;
+    }
     if (manual && mounted) {
       setState(() => _status = 'Güncelleme kontrol ediliyor…');
     }
@@ -230,9 +242,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
     if (!info.isNewer) {
       if (_forceUpdate != null) setState(() => _forceUpdate = null);
+      // Günceliz — önceki «önerildi» bayrağını temizle.
+      _updateHandledVersion = null;
       if (manual) {
         setState(() => _status = 'Güncelsiniz: v$appVersion');
       }
+      return;
+    }
+    // Aynı hedef sürüm bu oturumda zaten önerildi / indirildi — spam yok.
+    // Elle kontrol yine göstersin.
+    if (!manual && _updateHandledVersion == info.latestVersion) {
       return;
     }
     final force = info.isForceRequired;
@@ -248,6 +267,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   Future<void> _promptUpdate(AppUpdateInfo info, {required bool force}) async {
     if (!mounted || _updateDialogOpen) return;
+    if (!force && _updateHandledVersion == info.latestVersion) return;
     _updateDialogOpen = true;
     try {
       final go = await showDialog<bool>(
@@ -268,6 +288,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 onPressed: () async {
                   if (info.platform == UpdatePlatform.web) {
                     Navigator.pop(ctx, false);
+                    _updateHandledVersion = info.latestVersion;
                     await reloadWebApp();
                     return;
                   }
@@ -281,6 +302,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ),
         ),
       );
+      // Sonra / Güncelle fark etmez — aynı sürümü tekrar önerme.
+      _updateHandledVersion = info.latestVersion;
       if (go == true && mounted) {
         await _downloadUpdate(info);
       } else if (force && mounted) {
@@ -338,6 +361,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted) return;
     _updateDownloading = true;
     _updateDialogOpen = onForceScreen;
+    _updateHandledVersion = info.latestVersion;
     var lastPct = -1;
     try {
       // Arka plan: kilitleyen diyalog yok — alt durum çubuğu + uyarı.
