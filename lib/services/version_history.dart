@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.95',
+    tr: 'Zorunlu güncelleme kilit ekranı kaldırıldı — artık her güncelleme RideAtlas tarzı: tek seferlik "Güncelleme var" sorusu, ardından indirme arka planda sürerken haritayı hiç kilitlemiyor. İndirme yüzdesi artık alttaki durum çubuğunda görünüyor.',
+    en: 'Removed the mandatory-update lock screen — every update is now RideAtlas-style: a one-time "Update available" prompt, then the download runs in the background without ever locking the map. Download percentage now shows in the bottom status chip.',
+    de: 'Der Sperrbildschirm für Pflicht-Updates wurde entfernt — jedes Update läuft jetzt im RideAtlas-Stil: eine einmalige Abfrage "Update verfügbar", danach läuft der Download im Hintergrund, ohne die Karte zu sperren. Der Download-Prozentsatz erscheint jetzt im unteren Statuschip.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.94',
     tr: 'Android güncellemesi: kurulum ekranı açıldıktan sonra eski süreç artık kendini kapatıyor — eskisine geri dönülmüyor. "Sığdır" tuşu, harita zaten hedefteyken de reddedilmiş sayıp anlamsızca tüm dünyaya zumluyordu — düzeltildi. İz artık sadece rozetinden değil, çizginin herhangi bir noktasından da isim etiketini açıp kapatıyor. Bir pine tıklayınca önizleme, tıklanan tek medya yerine o an haritada gözüken TÜM medyayla açılıyor; önizleme kapanınca harita, küme için zumlamadan önceki hâline dönüyor.',
     en: 'Android update: after the installer opens, the old process now closes itself instead of leaving you back in the stale version. "Fit all" was treating an already-on-target map as a rejection and zooming out to the whole world for no reason — fixed. Tracks now toggle their name label from any point along the line, not just the small badge. Tapping a pin now opens the preview with ALL media currently visible on the map, not just the one tapped; closing the preview returns the map to its view from before it zoomed into that cluster.',

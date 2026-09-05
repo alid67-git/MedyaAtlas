@@ -44,7 +44,6 @@ import '../services/video_gps.dart';
 import '../services/video_preview.dart';
 import '../services/photo_orient.dart';
 import '../services/web_media_session.dart';
-import '../widgets/app_update_progress.dart';
 import '../widgets/cluster_dot.dart';
 import '../widgets/drop_host.dart';
 import '../widgets/media_viewer.dart';
@@ -109,10 +108,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _mapInteracting = false;
   Timer? _mapIdleTimer;
 
-  /// Zorunlu güncelleme — harita kullanılmaz.
-  AppUpdateInfo? _forceUpdate;
-
-  /// Zorunlu/ indirme sırasında ekrandaki yüzde (null = indirmiyor).
+  /// İndirme sırasındaki yüzde (null = belirsiz/henüz bilinmiyor) - alt
+  /// banner'da gösterilir (RideAtlas tarzı, harita kilitlenmez).
   double? _updateDownloadProgress;
   var _updateDialogOpen = false;
   /// APK indirme arka planda — harita kilitlenmez.
@@ -209,12 +206,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       context.read<MediaRepository>().refreshMountStates();
       // Her resume’da sürüm kontrolü YAPMA: güncelle / kurulum ekranından
       // dönünce eski süreç aynı «1.0.91» uyarısını defalarca açıyordu.
-      if (_forceUpdate != null &&
-          !_updateDialogOpen &&
-          !_updateDownloading &&
-          _updateHandledVersion != _forceUpdate!.latestVersion) {
-        _promptUpdate(_forceUpdate!, force: true);
-      }
     }
   }
 
@@ -250,7 +241,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       return;
     }
     if (!info.isNewer) {
-      if (_forceUpdate != null) setState(() => _forceUpdate = null);
       // Günceliz — önceki «önerildi» bayrağını temizle.
       _updateHandledVersion = null;
       if (manual) {
@@ -263,82 +253,55 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!manual && _updateHandledVersion == info.latestVersion) {
       return;
     }
-    final force = info.isForceRequired;
-    if (force) {
-      // Tek ekran + tek tuş — ara diyalog yok (ardarda güncelle çıkmasın).
-      setState(() => _forceUpdate = info);
-      return;
-    }
-    // Zorunlu kapalıyken eski kilit ekranını kaldır.
-    if (_forceUpdate != null) setState(() => _forceUpdate = null);
-    await _promptUpdate(info, force: false);
+    await _promptUpdate(info);
   }
 
-  Future<void> _promptUpdate(AppUpdateInfo info, {required bool force}) async {
+  /// Tek seferlik soru (RideAtlas tarzı): "Güncelleme var" + Sonra/Güncelle.
+  /// Kabul edilirse indirme arka planda sürer, [_updateDownloadProgress]
+  /// üzerinden alt bannerda gösterilir — harita hiçbir zaman kilitlenmez.
+  Future<void> _promptUpdate(AppUpdateInfo info) async {
     if (!mounted || _updateDialogOpen) return;
-    if (!force && _updateHandledVersion == info.latestVersion) return;
+    if (_updateHandledVersion == info.latestVersion) return;
     _updateDialogOpen = true;
     try {
       final go = await showDialog<bool>(
         context: context,
-        barrierDismissible: !force,
-        builder: (ctx) => PopScope(
-          canPop: !force,
-          child: AlertDialog(
-            title: Text(force ? 'Zorunlu güncelleme' : 'Güncelleme var'),
-            content: Text(force ? info.forceDialogBody : info.dialogBody),
-            actions: [
-              if (!force)
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Sonra'),
-                ),
-              FilledButton(
-                onPressed: () async {
-                  if (info.platform == UpdatePlatform.web) {
-                    Navigator.pop(ctx, false);
-                    _updateHandledVersion = info.latestVersion;
-                    await reloadWebApp();
-                    return;
-                  }
-                  Navigator.pop(ctx, true);
-                },
-                child: Text(
-                  info.platform == UpdatePlatform.web ? 'Yenile' : 'Güncelle',
-                ),
+        builder: (ctx) => AlertDialog(
+          title: const Text('Güncelleme var'),
+          content: Text(info.dialogBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Sonra'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (info.platform == UpdatePlatform.web) {
+                  Navigator.pop(ctx, false);
+                  _updateHandledVersion = info.latestVersion;
+                  await reloadWebApp();
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              child: Text(
+                info.platform == UpdatePlatform.web ? 'Yenile' : 'Güncelle',
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
       // Sonra / Güncelle fark etmez — aynı sürümü tekrar önerme.
       _updateHandledVersion = info.latestVersion;
       if (go == true && mounted) {
         await _downloadUpdate(info);
-      } else if (force && mounted) {
-        // Kullanıcı kapatamadı; yine de engeli tut.
-        setState(() => _forceUpdate = info);
       }
     } finally {
       _updateDialogOpen = false;
     }
   }
 
-  Future<void> _applyForceUpdate() async {
-    final info = _forceUpdate;
-    if (info == null || _updateDialogOpen) return;
-    if (info.platform == UpdatePlatform.web) {
-      setState(() => _status = 'Sayfa yenileniyor…');
-      await reloadWebApp();
-      return;
-    }
-    await _downloadUpdate(info, onForceScreen: true);
-  }
-
-  Future<void> _downloadUpdate(
-    AppUpdateInfo info, {
-    bool onForceScreen = false,
-  }) async {
+  Future<void> _downloadUpdate(AppUpdateInfo info) async {
     if (info.platform == UpdatePlatform.web) {
       setState(() => _status = 'Sayfa yenileniyor…');
       final err = await downloadAndApplyUpdate(info);
@@ -347,12 +310,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       return;
     }
 
-    if (_updateDownloading) {
-      if (mounted) {
-        setState(() => _status = 'Güncelleme zaten arka planda indiriliyor…');
-      }
-      return;
-    }
+    if (_updateDownloading) return;
 
     if (info.platform == UpdatePlatform.android) {
       final installPerm = await Permission.requestInstallPackages.request();
@@ -368,21 +326,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
 
     if (!mounted) return;
-    _updateDownloading = true;
-    _updateDialogOpen = onForceScreen;
+    setState(() {
+      _updateDownloading = true;
+      _updateDownloadProgress = 0;
+    });
     _updateHandledVersion = info.latestVersion;
     var lastPct = -1;
     try {
-      // Arka plan: kilitleyen diyalog yok — alt durum çubuğu + uyarı.
-      setState(() {
-        if (onForceScreen) {
-          _updateDownloadProgress = 0;
-        } else {
-          _updateDownloadProgress = null;
-          _status = 'Güncelleme yapılıyor… %0';
-        }
-      });
-
       final err = await downloadAndApplyUpdate(
         info,
         onProgress: (p) {
@@ -391,31 +341,25 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           if (lastPct >= 0 && pct < 100 && pct - lastPct < 2) return;
           lastPct = pct;
           if (!mounted) return;
-          if (onForceScreen) {
-            setState(() => _updateDownloadProgress = p);
-          } else {
-            setState(() => _status = 'Güncelleme yapılıyor… %$pct');
-          }
+          setState(() => _updateDownloadProgress = p);
         },
       );
       if (!mounted) return;
       setState(() {
-        _updateDownloadProgress = null;
         if (err != null) {
           _status = err;
         } else if (info.platform == UpdatePlatform.android) {
           _status = 'Kurulum ekranı açıldı.';
         } else if (info.platform == UpdatePlatform.windows) {
           _status = 'Yeni sürüm açılıyor…';
-        } else {
-          _status = null;
         }
       });
     } finally {
-      _updateDownloading = false;
-      _updateDialogOpen = false;
-      if (mounted && _updateDownloadProgress != null) {
-        setState(() => _updateDownloadProgress = null);
+      if (mounted) {
+        setState(() {
+          _updateDownloading = false;
+          _updateDownloadProgress = null;
+        });
       }
     }
   }
@@ -3037,57 +2981,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ),
               ),
             ),
-          if (_forceUpdate != null)
-            Positioned.fill(
-              child: Material(
-                color: const Color(0xF0050E16),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_updateDownloadProgress != null)
-                          AppUpdateProgressPanel(
-                            progress: _updateDownloadProgress!,
-                            title: 'Güncelleme yapılıyor',
-                          )
-                        else ...[
-                          const Icon(
-                            Icons.system_update_alt,
-                            size: 56,
-                            color: Color(0xFF2EC4B6),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Zorunlu güncelleme',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _forceUpdate!.forceDialogBody,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.85),
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          FilledButton.icon(
-                            onPressed: _updateDialogOpen
-                                ? null
-                                : () => _applyForceUpdate(),
-                            icon: const Icon(Icons.download),
-                            label: const Text('Güncelle'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -3258,7 +3151,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final active =
         _busy || _gpsBgRunning || _autoScanRunning || _updateDownloading;
     final canCancel = _busy || _gpsBgRunning;
-    final text = active
+    final text = _updateDownloading
+        ? 'Güncelleme yapılıyor… ${_updateDownloadProgress != null ? '%${(_updateDownloadProgress! * 100).floor()}' : ''}'
+        : active
         ? (_status ?? 'Dosyalar aranıyor…')
         : (_status ??
               _libraryStatus(

@@ -53,14 +53,7 @@ class AppUpdateInfo {
 
   bool get isNewer => compareVersions(latestVersion, appVersion) > 0;
 
-  /// En az 2 sürüm geride (veya major/minor atlanmış) → zorunlu güncelleme.
-  bool get isForceRequired =>
-      isForceUpdateRequired(current: appVersion, latest: latestVersion);
-
   String get dialogBody =>
-      'Sizin: v$appVersion\nGüncel: v$latestVersion';
-
-  String get forceDialogBody =>
       'Sizin: v$appVersion\nGüncel: v$latestVersion';
 }
 
@@ -374,33 +367,3 @@ int compareVersions(String a, String b) {
   return 0;
 }
 
-List<int> parseVersionParts(String v) {
-  final parts = v
-      .split(RegExp(r'[^0-9]+'))
-      .where((s) => s.isNotEmpty)
-      .map(int.parse)
-      .toList();
-  while (parts.length < 3) {
-    parts.add(0);
-  }
-  return parts.take(3).toList();
-}
-
-/// [latest] kaç sürüm önde? Aynı major.minor’da patch farkı;
-/// major/minor atlanmışsa büyük sayı (≥2 → zorunlu).
-int versionsBehind({required String current, required String latest}) {
-  if (compareVersions(latest, current) <= 0) return 0;
-  final c = parseVersionParts(current);
-  final l = parseVersionParts(latest);
-  if (l[0] != c[0] || l[1] != c[1]) {
-    return 999;
-  }
-  return l[2] - c[2];
-}
-
-/// Zorunlu güncelleme şimdilik kapalı — yalnızca isteğe bağlı diyalog.
-bool isForceUpdateRequired({
-  required String current,
-  required String latest,
-}) =>
-    false;
