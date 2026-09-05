@@ -23,10 +23,46 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
-    version: '1.0.95',
+    version: '1.0.101',
     tr: 'Zorunlu güncelleme kilit ekranı kaldırıldı — artık her güncelleme RideAtlas tarzı: tek seferlik "Güncelleme var" sorusu, ardından indirme arka planda sürerken haritayı hiç kilitlemiyor. İndirme yüzdesi artık alttaki durum çubuğunda görünüyor.',
     en: 'Removed the mandatory-update lock screen — every update is now RideAtlas-style: a one-time "Update available" prompt, then the download runs in the background without ever locking the map. Download percentage now shows in the bottom status chip.',
     de: 'Der Sperrbildschirm für Pflicht-Updates wurde entfernt — jedes Update läuft jetzt im RideAtlas-Stil: eine einmalige Abfrage "Update verfügbar", danach läuft der Download im Hintergrund, ohne die Karte zu sperren. Der Download-Prozentsatz erscheint jetzt im unteren Statuschip.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.100',
+    tr: 'En uzak zoom artık ekran genişliğine tam dünyayı (360°) sığdırıyor — gerekirse kutuplar üstten/alttan kesilir. Bu zoom’da sağa-sola kaydırma yine açık (önce yakınlaştırma şart değil).',
+    en: 'Max zoom-out now fits the full world width (360°) to the screen — poles may be cropped top/bottom if needed. Panning left/right stays enabled at that zoom (no need to zoom in first).',
+    de: 'Maximaler Zoom-out passt jetzt die volle Weltbreite (360°) auf den Bildschirm — Pole können oben/unten beschnitten werden. Schwenken links/rechts bleibt auf diesem Zoom möglich (kein vorheriges Reinzoomen nötig).',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.99',
+    tr: 'Pine tıklayınca önizleme artık yalnızca o kümenin birkaç medyasını değil, o an haritada görünen TÜM medyayı listeliyor (harita görünümü bozulmadan).',
+    en: 'Tapping a pin now previews ALL media currently visible on the map, not just the few items in that cluster — without zooming the map away.',
+    de: 'Tippen auf einen Pin zeigt jetzt ALLE aktuell auf der Karte sichtbaren Medien in der Vorschau, nicht nur die wenigen des Clusters — ohne die Karte wegzuzoomen.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.98',
+    tr: 'Güncelleme: kurulum ekranı açılınca eski süreç artık tamamen kapanıyor (görev listesinden de silinir). Harita en uzak zoom’da sürüklenince uçlarda takılıp zıplama hissi giderildi — tek dünya ortalanır, pan kilitlenir; yakınlaşınca yine kaydırılabilir.',
+    en: 'Update: when the installer opens, the old process now fully exits (also removed from recents). At max zoom-out, edge pan jitter is gone — the single world stays centered and panning locks until you zoom back in.',
+    de: 'Update: Beim Öffnen des Installers beendet sich der alte Prozess jetzt vollständig (auch aus den Letzten Apps). Beim maximalen Herauszoomen kein Kanten-Ruckeln mehr — die eine Welt bleibt zentriert, Schwenken ist gesperrt bis zum Reinzoomen.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.97',
+    tr: 'İz ismi etiketi ekran kenarında kesiliyordu — artık ekran içinde kalacak şekilde kaydırılıyor.',
+    en: 'Track name labels were clipped at the screen edge — they now stay fully inside the viewport.',
+    de: 'Track-Namensschilder wurden am Bildschirmrand abgeschnitten — sie bleiben jetzt vollständig im sichtbaren Bereich.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.96',
+    tr: 'Haritayı küçültünce yan yana birden fazla dünya açılması engellendi — en uzak zoom artık ekranın sığdırabildiği tek dünyanın tamamı. "Sığdır" da aynı tek-dünya tabanına saygı duyuyor.',
+    en: 'Pinching out no longer tiles multiple worlds side by side — the farthest zoom is now exactly one full world that fits the screen. "Fit all" respects that same single-world floor.',
+    de: 'Herauszoomen zeigt keine mehreren Welten nebeneinander mehr — der weiteste Zoom ist genau eine volle Welt, die auf den Bildschirm passt. „Alles einpassen“ respektiert dieselbe Ein-Welt-Untergrenze.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.95',
+    tr: '"Sığdır" tuşu dünya kenar-kısıtı yüzünden geniş yayılan iz/medyayı (ör. Amerika + Tayland) dikey telefonda hiç sığdıramıyordu — kamera artık yalnızca merkezi dünyada tutuyor; tüm görünür iz ve medya tek bakışta sığdırılıyor.',
+    en: '"Fit all" could not fit widely spread tracks/media (e.g. America + Thailand) on a tall phone because the world edge constraint blocked the required zoom-out — the camera now only keeps its center in the world, so every visible track and media item fits in one view.',
+    de: '"Alles einpassen" konnte weit verstreute Tracks/Medien (z. B. Amerika + Thailand) auf einem hohen Telefon nicht einpassen, weil die Welt-Randbegrenzung den nötigen Zoom-out blockierte — die Kamera hält jetzt nur noch ihren Mittelpunkt in der Welt, sodass alle sichtbaren Tracks und Medien in eine Ansicht passen.',
   ),
   VersionHistoryEntry(
     version: '1.0.94',

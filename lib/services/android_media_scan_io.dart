@@ -31,10 +31,9 @@ Future<String?> installApkFile(String path) async {
       return 'Bilinmeyen uygulamalar iznini açıp tekrar Güncelle’ye basın.';
     }
     await _installerChannel.invokeMethod<void>('installApk', {'path': path});
-    // Kurulum ekranı açıldıktan sonra bu süreci kapat — aksi halde yükleme
-    // bitince kullanıcı eski (hâlâ bellekte açık) MedyaAtlas sürecine geri
-    // dönebiliyor, yeni APK sadece diskte kalıyor.
-    unawaited(Future<void>.delayed(const Duration(milliseconds: 600), () {
+    // Native taraf finishAndRemoveTask + killProcess yapar; Dart tarafı
+    // yedek olarak da süreci bırakır (eski APK’ya geri dönüş olmasın).
+    unawaited(Future<void>.delayed(const Duration(milliseconds: 700), () {
       SystemNavigator.pop();
     }));
     return null;

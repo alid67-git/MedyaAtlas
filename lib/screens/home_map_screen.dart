@@ -83,9 +83,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _locating = false;
   bool _sourcesOpen = false;
   bool _tracksOpen = false;
-  /// Haritada ismi gösterilen iz — rozetine veya çizgisine tıklanınca
-  /// açılır/kapanır.
-  String? _selectedTrackId;
+  /// Haritada ismi gösterilen iz — çizgiye/rozete tıklanınca; etiket ekran
+  /// içinde tutulur (kenardan taşmaz).
+  ({String id, String name, LatLng point})? _trackNameLabel;
   final _trackHitNotifier = ValueNotifier<LayerHitResult<String>?>(null);
   /// Haritada medya: tümü / görünen izlere yakın / gizle.
   _TrackMediaFilter _trackMediaFilter = _TrackMediaFilter.all;
@@ -2280,11 +2280,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         final bounds = LatLngBounds.fromPoints(points);
         final latSpan = (bounds.north - bounds.south).abs();
         final lngSpan = (bounds.east - bounds.west).abs();
-        // Geniş yayılımda büyük dolgu, dünya-kısıtıyla çakışıp fitCamera'nın
-        // zoom'unu reddettiriyordu (harita hiç kıpırdamıyordu).
-        final wide = latSpan > 55 || lngSpan > 100;
+        // Geniş yayılımda büyük UI dolgusu zoom'u gereksiz uzaklaştırır;
+        // dar yayılımda üst çubuk/panel için daha fazla boşluk bırak.
+        final wide = latSpan > 40 || lngSpan > 80;
         final padding = wide
-            ? const EdgeInsets.fromLTRB(12, 48, 12, 24)
+            ? const EdgeInsets.fromLTRB(16, 56, 16, 28)
             : const EdgeInsets.fromLTRB(36, 120, 36, 72);
         _fitMapToBounds(bounds, padding: padding, maxZoom: 15);
       } catch (_) {
@@ -2293,20 +2293,35 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
   }
 
-  /// Kısıtlanmış dünya-tekrarı sınırı: -85.0511..85.0511 enlem (Web Mercator
-  /// tavanı), -180..180 boylam.
+  /// Dünya kutusu — merkez bu sınırlarda kalır (containCenter).
+  /// Kenar kilidi (contain) YOK: dikey telefonda boylamı sığdırmak için
+  /// kutuplar kesilebilir; böylece tüm dünya yatayda görünür.
   static final _worldBounds = LatLngBounds(
     const LatLng(-85.0511, -180),
     const LatLng(85.0511, 180),
   );
 
-  /// Sığdır: geniş enlem/boylam yayılımı (ör. Amerika + Tayland + Avrupa)
-  /// dar/uzun bir telefon ekranında TEK bir zoom'a sığmayabilir — enlemi
-  /// dünya sınırında tutan zoom, boylamı sığdırmak için gerekenden daha
-  /// yüksek (daha yakın) kalabiliyordu; bu da "ortalıyor ama kenarlardaki
-  /// izler dışarıda kalıyor" görünümüne yol açıyordu. İdeal sığdırma kısıt
-  /// tarafından reddedilirse, aranan her nokta zaten dünya sınırları
-  /// içinde olduğundan onları hep kapsayan tüm-dünya görünümüne düş.
+  static final _worldCenterConstraint =
+      CameraConstraint.containCenter(bounds: _worldBounds);
+
+  /// Ekran genişliğine tam 360° boylam sığdıran en küçük zoom.
+  /// (Web Mercator: zoom 0’da dünya = 256 px.) Üst/alt kutuplar kesilebilir.
+  double _minZoomForFullWorldWidth([Size? size]) {
+    final w = size?.width ?? (() {
+      try {
+        return _map.camera.size.width;
+      } catch (_) {
+        return 0.0;
+      }
+    })();
+    if (!w.isFinite || w < 32) return 1.0;
+    final z = math.log(w / 256.0) / math.ln2;
+    if (!z.isFinite) return 1.0;
+    return z.clamp(0.0, 5.0);
+  }
+
+  /// Sığdır: mümkünse tüm noktalar; gerekirse tam-boylam tabanına in
+  /// (kutuplar kesilebilir — yan yana ikinci dünya yok).
   bool _fitMapToBounds(
     LatLngBounds bounds, {
     required EdgeInsets padding,
@@ -2321,31 +2336,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       padding: padding,
       maxZoom: maxZoom,
     ).fit(camera);
-    if (fitted.zoom.isFinite && fitted.center.latitude.isFinite) {
-      _map.move(fitted.center, fitted.zoom);
-      // move() döndürdüğü false hem "kısıt reddetti" hem de "kamera zaten
-      // orada, yapacak bir şey yok" anlamına gelebiliyor — ikisini ayırt
-      // etmek için dönüş değerine değil, hareketten SONRAKİ gerçek kamera
-      // konumuna bak. Zaten hedefteyse (ör. tekrar tekrar basılırsa) bunu
-      // "reddedildi" sayıp anlamsızca tüm dünyaya zum yapmayalım.
-      if (_isNear(_map.camera, fitted)) return true;
+    if (!fitted.zoom.isFinite || !fitted.center.latitude.isFinite) {
+      return false;
     }
-    final worldFit =
-        CameraFit.bounds(bounds: _worldBounds, padding: EdgeInsets.zero)
-            .fit(camera);
-    if (worldFit.zoom.isFinite) {
-      _map.move(worldFit.center, worldFit.zoom);
-      if (_isNear(_map.camera, worldFit)) return true;
-    }
-    return _map.move(camera.center, camera.zoom);
+
+    final minZ = _minZoomForFullWorldWidth(camera.size);
+    final hittingFloor = fitted.zoom < minZ;
+    final targetZoom = hittingFloor ? minZ : fitted.zoom;
+    final targetCenter =
+        hittingFloor ? const LatLng(0, 0) : fitted.center;
+
+    _map.move(targetCenter, targetZoom);
+    if ((_map.camera.zoom - targetZoom).abs() < 0.08) return true;
+    if (_isNear(_map.camera, fitted)) return true;
+
+    final mid = hittingFloor ? const LatLng(0, 0) : _map.camera.center;
+    _map.move(mid, targetZoom);
+    return (_map.camera.zoom - targetZoom).abs() < 0.08 ||
+        _map.move(fitted.center, camera.zoom);
   }
 
   /// [actual] kamera, hedeflenen [target] sığdırmaya (zoom + merkez) yeterince
   /// yakın mı — move()'un dönüş değeri yerine gerçek sonucu doğrulamak için.
   bool _isNear(MapCamera actual, MapCamera target) {
-    return (actual.zoom - target.zoom).abs() < 0.05 &&
-        (actual.center.latitude - target.center.latitude).abs() < 0.5 &&
-        (actual.center.longitude - target.center.longitude).abs() < 0.5;
+    return (actual.zoom - target.zoom).abs() < 0.08 &&
+        (actual.center.latitude - target.center.latitude).abs() < 0.75 &&
+        (actual.center.longitude - target.center.longitude).abs() < 0.75;
   }
 
   /// Cihaz konumu; yakındaki son günlerin medyası varsa onlarla sığdır.
@@ -2539,21 +2555,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _openCluster(LocationCluster cluster) async {
-    // _fitCluster haritayı bu kümeye kilitlemeden ÖNCE, o anda ekranda ne
-    // varsa onu sakla — aksi halde önizleme açılınca "viewport" zaten tek
-    // kümeye daralmış oluyor ve dokunulan medya tek başına geliyor. Kamera
-    // da aynı sebeple saklanır: önizleme (veya panel) kapanınca haritayı
-    // kümeye zumlamadan önceki hâline döndürebilelim.
-    _clusterTapViewportSnapshot =
-        _mediaInMapViewport(context.read<MediaRepository>());
+    // Tıklama anında ekranda görünen tüm medya — paneli / önizleyiciyi
+    // yalnızca bu kümenin 2–3 öğesiyle sınırlamayalım. Kamerayı küçültüp
+    // sığdırmıyoruz; aksi halde «görünen harita» listesi anlamsızlaşır.
+    final viewport = _mediaInMapViewport(context.read<MediaRepository>());
+    final items = <LibraryMedia>[];
+    final seen = <String>{};
+    for (final m in viewport) {
+      if (seen.add(m.id)) items.add(m);
+    }
+    for (final m in cluster.items) {
+      if (seen.add(m.id)) items.add(m);
+    }
+    items.sort((a, b) {
+      final ta = a.takenAt ?? a.addedAt;
+      final tb = b.takenAt ?? b.addedAt;
+      return tb.compareTo(ta);
+    });
+    _clusterTapViewportSnapshot = items;
     _clusterTapCameraSnapshot = _map.camera;
-    _fitCluster(cluster);
     setState(() {
       _panelCluster = cluster;
       _showMissing = false;
       _sourcesOpen = false;
       _tracksOpen = false;
       _kindMenu = null;
+      _trackNameLabel = null;
     });
     if (_isDesktop || MediaQuery.sizeOf(context).width >= 960) {
       return;
@@ -2570,12 +2597,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         return SizedBox(
           height: h.clamp(320.0, 640.0),
           child: _ClusterSheet(
-            cluster: cluster,
+            items: items,
             repo: live,
-            onOpen: (items, index) {
+            viewportWide: items.length > cluster.items.length,
+            onOpen: (openItems, index) {
               Navigator.pop(ctx);
               _openMapMediaViewer(
-                clusterItems: items,
+                clusterItems: openItems,
                 tappedIndex: index,
               );
             },
@@ -2584,9 +2612,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       },
     );
     if (mounted) setState(() => _panelCluster = null);
-    // Küme paneli hiçbir şey açmadan kapandıysa (ör. dışarı tıklama) kamera
-    // hâlâ burada — geri al. Bir medya açıldıysa _openMapMediaViewer bunu
-    // zaten null’a çekmiştir, o yüzden burada tekrar geri almayız.
+    // Panel hiçbir şey açmadan kapandıysa kamerayı geri al (şimna sığdırma
+    // yok ama snapshot yine temizlensin).
     _restoreClusterCameraIfPending();
   }
 
@@ -2597,46 +2624,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     try {
       _map.moveAndRotate(snapshot.center, snapshot.zoom, snapshot.rotation);
     } catch (_) {}
-  }
-
-  /// Kümedeki tüm medya haritada görünsün (sokak dip zoom değil).
-  void _fitCluster(LocationCluster cluster) {
-    final points = <LatLng>[
-      for (final m in cluster.items)
-        if (m.latLng != null) m.latLng!,
-    ];
-    if (points.isEmpty) {
-      final c = cluster.latLng;
-      if (c.latitude.isFinite && c.longitude.isFinite) {
-        points.add(c);
-      }
-    }
-    if (points.isEmpty) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      try {
-        if (points.length == 1) {
-          _map.moveAndRotate(points.first, 15, 0);
-          return;
-        }
-        var bounds = LatLngBounds.fromPoints(points);
-        final latSpan = (bounds.north - bounds.south).abs();
-        final lngSpan = (bounds.east - bounds.west).abs();
-        // Aynı noktaya yakın küme: biraz aç ki tüm pinler görünsün.
-        if (latSpan < 0.0008 || lngSpan < 0.0008) {
-          const pad = 0.002;
-          bounds = LatLngBounds(
-            LatLng(bounds.south - pad, bounds.west - pad),
-            LatLng(bounds.north + pad, bounds.east + pad),
-          );
-        }
-        _fitMapToBounds(
-          bounds,
-          padding: const EdgeInsets.fromLTRB(48, 140, 48, 200),
-          maxZoom: 16,
-        );
-      } catch (_) {}
-    });
   }
 
   /// Mevcut harita zoom’undaki GPS’li medya (yeniden eskiye).
@@ -2791,17 +2778,27 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                               const VerticalDivider(width: 1),
                               SizedBox(
                                 width: 360,
-                                child: _ClusterSheet(
-                                  cluster: _panelCluster!,
-                                  repo: repo,
-                                  onClose: () {
-                                    setState(() => _panelCluster = null);
-                                    _restoreClusterCameraIfPending();
+                                child: Builder(
+                                  builder: (context) {
+                                    final viewport =
+                                        _clusterTapViewportSnapshot ??
+                                            _panelCluster!.items;
+                                    return _ClusterSheet(
+                                      items: viewport,
+                                      repo: repo,
+                                      viewportWide: viewport.length >
+                                          _panelCluster!.items.length,
+                                      onClose: () {
+                                        setState(() => _panelCluster = null);
+                                        _restoreClusterCameraIfPending();
+                                      },
+                                      onOpen: (items, index) =>
+                                          _openMapMediaViewer(
+                                        clusterItems: items,
+                                        tappedIndex: index,
+                                      ),
+                                    );
                                   },
-                                  onOpen: (items, index) => _openMapMediaViewer(
-                                    clusterItems: items,
-                                    tappedIndex: index,
-                                  ),
                                 ),
                               ),
                             ],
@@ -3823,51 +3820,101 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final mapMarkers = _mapMarkersFor(clusters, repo);
     return Stack(
       children: [
-        FlutterMap(
-          mapController: _map,
-          options: MapOptions(
-            initialCenter: _worldCenter,
-            initialZoom: 2.4,
-            // Kısıt yoksa küçültünce dünya yan yana tekrarlanıyordu —
-            // kamerayı tek dünya sınırına kilitle. Sabit bir minZoom da
-            // eklemiştik ama o, "sığdır" ile Amerika+Tayland+Avrupa gibi
-            // gerçekten geniş yayılan izleri sığdırmak için gereken daha
-            // düşük zoom'u da engelliyordu — cameraConstraint tek başına
-            // (ekran boyutuna duyarlı) aynı taşma korumasını sağlıyor.
-            cameraConstraint: CameraConstraint.contain(bounds: _worldBounds),
-            onMapEvent: _onMapEvent,
-            // İz çizgisinin herhangi bir noktasına dokununca ismini
-            // aç/kapa — sadece küçük rozete değil.
-            onTap: (_, __) {
-              final hits = _trackHitNotifier.value?.hitValues;
-              if (hits == null || hits.isEmpty) return;
-              final id = hits.first;
-              setState(() {
-                _selectedTrackId = _selectedTrackId == id ? null : id;
-              });
-            },
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
-              userAgentPackageName: 'com.medyaatlas.app',
-            ),
-            _TrackLinesLayer(
-              tracks: visibleTracks,
-              hitNotifier: _trackHitNotifier,
-            ),
-            // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
-            if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
-            _TrackBadgeLayer(
-              tracks: visibleTracks,
-              selectedTrackId: _selectedTrackId,
-              onTap: (id) => setState(() {
-                _selectedTrackId = _selectedTrackId == id ? null : id;
-              }),
-            ),
-            MarkerLayer(markers: mapMarkers.selected),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final minZ = _minZoomForFullWorldWidth(constraints.biggest);
+            return FlutterMap(
+              mapController: _map,
+              options: MapOptions(
+                initialCenter: _worldCenter,
+                initialZoom: math.max(2.4, minZ + 0.3),
+                minZoom: minZ,
+                // Merkez dünyada kalsın; kenar kilidi yok — dikey telefonda
+                // üst/alt (kutup) kesilerek tam boylam (tüm dünya yatay)
+                // görünsün. Pan her zoom’da açık.
+                cameraConstraint: _worldCenterConstraint,
+                onMapEvent: _onMapEvent,
+                // İz çizgisinin herhangi bir noktasına dokununca ismini
+                // aç/kapa — etiket tıklanan noktada, ekran içinde kalır.
+                onTap: (_, latlng) {
+                  final hits = _trackHitNotifier.value?.hitValues;
+                  if (hits == null || hits.isEmpty) {
+                    if (_trackNameLabel == null) return;
+                    setState(() => _trackNameLabel = null);
+                    return;
+                  }
+                  final id = hits.first;
+                  MapTrack? found;
+                  for (final t in visibleTracks) {
+                    if (t.id == id) {
+                      found = t;
+                      break;
+                    }
+                  }
+                  final track = found;
+                  if (track == null) return;
+                  setState(() {
+                    if (_trackNameLabel?.id == id) {
+                      _trackNameLabel = null;
+                    } else {
+                      _trackNameLabel = (
+                        id: id,
+                        name: track.name,
+                        point: latlng,
+                      );
+                    }
+                  });
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: context.watch<AppSettings>().mapUrlTemplate,
+                  userAgentPackageName: 'com.medyaatlas.app',
+                ),
+                _TrackLinesLayer(
+                  tracks: visibleTracks,
+                  hitNotifier: _trackHitNotifier,
+                ),
+                // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
+                if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
+                _TrackBadgeLayer(
+                  tracks: visibleTracks,
+                  selectedTrackId: _trackNameLabel?.id,
+                  onTap: (id, anchor) {
+                    MapTrack? found;
+                    for (final t in visibleTracks) {
+                      if (t.id == id) {
+                        found = t;
+                        break;
+                      }
+                    }
+                    final track = found;
+                    if (track == null) return;
+                    setState(() {
+                      if (_trackNameLabel?.id == id) {
+                        _trackNameLabel = null;
+                      } else {
+                        _trackNameLabel = (
+                          id: id,
+                          name: track.name,
+                          point: anchor,
+                        );
+                      }
+                    });
+                  },
+                ),
+                MarkerLayer(markers: mapMarkers.selected),
+              ],
+            );
+          },
         ),
+        if (_trackNameLabel != null)
+          _ClampedTrackNameLabel(
+            mapController: _map,
+            point: _trackNameLabel!.point,
+            name: _trackNameLabel!.name,
+            onTap: () => setState(() => _trackNameLabel = null),
+          ),
         if (_places.isNotEmpty)
           Positioned(
             left: 12,
@@ -4067,20 +4114,22 @@ class _MissingList extends StatelessWidget {
 
 class _ClusterSheet extends StatelessWidget {
   const _ClusterSheet({
-    required this.cluster,
+    required this.items,
     required this.repo,
     required this.onOpen,
     this.onClose,
+    this.viewportWide = false,
   });
 
-  final LocationCluster cluster;
+  final List<LibraryMedia> items;
   final MediaRepository repo;
   final void Function(List<LibraryMedia> items, int index) onOpen;
   final VoidCallback? onClose;
+  /// true: liste tıklanan kümeden geniş — haritada o an görünen tüm medya.
+  final bool viewportWide;
 
   @override
   Widget build(BuildContext context) {
-    final items = cluster.items;
     final groups = groupMediaByDay(items);
     final range = mediaDateRangeLabel(items);
     // Düz indeks: tüm öğeler yeniden eskiye (gruplarla aynı sıra).
@@ -4108,16 +4157,25 @@ class _ClusterSheet extends StatelessWidget {
                           height: 1.15,
                         ),
                       ),
-                      if (range != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          range,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
+                      Builder(
+                        builder: (context) {
+                          final sub = [
+                            if (viewportWide) 'Haritada görünen',
+                            if (range != null) range,
+                          ].join(' · ');
+                          if (sub.isEmpty) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              sub,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -4132,52 +4190,57 @@ class _ClusterSheet extends StatelessWidget {
           ),
           const Divider(height: 1),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-              itemCount: groups.length,
-              itemBuilder: (context, gi) {
-                final g = groups[gi];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(4, gi == 0 ? 4 : 14, 4, 8),
-                      child: Text(
-                        g.title,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white.withValues(alpha: 0.85),
-                        ),
-                      ),
-                    ),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 6,
-                            crossAxisSpacing: 6,
+            child: items.isEmpty
+                ? const Center(child: Text('Bu görünümde medya yok.'))
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                    itemCount: groups.length,
+                    itemBuilder: (context, gi) {
+                      final g = groups[gi];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding:
+                                EdgeInsets.fromLTRB(4, gi == 0 ? 4 : 14, 4, 8),
+                            child: Text(
+                              g.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white.withValues(alpha: 0.85),
+                              ),
+                            ),
                           ),
-                      itemCount: g.items.length,
-                      itemBuilder: (context, i) {
-                        final item = g.items[i];
-                        final flatIndex = flat.indexOf(item);
-                        return GestureDetector(
-                          onTap: () =>
-                              onOpen(flat, flatIndex < 0 ? 0 : flatIndex),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: _Thumb(item: item, repo: repo),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              mainAxisSpacing: 6,
+                              crossAxisSpacing: 6,
+                            ),
+                            itemCount: g.items.length,
+                            itemBuilder: (context, i) {
+                              final item = g.items[i];
+                              final flatIndex = flat.indexOf(item);
+                              return GestureDetector(
+                                onTap: () => onOpen(
+                                  flat,
+                                  flatIndex < 0 ? 0 : flatIndex,
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: _Thumb(item: item, repo: repo),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                  ],
-                );
-              },
-            ),
+                        ],
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -4480,7 +4543,8 @@ class _TrackLinesLayerState extends State<_TrackLinesLayer> {
   }
 }
 
-/// İz rozetleri — sabit boyut; pan/zoom’da Marker listesi yeniden kurulmaz.
+/// İz rozetleri — yalnızca küçük nokta; isim etiketi [_ClampedTrackNameLabel]
+/// ile ekran içinde gösterilir (Marker taşması yok).
 class _TrackBadgeLayer extends StatefulWidget {
   const _TrackBadgeLayer({
     required this.tracks,
@@ -4490,7 +4554,7 @@ class _TrackBadgeLayer extends StatefulWidget {
 
   final List<MapTrack> tracks;
   final String? selectedTrackId;
-  final ValueChanged<String> onTap;
+  final void Function(String id, LatLng anchor) onTap;
 
   @override
   State<_TrackBadgeLayer> createState() => _TrackBadgeLayerState();
@@ -4533,15 +4597,151 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
       markers.add(
         Marker(
           point: center,
-          width: selected ? 220 : size,
-          height: selected ? 28 : size,
-          alignment: selected ? Alignment.centerLeft : Alignment.center,
+          width: size,
+          height: size,
+          alignment: Alignment.center,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => widget.onTap(track.id),
-            child: selected
-                ? Align(
-                    alignment: Alignment.centerLeft,
+            onTap: () => widget.onTap(track.id, center),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFFFF8C12)
+                    : const Color(0xE8FF8C12),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? const Color(0xFFFFFFFF) : Colors.white,
+                  width: selected ? 2.5 : 1.5,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x44000000),
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.route,
+                color: Colors.white,
+                size: 10,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    _markers = markers;
+  }
+
+  LatLng? _trackAnchor(MapTrack track) {
+    final b = track.bounds;
+    if (b != null &&
+        b.south.isFinite &&
+        b.north.isFinite &&
+        b.west.isFinite &&
+        b.east.isFinite) {
+      return LatLng((b.south + b.north) / 2, (b.west + b.east) / 2);
+    }
+    final pts = [
+      for (final p in track.points)
+        if (isValidGps(p.latitude, p.longitude)) p.latLng,
+    ];
+    if (pts.isEmpty) return null;
+    return pts[pts.length ~/ 2];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_markers.isEmpty) return const SizedBox.shrink();
+    return MarkerLayer(markers: _markers);
+  }
+}
+
+/// Rota ismi — harita Marker'ı yerine ekran koordinatında; kenarlardan
+/// taşmasın diye left/top clamp edilir. Harita pan/zoom olunca güncellenir.
+class _ClampedTrackNameLabel extends StatefulWidget {
+  const _ClampedTrackNameLabel({
+    required this.mapController,
+    required this.point,
+    required this.name,
+    required this.onTap,
+  });
+
+  final MapController mapController;
+  final LatLng point;
+  final String name;
+  final VoidCallback onTap;
+
+  @override
+  State<_ClampedTrackNameLabel> createState() => _ClampedTrackNameLabelState();
+}
+
+class _ClampedTrackNameLabelState extends State<_ClampedTrackNameLabel> {
+  StreamSubscription<MapEvent>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = widget.mapController.mapEventStream.listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _ClampedTrackNameLabel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mapController != widget.mapController) {
+      _sub?.cancel();
+      _sub = widget.mapController.mapEventStream.listen((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, box) {
+          Offset screen;
+          try {
+            screen =
+                widget.mapController.camera.latLngToScreenOffset(widget.point);
+          } catch (_) {
+            return const SizedBox.shrink();
+          }
+          if (!screen.dx.isFinite || !screen.dy.isFinite) {
+            return const SizedBox.shrink();
+          }
+
+          const margin = 8.0;
+          const maxW = 220.0;
+          const h = 32.0;
+          // Noktanın üstünde, yatayda ortalı; taşarsa kenara yasla.
+          var left = screen.dx - maxW / 2;
+          var top = screen.dy - h - 12;
+          final maxLeft = math.max(margin, box.maxWidth - maxW - margin);
+          final maxTop = math.max(margin, box.maxHeight - h - margin);
+          left = left.clamp(margin, maxLeft);
+          top = top.clamp(margin, maxTop);
+
+          return Stack(
+            children: [
+              Positioned(
+                left: left,
+                top: top,
+                width: maxW,
+                child: GestureDetector(
+                  onTap: widget.onTap,
+                  child: Align(
+                    alignment: Alignment.center,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -4573,8 +4773,9 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              track.name,
+                              widget.name,
                               overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -4585,53 +4786,13 @@ class _TrackBadgeLayerState extends State<_TrackBadgeLayer> {
                         ],
                       ),
                     ),
-                  )
-                : DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xE8FF8C12),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x44000000),
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.route,
-                      color: Colors.white,
-                      size: 10,
-                    ),
                   ),
-          ),
-        ),
-      );
-    }
-    _markers = markers;
-  }
-
-  LatLng? _trackAnchor(MapTrack track) {
-    final b = track.bounds;
-    if (b != null &&
-        b.south.isFinite &&
-        b.north.isFinite &&
-        b.west.isFinite &&
-        b.east.isFinite) {
-      return LatLng((b.south + b.north) / 2, (b.west + b.east) / 2);
-    }
-    final pts = [
-      for (final p in track.points)
-        if (isValidGps(p.latitude, p.longitude)) p.latLng,
-    ];
-    if (pts.isEmpty) return null;
-    return pts[pts.length ~/ 2];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_markers.isEmpty) return const SizedBox.shrink();
-    return MarkerLayer(markers: _markers);
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 }
