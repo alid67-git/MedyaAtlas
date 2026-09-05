@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.101',
+    tr: 'Zorunlu güncelleme kilit ekranı kaldırıldı — artık her güncelleme RideAtlas tarzı: tek seferlik "Güncelleme var" sorusu, ardından indirme arka planda sürerken haritayı hiç kilitlemiyor. İndirme yüzdesi artık alttaki durum çubuğunda görünüyor.',
+    en: 'Removed the mandatory-update lock screen — every update is now RideAtlas-style: a one-time "Update available" prompt, then the download runs in the background without ever locking the map. Download percentage now shows in the bottom status chip.',
+    de: 'Der Sperrbildschirm für Pflicht-Updates wurde entfernt — jedes Update läuft jetzt im RideAtlas-Stil: eine einmalige Abfrage "Update verfügbar", danach läuft der Download im Hintergrund, ohne die Karte zu sperren. Der Download-Prozentsatz erscheint jetzt im unteren Statuschip.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.100',
     tr: 'En uzak zoom artık ekran genişliğine tam dünyayı (360°) sığdırıyor — gerekirse kutuplar üstten/alttan kesilir. Bu zoom’da sağa-sola kaydırma yine açık (önce yakınlaştırma şart değil).',
     en: 'Max zoom-out now fits the full world width (360°) to the screen — poles may be cropped top/bottom if needed. Panning left/right stays enabled at that zoom (no need to zoom in first).',
