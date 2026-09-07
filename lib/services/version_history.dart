@@ -23,6 +23,27 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.102',
+    tr: 'GPX/KML içe aktarma bazen sessizce hiçbir şey yapmıyordu: tarayıcının '
+        'dosya seçme penceresinde "cancel" olayı, gerçekten bir dosya seçilmiş '
+        'olsa bile "change" olayından önce tetiklenebiliyordu; bu da seçimi '
+        'sessizce "hiçbir şey seçilmedi" sayıp yutuyordu. Artık sabit bir '
+        'gecikme yerine, gerçek seçim gelene kadar (en fazla ~2sn) kontrol '
+        'tekrarlanıyor.',
+    en: 'GPX/KML import sometimes silently did nothing: the browser\'s file '
+        'picker could fire its "cancel" event before the real "change" event '
+        'even when a file was actually picked, silently swallowing the '
+        'selection as "nothing chosen". Now it keeps re-checking (up to ~2s) '
+        'until the real selection arrives instead of guessing a fixed delay.',
+    de: 'Der GPX/KML-Import tat manchmal stillschweigend nichts: Der '
+        '"cancel"-Event des Datei-Dialogs im Browser konnte vor dem echten '
+        '"change"-Event ausgelöst werden, selbst wenn tatsächlich eine Datei '
+        'ausgewählt wurde, wodurch die Auswahl stillschweigend als "nichts '
+        'gewählt" verworfen wurde. Jetzt wird so lange erneut geprüft (bis zu '
+        '~2s), bis die echte Auswahl eintrifft, statt eine feste Verzögerung '
+        'zu raten.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.101',
     tr: 'Zorunlu güncelleme kilit ekranı kaldırıldı — artık her güncelleme RideAtlas tarzı: tek seferlik "Güncelleme var" sorusu, ardından indirme arka planda sürerken haritayı hiç kilitlemiyor. İndirme yüzdesi artık alttaki durum çubuğunda görünüyor.',
     en: 'Removed the mandatory-update lock screen — every update is now RideAtlas-style: a one-time "Update available" prompt, then the download runs in the background without ever locking the map. Download percentage now shows in the bottom status chip.',

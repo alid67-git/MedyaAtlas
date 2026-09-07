@@ -76,7 +76,14 @@ Future<TrackPickResult?> pickTrackFiles({bool allowAny = true}) async {
     }
   }
 
+  // Set the moment a read starts (not when it finishes) so the cancel/focus
+  // fallbacks below never re-read the same FileList while readFiles is
+  // still in flight (a slow multi-file read on a big Drive-synced GPX can
+  // still be running seconds later).
+  var readingStarted = false;
+
   Future<void> readFiles(web.FileList list) async {
+    readingStarted = true;
     final out = <PickedTrackFile>[];
     var wrongType = 0;
     var unreadable = 0;
@@ -121,9 +128,40 @@ Future<TrackPickResult?> pickTrackFiles({bool allowAny = true}) async {
     );
   }
 
+  // Set synchronously the instant 'change' fires, before any awaiting -
+  // both fallbacks below poll this to bail out the moment a real pick
+  // shows up, instead of guessing a single fixed delay.
+  var changeFired = false;
+
+  // 'cancel' and window-'focus' can each fire well *before* the 'change'
+  // event for a real pick actually arrives - not just slightly before, but
+  // by an amount that varies enough (measured exceeding 400ms even in
+  // testing) that no single fixed delay reliably outruns it. A delay that
+  // loses the race calls finish(null) first, and the real 'change' arriving
+  // after that is silently ignored (`done` is already completed) - which
+  // reads as the import doing nothing. Poll instead of guessing: keep
+  // checking for up to ~2s, bailing the moment 'change' starts, a read
+  // begins, or `done` is otherwise already resolved.
+  Future<void> resolveIfNoRealChange() async {
+    const step = Duration(milliseconds: 150);
+    const maxAttempts = 14; // ~2.1s total
+    for (var i = 0; i < maxAttempts; i++) {
+      if (done.isCompleted || readingStarted || changeFired) return;
+      await Future<void>.delayed(step);
+    }
+    if (done.isCompleted || readingStarted || changeFired) return;
+    final list = input.files;
+    if (list != null && list.length > 0) {
+      unawaited(readFiles(list));
+    } else {
+      finish(null);
+    }
+  }
+
   input.addEventListener(
     'change',
     (web.Event _) {
+      changeFired = true;
       final list = input.files;
       if (list == null || list.length == 0) {
         finish(null);
@@ -135,22 +173,16 @@ Future<TrackPickResult?> pickTrackFiles({bool allowAny = true}) async {
   input.addEventListener(
     'cancel',
     (web.Event _) {
-      finish(null);
+      unawaited(resolveIfNoRealChange());
     }.toJS,
   );
 
   var focusArmed = false;
   void onFocus(web.Event _) {
-    if (!focusArmed || done.isCompleted) return;
-    Future<void>.delayed(const Duration(milliseconds: 400), () {
-      if (done.isCompleted) return;
-      final list = input.files;
-      if (list != null && list.length > 0) {
-        unawaited(readFiles(list));
-        return;
-      }
-      finish(null);
-    });
+    if (!focusArmed || done.isCompleted || readingStarted || changeFired) {
+      return;
+    }
+    unawaited(resolveIfNoRealChange());
   }
 
   final jsOnFocus = onFocus.toJS;
