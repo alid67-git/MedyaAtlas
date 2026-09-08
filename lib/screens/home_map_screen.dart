@@ -253,12 +253,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!manual && _updateHandledVersion == info.latestVersion) {
       return;
     }
-    await _promptUpdate(info);
+    if (manual) {
+      await _promptUpdate(info);
+    } else {
+      // Otomatik (açılıştaki) kontrol artık hiç sormuyor - bulunca direkt
+      // indirip uyguluyor. Elle "Güncellemeleri kontrol et" hâlâ soruyor.
+      // Android'de kurulum anında Android'in kendi kurulum ekranı yine de
+      // çıkar - bunu hiçbir uygulama atlayamaz, tek "onay" adımı artık bu.
+      _updateHandledVersion = info.latestVersion;
+      await _downloadUpdate(info);
+    }
   }
 
-  /// Tek seferlik soru (RideAtlas tarzı): "Güncelleme var" + Sonra/Güncelle.
-  /// Kabul edilirse indirme arka planda sürer, [_updateDownloadProgress]
-  /// üzerinden alt bannerda gösterilir — harita hiçbir zaman kilitlenmez.
+  /// Elle kontrolde sorulan tek seferlik soru: "Güncelleme var" +
+  /// Sonra/Güncelle. Kabul edilirse indirme arka planda sürer,
+  /// [_updateDownloadProgress] üzerinden alt bannerda gösterilir — harita
+  /// hiçbir zaman kilitlenmez.
   Future<void> _promptUpdate(AppUpdateInfo info) async {
     if (!mounted || _updateDialogOpen) return;
     if (_updateHandledVersion == info.latestVersion) return;

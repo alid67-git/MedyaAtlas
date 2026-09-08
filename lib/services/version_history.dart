@@ -23,6 +23,28 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.103',
+    tr: 'Açılıştaki otomatik güncelleme kontrolü artık tamamen sessiz: yeni '
+        'bir sürüm bulunca "Güncelleme var, ister misin?" diye sormadan '
+        'direkt indirip uyguluyor (Android\'de kurulum anında Android\'in '
+        'kendi kurulum onay ekranı yine de çıkar - bunu hiçbir uygulama '
+        'atlayamaz). Ayarlar\'daki elle "Güncellemeleri kontrol et" hâlâ '
+        'soruyor.',
+    en: 'The automatic launch-time update check is now fully silent: when '
+        'it finds a newer version, it downloads and applies it right away '
+        'instead of asking "Update available, install it?" (on Android, '
+        'the system\'s own install-confirmation screen still appears - no '
+        'app can skip that). The manual "Check for updates" in Settings '
+        'still asks first.',
+    de: 'Die automatische Update-Prüfung beim Start ist jetzt völlig '
+        'lautlos: Wird eine neuere Version gefunden, wird sie sofort '
+        'heruntergeladen und angewendet, statt zu fragen "Update '
+        'verfügbar, installieren?" (unter Android erscheint weiterhin der '
+        'systemeigene Installationsbestätigungsbildschirm - das kann keine '
+        'App umgehen). Die manuelle "Nach Updates suchen" in den '
+        'Einstellungen fragt weiterhin zuerst.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.102',
     tr: 'GPX/KML içe aktarma bazen sessizce hiçbir şey yapmıyordu: tarayıcının '
         'dosya seçme penceresinde "cancel" olayı, gerçekten bir dosya seçilmiş '
