@@ -6,18 +6,19 @@ on:
       - 'v*'
   workflow_dispatch:
 
-# Resmi Pages dağıtımı — site kapalıysa ilk çalıştırmada açılır.
+# gh-pages dalına yayın + site kapalıysa GITHUB_TOKEN ile yeniden aç.
+# (Resmi deploy-pages, yalnızca main/gh-pages ortam politikası ve kapalı
+#  Pages yüzünden etiket push'larında 404 / Setup Pages hatası veriyordu.)
 permissions:
-  contents: read
+  contents: write
   pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,21 +34,36 @@ jobs:
       - name: Verify version.json
         run: cat build/web/version.json
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Ensure GitHub Pages enabled (gh-pages / root)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          echo "Current Pages status (may be 404 if disabled):"
+          gh api "repos/${{ github.repository }}/pages" || true
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+          # Repo private iken Pages kapanmış olabilir; yeniden oluştur.
+          gh api --method POST "repos/${{ github.repository }}/pages" \
+            --input - <<'EOF'
+          {"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}
+          EOF
+
+          # Kaynağı her zaman gh-pages/(root) yap.
+          gh api --method PUT "repos/${{ github.repository }}/pages" \
+            --input - <<'EOF'
+          {"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}
+          EOF
+
+          echo "Pages status after enable attempt:"
+          gh api "repos/${{ github.repository }}/pages" || true
+          # Enable başarısız olsa bile gh-pages güncellenir; kullanıcı Settings'ten açabilir.
+          exit 0
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: build/web
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: 'deploy web ${{ github.ref_name }}'

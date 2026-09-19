@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.104',
+    tr: 'Web 404 düzeltmesi: GitHub Pages site kapalıyken resmi Actions dağıtımı düşüyordu. Artık gh-pages dalına yayınlanıyor ve workflow siteyi yeniden açmayı deniyor.',
+    en: 'Web 404 fix: official Actions deploy failed while GitHub Pages was disabled. Now publishes to the gh-pages branch and the workflow tries to re-enable the site.',
+    de: 'Web-404-Fix: Offizielles Actions-Deploy scheiterte, solange GitHub Pages deaktiviert war. Jetzt Veröffentlichung auf gh-pages; der Workflow versucht, die Site wieder zu aktivieren.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.103',
     tr: 'Web (GitHub Pages) yeniden yayınlandı: site kapalı kaldığı için 404 veriyordu — resmi Pages dağıtımıyla açılıyor.',
     en: 'Web (GitHub Pages) republished: the site was disabled and returned 404 — now deployed with the official Pages action.',
