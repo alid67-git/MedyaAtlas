@@ -34,31 +34,6 @@ jobs:
       - name: Verify version.json
         run: cat build/web/version.json
 
-      - name: Ensure GitHub Pages enabled (gh-pages / root)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set +e
-          echo "Current Pages status (may be 404 if disabled):"
-          gh api "repos/${{ github.repository }}/pages" || true
-
-          # Repo private iken Pages kapanmış olabilir; yeniden oluştur.
-          gh api --method POST "repos/${{ github.repository }}/pages" \
-            --input - <<'EOF'
-          {"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}
-          EOF
-
-          # Kaynağı her zaman gh-pages/(root) yap.
-          gh api --method PUT "repos/${{ github.repository }}/pages" \
-            --input - <<'EOF'
-          {"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}
-          EOF
-
-          echo "Pages status after enable attempt:"
-          gh api "repos/${{ github.repository }}/pages" || true
-          # Enable başarısız olsa bile gh-pages güncellenir; kullanıcı Settings'ten açabilir.
-          exit 0
-
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -67,3 +42,25 @@ jobs:
           publish_branch: gh-pages
           force_orphan: true
           commit_message: 'deploy web ${{ github.ref_name }}'
+
+      # Creating/enabling a Pages site needs repo admin — GITHUB_TOKEN gets 403.
+      # If this fails, the owner must flip Settings → Pages once; gh-pages is already updated.
+      - name: Verify GitHub Pages is enabled
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          gh api --method POST "repos/${{ github.repository }}/pages" \
+            --input - <<'EOF'
+          {"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}
+          EOF
+          gh api --method PUT "repos/${{ github.repository }}/pages" \
+            --input - <<'EOF'
+          {"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}
+          EOF
+          if gh api "repos/${{ github.repository }}/pages"; then
+            echo "Pages site is enabled."
+            exit 0
+          fi
+          echo "::error::GitHub Pages is DISABLED (has_pages=false). CI cannot enable it (403 admin). Owner must: Settings → Pages → Build and deployment → Source = Deploy from a branch → Branch = gh-pages / (root) → Save. Web files are already on gh-pages (${{ github.ref_name }})."
+          exit 1
