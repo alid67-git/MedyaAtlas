@@ -6,9 +6,8 @@ on:
       - 'v*'
   workflow_dispatch:
 
-# gh-pages dalına yayın + site kapalıysa GITHUB_TOKEN ile yeniden aç.
-# (Resmi deploy-pages, yalnızca main/gh-pages ortam politikası ve kapalı
-#  Pages yüzünden etiket push'larında 404 / Setup Pages hatası veriyordu.)
+# Site şu an Settings'te main/(root) kaynaklı. Hem gh-pages hem main köküne
+# Flutter web derlemesini yazarız (main = canlı Pages; gh-pages = yedek).
 permissions:
   contents: write
   pages: write
@@ -34,6 +33,9 @@ jobs:
       - name: Verify version.json
         run: cat build/web/version.json
 
+      - name: Prepare Pages tree (.nojekyll)
+        run: touch build/web/.nojekyll
+
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -43,24 +45,52 @@ jobs:
           force_orphan: true
           commit_message: 'deploy web ${{ github.ref_name }}'
 
-      # Creating/enabling a Pages site needs repo admin — GITHUB_TOKEN gets 403.
-      # If this fails, the owner must flip Settings → Pages once; gh-pages is already updated.
+      # Pages source is currently main/(root). Keep the Flutter build on main
+      # in sync so the live site updates on each tag without a Settings change.
+      - name: Sync web build onto main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          WORK=$(pwd)
+          BUILD="$WORK/build/web"
+          TMP=$(mktemp -d)
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "$TMP/repo"
+          cd "$TMP/repo"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Remove previous published web artifacts (keep Flutter source assets/branding).
+          rm -rf canvaskit icons
+          rm -f .nojekyll index.html main.dart.js flutter.js flutter_bootstrap.js \
+            flutter_service_worker.js flutter_service_worker_killswitch.js \
+            go.html manifest.json version.json favicon.png favicon-32.png \
+            apple-touch-icon.png apple-touch-icon-*.png apple-touch-icon-precomposed.png
+          rm -f assets/AssetManifest.bin assets/AssetManifest.bin.json \
+            assets/FontManifest.json assets/NOTICES
+          rm -rf assets/fonts assets/packages assets/shaders
+
+          mkdir -p assets
+          cp -a "$BUILD"/. .
+          # branding/ from the repo must survive; restore if build overwrote nothing there
+          git checkout HEAD -- assets/branding 2>/dev/null || true
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No web artifact changes on main."
+            exit 0
+          fi
+          git commit -m "deploy web ${{ github.ref_name }} onto main (Pages source)"
+          git push origin HEAD:main
+
       - name: Verify GitHub Pages is enabled
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
-          gh api --method POST "repos/${{ github.repository }}/pages" \
-            --input - <<'EOF'
-          {"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}
-          EOF
-          gh api --method PUT "repos/${{ github.repository }}/pages" \
-            --input - <<'EOF'
-          {"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}
-          EOF
           if gh api "repos/${{ github.repository }}/pages"; then
             echo "Pages site is enabled."
             exit 0
           fi
-          echo "::error::GitHub Pages is DISABLED (has_pages=false). CI cannot enable it (403 admin). Owner must: Settings → Pages → Build and deployment → Source = Deploy from a branch → Branch = gh-pages / (root) → Save. Web files are already on gh-pages (${{ github.ref_name }})."
+          echo "::error::GitHub Pages is DISABLED. Owner must: Settings → Pages → Deploy from a branch → gh-pages or main / (root) → Save."
           exit 1
