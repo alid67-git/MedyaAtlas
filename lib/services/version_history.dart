@@ -23,6 +23,12 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.103',
+    tr: 'Web (GitHub Pages) yeniden yayınlandı: site kapalı kaldığı için 404 veriyordu — resmi Pages dağıtımıyla açılıyor.',
+    en: 'Web (GitHub Pages) republished: the site was disabled and returned 404 — now deployed with the official Pages action.',
+    de: 'Web (GitHub Pages) neu veröffentlicht: Die Site war deaktiviert und lieferte 404 — jetzt mit der offiziellen Pages-Aktion.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.102',
     tr: 'GPX/KML içe aktarma bazen sessizce hiçbir şey yapmıyordu: tarayıcının '
         'dosya seçme penceresinde "cancel" olayı, gerçekten bir dosya seçilmiş '
