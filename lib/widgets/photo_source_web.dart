@@ -3,12 +3,17 @@ import 'package:flutter/material.dart';
 import '../services/media_mime.dart';
 
 /// Web: blob:/http(s) — Safari HEIC’i img ile çözer; hata/yüklemede ikon.
-Widget? photoFromPath(String? path, {BoxFit fit = BoxFit.contain}) {
+Widget? photoFromPath(
+  String? path, {
+  BoxFit fit = BoxFit.contain,
+  int? cacheWidth,
+}) {
   if (!isWebPlayableUrl(path)) return null;
   return Image.network(
     path!,
     fit: fit,
     gaplessPlayback: true,
+    cacheWidth: cacheWidth,
     loadingBuilder: (context, child, progress) {
       if (progress == null) return child;
       return const ColoredBox(

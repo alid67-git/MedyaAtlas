@@ -98,10 +98,12 @@ class OrientedMemoryImage extends StatelessWidget {
     this.bytes, {
     super.key,
     this.fit = BoxFit.contain,
+    this.cacheWidth,
   });
 
   final Uint8List bytes;
   final BoxFit fit;
+  final int? cacheWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +114,7 @@ class OrientedMemoryImage extends StatelessWidget {
           bytes,
           fit: fit,
           gaplessPlayback: true,
+          cacheWidth: cacheWidth,
           errorBuilder: (context, error, stackTrace) => const ColoredBox(
             color: Color(0xFF1A2A36),
             child: Icon(Icons.broken_image_outlined, color: Color(0x88FFFFFF)),

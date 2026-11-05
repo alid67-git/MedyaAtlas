@@ -23,6 +23,23 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.106',
+    tr: 'Performans: küçük pin/grid önizlemeleri artık tam çözünürlük yerine '
+        'küçültülmüş decode ediliyor — binlerce medyalı kütüphanede bellek '
+        've takılma riskini düşürür. Haritada gezinirken (pan) ısı pinleri '
+        'artık tüm ekranı değil, yalnızca kendi dar katmanını yeniden '
+        'çiziyor.',
+    en: 'Performance: small pin/grid thumbnails now decode at a reduced '
+        'size instead of full resolution - cuts memory and jank risk in '
+        'large libraries. Panning the map now only redraws the heat-pin '
+        'layer itself, not the whole screen.',
+    de: 'Performance: Kleine Pin-/Grid-Vorschauen werden jetzt verkleinert '
+        'statt in voller Auflösung dekodiert - reduziert Speicher- und '
+        'Ruckelrisiko bei großen Bibliotheken. Beim Verschieben der Karte '
+        'wird nur noch die Wärme-Pin-Ebene neu gezeichnet, nicht der ganze '
+        'Bildschirm.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.105',
     tr: 'Açılıştaki otomatik güncelleme kontrolü artık tamamen sessiz: yeni '
         'bir sürüm bulunca "Güncelleme var, ister misin?" diye sormadan '

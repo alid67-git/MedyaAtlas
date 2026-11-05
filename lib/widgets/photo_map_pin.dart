@@ -8,6 +8,11 @@ import '../services/video_preview.dart';
 import 'photo_source.dart';
 import 'video_surface.dart';
 
+/// Pin is 48dp - decode far below the original multi-MP photo so each
+/// visible pin doesn't drag in a full-resolution bitmap (comfortable
+/// headroom for high-DPI screens).
+const _kPinCacheWidth = 160;
+
 /// Seçili konum: dairesel fotoğraf + altta konum ucu (Google Fotoğraflar pin).
 class PhotoMapPin extends StatelessWidget {
   const PhotoMapPin({
@@ -130,20 +135,31 @@ class _PinThumb extends StatelessWidget {
             if (snap.connectionState != ConnectionState.done) {
               return const ColoredBox(color: Color(0xFF1A2A36));
             }
-            final fromSession =
-                photoFromPath(snap.data, fit: BoxFit.cover);
+            final fromSession = photoFromPath(
+              snap.data,
+              fit: BoxFit.cover,
+              cacheWidth: _kPinCacheWidth,
+            );
             if (fromSession != null) return fromSession;
             return _pinBytesFallback(item: item, repo: repo);
           },
         );
       }
-      final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
+      final fromDisk = photoFromPath(
+        item.localPath,
+        fit: BoxFit.cover,
+        cacheWidth: _kPinCacheWidth,
+      );
       if (fromDisk != null) return fromDisk;
       return _pinBytesFallback(item: item, repo: repo);
     }
     final cached = repo.cachedBytes(item.id);
     if (cached != null) {
-      return OrientedMemoryImage(cached, fit: BoxFit.cover);
+      return OrientedMemoryImage(
+        cached,
+        fit: BoxFit.cover,
+        cacheWidth: _kPinCacheWidth,
+      );
     }
     // Web video: oturum blob’undan ilk kare; yoksa kamera ikonu.
     if (kIsWeb) {
@@ -171,7 +187,11 @@ class _PinThumb extends StatelessWidget {
     if (cached != null &&
         looksLikeJpeg(cached) &&
         !looksLikeHeic(cached)) {
-      return OrientedMemoryImage(cached, fit: BoxFit.cover);
+      return OrientedMemoryImage(
+        cached,
+        fit: BoxFit.cover,
+        cacheWidth: _kPinCacheWidth,
+      );
     }
     return FutureBuilder(
       future: repo.bytesOf(item.id),
@@ -186,7 +206,11 @@ class _PinThumb extends StatelessWidget {
             child: Icon(Icons.photo, color: Colors.white54, size: 22),
           );
         }
-        return OrientedMemoryImage(bytes, fit: BoxFit.cover);
+        return OrientedMemoryImage(
+          bytes,
+          fit: BoxFit.cover,
+          cacheWidth: _kPinCacheWidth,
+        );
       },
     );
   }
