@@ -105,7 +105,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Timer? _mountTimer;
 
   /// Harita pan/zoom sırasında ısı pinlerini gizle — ANR önlemi.
-  bool _mapInteracting = false;
+  /// ValueNotifier: her pan karesinde tetiklenir, bu yüzden tüm ekranı
+  /// setState ile yeniden kurmak yerine sadece ısı katmanını saran dar
+  /// ValueListenableBuilder'ı günceller.
+  final _mapInteracting = ValueNotifier<bool>(false);
   Timer? _mapIdleTimer;
 
   /// İndirme sırasındaki yüzde (null = belirsiz/henüz bilinmiyor) - alt
@@ -215,6 +218,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _mountTimer?.cancel();
     _mapIdleTimer?.cancel();
     _trackHitNotifier.dispose();
+    _mapInteracting.dispose();
     super.dispose();
   }
 
@@ -253,12 +257,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!manual && _updateHandledVersion == info.latestVersion) {
       return;
     }
-    await _promptUpdate(info);
+    if (manual) {
+      await _promptUpdate(info);
+    } else {
+      // Otomatik (açılıştaki) kontrol artık hiç sormuyor - bulunca direkt
+      // indirip uyguluyor. Elle "Güncellemeleri kontrol et" hâlâ soruyor.
+      // Android'de kurulum anında Android'in kendi kurulum ekranı yine de
+      // çıkar - bunu hiçbir uygulama atlayamaz, tek "onay" adımı artık bu.
+      _updateHandledVersion = info.latestVersion;
+      await _downloadUpdate(info);
+    }
   }
 
-  /// Tek seferlik soru (RideAtlas tarzı): "Güncelleme var" + Sonra/Güncelle.
-  /// Kabul edilirse indirme arka planda sürer, [_updateDownloadProgress]
-  /// üzerinden alt bannerda gösterilir — harita hiçbir zaman kilitlenmez.
+  /// Elle kontrolde sorulan tek seferlik soru: "Güncelleme var" +
+  /// Sonra/Güncelle. Kabul edilirse indirme arka planda sürer,
+  /// [_updateDownloadProgress] üzerinden alt bannerda gösterilir — harita
+  /// hiçbir zaman kilitlenmez.
   Future<void> _promptUpdate(AppUpdateInfo info) async {
     if (!mounted || _updateDialogOpen) return;
     if (_updateHandledVersion == info.latestVersion) return;
@@ -3876,7 +3890,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   hitNotifier: _trackHitNotifier,
                 ),
                 // Pan/zoom sırasında ısı pinlerini çizme — ANR / kilitlenme.
-                if (!_mapInteracting) MarkerLayer(markers: mapMarkers.heat),
+                // ValueListenableBuilder: her pan karesinde yalnızca bu dar
+                // widget yeniden kurulur, tüm ekran değil.
+                ValueListenableBuilder<bool>(
+                  valueListenable: _mapInteracting,
+                  builder: (context, interacting, _) => interacting
+                      ? const SizedBox.shrink()
+                      : MarkerLayer(markers: mapMarkers.heat),
+                ),
                 _TrackBadgeLayer(
                   tracks: visibleTracks,
                   selectedTrackId: _trackNameLabel?.id,
@@ -3952,12 +3973,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         event is MapEventScrollWheelZoom;
     if (!busy) return;
     _mapIdleTimer?.cancel();
-    if (!_mapInteracting && mounted) {
-      setState(() => _mapInteracting = true);
+    if (!_mapInteracting.value && mounted) {
+      _mapInteracting.value = true;
     }
     _mapIdleTimer = Timer(const Duration(milliseconds: 220), () {
-      if (!mounted || !_mapInteracting) return;
-      setState(() => _mapInteracting = false);
+      if (!mounted || !_mapInteracting.value) return;
+      _mapInteracting.value = false;
     });
   }
 
@@ -4248,6 +4269,11 @@ class _ClusterSheet extends StatelessWidget {
   }
 }
 
+/// Grid/pin cells are a fraction of the screen width (3-column grid) -
+/// decode far below the original multi-MP photo so a library of thousands
+/// of thumbnails doesn't drag in full-resolution bitmaps.
+const _kGridCacheWidth = 480;
+
 class _Thumb extends StatelessWidget {
   const _Thumb({required this.item, required this.repo});
 
@@ -4268,14 +4294,22 @@ class _Thumb extends StatelessWidget {
           if (snap.connectionState != ConnectionState.done) {
             return const ColoredBox(color: Color(0xFF1A2A36));
           }
-          final fromSession = photoFromPath(snap.data, fit: BoxFit.cover);
+          final fromSession = photoFromPath(
+            snap.data,
+            fit: BoxFit.cover,
+            cacheWidth: _kGridCacheWidth,
+          );
           if (fromSession != null) return fromSession;
           return _thumbBytesFallback(item: item, repo: repo);
         },
       );
     }
     // Web: blob (HEIC dahil Safari img). Hive’daki HEIC baytını Image.memory’ye verme.
-    final fromDisk = photoFromPath(item.localPath, fit: BoxFit.cover);
+    final fromDisk = photoFromPath(
+      item.localPath,
+      fit: BoxFit.cover,
+      cacheWidth: _kGridCacheWidth,
+    );
     if (fromDisk != null) return fromDisk;
     return _thumbBytesFallback(item: item, repo: repo);
   }
@@ -4289,7 +4323,11 @@ class _Thumb extends StatelessWidget {
         cached.isNotEmpty &&
         looksLikeJpeg(cached) &&
         !looksLikeHeic(cached)) {
-      return OrientedMemoryImage(cached, fit: BoxFit.cover);
+      return OrientedMemoryImage(
+        cached,
+        fit: BoxFit.cover,
+        cacheWidth: _kGridCacheWidth,
+      );
     }
     return FutureBuilder(
       future: repo.bytesOf(item.id),
@@ -4316,7 +4354,11 @@ class _Thumb extends StatelessWidget {
             child: Icon(Icons.photo_outlined, color: Colors.white54),
           );
         }
-        return OrientedMemoryImage(bytes, fit: BoxFit.cover);
+        return OrientedMemoryImage(
+          bytes,
+          fit: BoxFit.cover,
+          cacheWidth: _kGridCacheWidth,
+        );
       },
     );
   }
@@ -4399,6 +4441,7 @@ class _VideoThumbCachedState extends State<_VideoThumbCached> {
             bytes,
             fit: BoxFit.cover,
             gaplessPlayback: true,
+            cacheWidth: _kGridCacheWidth,
             errorBuilder: (_, error, stack) => _webOrPathThumb(),
           ),
           const Align(

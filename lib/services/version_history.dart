@@ -23,6 +23,45 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.106',
+    tr: 'Performans: küçük pin/grid önizlemeleri artık tam çözünürlük yerine '
+        'küçültülmüş decode ediliyor — binlerce medyalı kütüphanede bellek '
+        've takılma riskini düşürür. Haritada gezinirken (pan) ısı pinleri '
+        'artık tüm ekranı değil, yalnızca kendi dar katmanını yeniden '
+        'çiziyor.',
+    en: 'Performance: small pin/grid thumbnails now decode at a reduced '
+        'size instead of full resolution - cuts memory and jank risk in '
+        'large libraries. Panning the map now only redraws the heat-pin '
+        'layer itself, not the whole screen.',
+    de: 'Performance: Kleine Pin-/Grid-Vorschauen werden jetzt verkleinert '
+        'statt in voller Auflösung dekodiert - reduziert Speicher- und '
+        'Ruckelrisiko bei großen Bibliotheken. Beim Verschieben der Karte '
+        'wird nur noch die Wärme-Pin-Ebene neu gezeichnet, nicht der ganze '
+        'Bildschirm.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.105',
+    tr: 'Açılıştaki otomatik güncelleme kontrolü artık tamamen sessiz: yeni '
+        'bir sürüm bulunca "Güncelleme var, ister misin?" diye sormadan '
+        'direkt indirip uyguluyor (Android\'de kurulum anında Android\'in '
+        'kendi kurulum onay ekranı yine de çıkar - bunu hiçbir uygulama '
+        'atlayamaz). Ayarlar\'daki elle "Güncellemeleri kontrol et" hâlâ '
+        'soruyor.',
+    en: 'The automatic launch-time update check is now fully silent: when '
+        'it finds a newer version, it downloads and applies it right away '
+        'instead of asking "Update available, install it?" (on Android, '
+        'the system\'s own install-confirmation screen still appears - no '
+        'app can skip that). The manual "Check for updates" in Settings '
+        'still asks first.',
+    de: 'Die automatische Update-Prüfung beim Start ist jetzt völlig '
+        'lautlos: Wird eine neuere Version gefunden, wird sie sofort '
+        'heruntergeladen und angewendet, statt zu fragen "Update '
+        'verfügbar, installieren?" (unter Android erscheint weiterhin der '
+        'systemeigene Installationsbestätigungsbildschirm - das kann keine '
+        'App umgehen). Die manuelle "Nach Updates suchen" in den '
+        'Einstellungen fragt weiterhin zuerst.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.104',
     tr: 'Web 404 düzeltmesi: GitHub Pages site kapalıyken resmi Actions dağıtımı düşüyordu. Artık gh-pages dalına yayınlanıyor ve workflow siteyi yeniden açmayı deniyor.',
     en: 'Web 404 fix: official Actions deploy failed while GitHub Pages was disabled. Now publishes to the gh-pages branch and the workflow tries to re-enable the site.',

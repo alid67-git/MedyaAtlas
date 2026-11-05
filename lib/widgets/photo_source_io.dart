@@ -5,18 +5,27 @@ import 'package:flutter/widgets.dart';
 
 import '../services/photo_orient.dart';
 
-Widget? photoFromPath(String? path, {BoxFit fit = BoxFit.contain}) {
+Widget? photoFromPath(
+  String? path, {
+  BoxFit fit = BoxFit.contain,
+  int? cacheWidth,
+}) {
   if (path == null || path.isEmpty) return null;
   final file = File(path);
   if (!file.existsSync()) return null;
-  return _OrientedFileImage(path: path, fit: fit);
+  return _OrientedFileImage(path: path, fit: fit, cacheWidth: cacheWidth);
 }
 
 class _OrientedFileImage extends StatefulWidget {
-  const _OrientedFileImage({required this.path, required this.fit});
+  const _OrientedFileImage({
+    required this.path,
+    required this.fit,
+    this.cacheWidth,
+  });
 
   final String path;
   final BoxFit fit;
+  final int? cacheWidth;
 
   @override
   State<_OrientedFileImage> createState() => _OrientedFileImageState();
@@ -71,6 +80,7 @@ class _OrientedFileImageState extends State<_OrientedFileImage> {
       File(widget.path),
       fit: widget.fit,
       gaplessPlayback: true,
+      cacheWidth: widget.cacheWidth,
     );
     if (!_ready) return img;
     return applyExifOrientation(img, _orientation);
