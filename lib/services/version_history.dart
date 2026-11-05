@@ -23,7 +23,7 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
-    version: '1.0.103',
+    version: '1.0.105',
     tr: 'Açılıştaki otomatik güncelleme kontrolü artık tamamen sessiz: yeni '
         'bir sürüm bulunca "Güncelleme var, ister misin?" diye sormadan '
         'direkt indirip uyguluyor (Android\'de kurulum anında Android\'in '
@@ -43,6 +43,18 @@ const versionHistory = <VersionHistoryEntry>[
         'systemeigene Installationsbestätigungsbildschirm - das kann keine '
         'App umgehen). Die manuelle "Nach Updates suchen" in den '
         'Einstellungen fragt weiterhin zuerst.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.104',
+    tr: 'Web 404 düzeltmesi: GitHub Pages site kapalıyken resmi Actions dağıtımı düşüyordu. Artık gh-pages dalına yayınlanıyor ve workflow siteyi yeniden açmayı deniyor.',
+    en: 'Web 404 fix: official Actions deploy failed while GitHub Pages was disabled. Now publishes to the gh-pages branch and the workflow tries to re-enable the site.',
+    de: 'Web-404-Fix: Offizielles Actions-Deploy scheiterte, solange GitHub Pages deaktiviert war. Jetzt Veröffentlichung auf gh-pages; der Workflow versucht, die Site wieder zu aktivieren.',
+  ),
+  VersionHistoryEntry(
+    version: '1.0.103',
+    tr: 'Web (GitHub Pages) yeniden yayınlandı: site kapalı kaldığı için 404 veriyordu — resmi Pages dağıtımıyla açılıyor.',
+    en: 'Web (GitHub Pages) republished: the site was disabled and returned 404 — now deployed with the official Pages action.',
+    de: 'Web (GitHub Pages) neu veröffentlicht: Die Site war deaktiviert und lieferte 404 — jetzt mit der offiziellen Pages-Aktion.',
   ),
   VersionHistoryEntry(
     version: '1.0.102',
