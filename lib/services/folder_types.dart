@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 
 import 'media_kind.dart';
+import 'track_file_types.dart';
 
 export 'media_kind.dart';
+export 'track_file_types.dart' show PickedTrackFile, TrackPickResult;
 
 const photoHeadBytes = 2 * 1024 * 1024;
 const videoHeadBytes = 4 * 1024 * 1024;
@@ -57,10 +59,15 @@ class FolderPickResult {
     required this.folderName,
     required this.items,
     this.rootPath,
+    this.trackFiles = const [],
   });
 
   final String folderName;
   final List<FolderMediaRef> items;
   /// Harici disk / klasör kökü — çıkınca pinler gizlenir, takılınca geri gelir.
   final String? rootPath;
+  /// Klasör seçiminde bulunan GPX/KML/KMZ (web Dosyalar / HDD dahil).
+  final List<PickedTrackFile> trackFiles;
+
+  bool get hasAnything => items.isNotEmpty || trackFiles.isNotEmpty;
 }
