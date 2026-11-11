@@ -17,7 +17,7 @@ Dosya adında ve indirme URL’sinde sürüm numarası yok; her release aynı is
 
 Sabit adres (sürüm yok): https://alid67-git.github.io/MedyaAtlas/  
 
-Safari’de açıp **Paylaş → Ana Ekrana Ekle**. Klasör tarama (5TB disk kökü) web’de yok; **foto/video seçici** ile medya eklenir. Tam SD/HDD kök tarama için Android veya Windows uygulaması gerekir.
+Safari’de açıp **Paylaş → Ana Ekrana Ekle**. **iOS 18.4+:** Kaynaklar → **Klasör / disk (Dosyalar)** ile harici HDD/USB klasörü ve alt klasörleri seçilebilir (Dosyalar uygulaması gibi); klasördeki GPX/KML de iz olarak alınır. Ayrıca Galeri / Drive. Eski iOS’ta yalnızca dosya/galeri seçici.
 
 ## Uygulama içi güncelleme
 

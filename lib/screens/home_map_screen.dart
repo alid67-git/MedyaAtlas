@@ -789,20 +789,45 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!await _ensureAndroidMediaAccess()) return;
     FolderPickResult? picked;
     try {
-      setState(() {
-        _beginBusy();
-        _status = 'Klasör listeleniyor…';
-      });
-      picked = await pickMediaFolder(
-        onProgress: (n, _) {
-          if (mounted && !_cancel) {
-            setState(() => _status = 'Klasör taranıyor… $n medya');
-          }
-        },
-        isCancelled: () => _cancel,
-      );
+      // Safari/iPhone: input.click() ilk await/setState’ten önce olmalı
+      // (Dosyalar / harici disk klasör seçicisi jesti kırılmasın).
+      final Future<FolderPickResult?> pickFuture;
+      if (kIsWeb) {
+        pickFuture = pickMediaFolder(
+          onProgress: (n, _) {
+            if (mounted && !_cancel) {
+              setState(() => _status = 'Klasör taranıyor… $n medya');
+            }
+          },
+          isCancelled: () => _cancel,
+        );
+        if (mounted) {
+          setState(() {
+            _beginBusy();
+            _status = hostIsAppleWeb
+                ? 'Dosyalar: klasör / disk seçin…'
+                : 'Klasör listeleniyor…';
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _beginBusy();
+            _status = 'Klasör listeleniyor…';
+          });
+        }
+        pickFuture = pickMediaFolder(
+          onProgress: (n, _) {
+            if (mounted && !_cancel) {
+              setState(() => _status = 'Klasör taranıyor… $n medya');
+            }
+          },
+          isCancelled: () => _cancel,
+        );
+      }
+      picked = await pickFuture;
       if (_cancel && mounted) {
-        if (picked == null || picked.items.isEmpty) {
+        if (picked == null || !picked.hasAnything) {
           setState(() {
             _endBusy();
             _status = 'Tarama iptal edildi.';
@@ -820,10 +845,45 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
     if (!mounted) return;
     if (picked == null) {
-      setState(_endBusy);
+      setState(() {
+        _endBusy();
+        if (hostIsAppleWeb) {
+          _status =
+              'Klasör seçilmedi. iOS 18.4+ gerekir: Dosyalar → harici disk / klasör.';
+        }
+      });
       return;
     }
-    await _ingestPick(picked, alreadyBusy: true);
+    if (!picked.hasAnything) {
+      setState(() {
+        _endBusy();
+        _status = 'Klasörde foto/video veya GPX/KML bulunamadı.';
+      });
+      return;
+    }
+
+    // Pick bitti — menüyü şimdi kapat (Safari jesti bozulmasın diye önce değil).
+    if (mounted) {
+      setState(() {
+        _sourcesOpen = false;
+        _kindMenu = null;
+        _tracksOpen = false;
+      });
+    }
+
+    final tracks = picked.trackFiles;
+    if (picked.items.isNotEmpty) {
+      await _ingestPick(picked, alreadyBusy: true);
+    } else if (mounted) {
+      setState(_endBusy);
+    }
+    if (!mounted) return;
+    if (tracks.isNotEmpty) {
+      await _addPickedTracks(
+        TrackPickResult(files: tracks),
+        alreadyMenusClosed: true,
+      );
+    }
   }
 
   Future<void> _importTracks() async {
@@ -3389,12 +3449,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           onPressed: _busy
               ? null
               : () {
+                  // Menüyü kapatmayı pick’ten sonraya bırak — Safari jesti.
+                  _importFolder();
+                },
+          child: const Text('Klasör / disk (Dosyalar)'),
+        ),
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
                   setState(_closeMenus);
                   _importGallery();
                 },
           child: const Text('Galeri (foto/video)'),
         ),
       ] else if (kIsWeb) ...[
+        FilledButton.tonal(
+          onPressed: _busy
+              ? null
+              : () {
+                  _importFolder();
+                },
+          child: const Text('Klasör'),
+        ),
         FilledButton.tonal(
           onPressed: _busy
               ? null
@@ -3441,8 +3518,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               'Drive = drive.google.com dosyaları (Fotoğraflar değil). '
               'GPX: üstteki rota (İzler) ikonu.'
         : (hostIsAppleWeb || hostIsIOS)
-        ? 'Medya: Galeri veya Drive dosyaları. Google Foto bulutu ayrıdır. '
-              'GPX: rota ikonu → Dosyalar.'
+        ? 'Harici disk / klasör: «Klasör / disk (Dosyalar)» '
+              '(iOS 18.4+, alt klasörler + GPX). '
+              'Ayrıca Galeri veya Drive. Google Foto bulutu ayrıdır.'
         : (_isDesktop
               ? 'Medya: Klasör veya Drive dosyaları. GPX: rota ikonu.'
               : 'Medya: Galeri veya Drive dosyaları. GPX: rota ikonu.');
@@ -3504,7 +3582,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             hostIsAndroid
                 ? 'Ekle (medya — GPX değil)'
                 : (hostIsAppleWeb || hostIsIOS)
-                ? 'Ekle (foto/video — GPX değil)'
+                ? 'Ekle (klasör=Dosyalar/disk; GPX klasörden gelir)'
                 : 'Ekle',
             style: TextStyle(
               fontSize: 12,

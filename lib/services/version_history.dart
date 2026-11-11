@@ -23,6 +23,21 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.107',
+    tr: 'iPhone (Safari / Ana Ekran): Kaynaklar’a «Klasör / disk (Dosyalar)» '
+        'eklendi — iOS 18.4+ Dosyalar seçicisiyle harici HDD/USB klasörü ve '
+        'alt klasörleri tarayabilirsiniz; klasördeki GPX/KML de otomatik iz '
+        'olarak alınır. (Takılınca otomatik değil; her seferinde klasör seçilir.)',
+    en: 'iPhone (Safari / Home Screen): Sources now has “Folder / disk (Files)” — '
+        'on iOS 18.4+ the Files picker can scan an external HDD/USB folder and '
+        'subfolders; GPX/KML inside are imported as tracks automatically. '
+        '(Not auto-on-plug; you pick the folder each time.)',
+    de: 'iPhone (Safari / Home-Bildschirm): Quellen haben „Ordner / Disk (Dateien)“ — '
+        'unter iOS 18.4+ kann der Dateien-Dialog externe HDD/USB-Ordner inkl. '
+        'Unterordner scannen; GPX/KML darin werden automatisch als Tracks '
+        'übernommen. (Nicht automatisch beim Anstecken; Ordner jeweils wählen.)',
+  ),
+  VersionHistoryEntry(
     version: '1.0.106',
     tr: 'Performans: küçük pin/grid önizlemeleri artık tam çözünürlük yerine '
         'küçültülmüş decode ediliyor — binlerce medyalı kütüphanede bellek '
