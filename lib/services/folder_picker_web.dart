@@ -7,6 +7,7 @@ import 'package:web/web.dart' as web;
 
 import 'folder_types.dart';
 import 'host_platform.dart';
+import 'track_file_types.dart';
 import 'track_parse.dart';
 import 'web_media_session.dart';
 

@@ -4,7 +4,8 @@ import 'media_kind.dart';
 import 'track_file_types.dart';
 
 export 'media_kind.dart';
-export 'track_file_types.dart' show PickedTrackFile, TrackPickResult;
+export 'track_file_types.dart'
+    show PickedTrackFile, TrackPickResult, trackFileMaxBytes;
 
 const photoHeadBytes = 2 * 1024 * 1024;
 const videoHeadBytes = 4 * 1024 * 1024;
