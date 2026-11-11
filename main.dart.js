@@ -458,7 +458,7 @@ break
 default:s=null}s=A.Y(s,t.N)
 return s},
 biv(){var s=A.dD().b,r=s==null?null:s.canvasKitVariant
-s=A.blN(A.aYt(B.M3,r==null?"auto":r))
+s=A.blN(A.aYt(B.M4,r==null?"auto":r))
 return new A.aa(s,new A.aNR(),A.Z(s).i("aa<1,n>"))},
 bkM(a,b){return b+a},
 a8t(){var s=0,r=A.r(t.m),q,p,o,n
@@ -1333,9 +1333,9 @@ q.toString
 r.setAttribute("aria-live",q)
 return r},
 biy(a){var s=a.a
-if(s.y)return B.a3I
-else if(s.d!==B.M)return B.a3J
-else return B.a3H},
+if(s.y)return B.a3J
+else if(s.d!==B.M)return B.a3K
+else return B.a3I},
 b_G(a,b){var s=new A.at1(A.cu(v.G.document,"input"),new A.rt(a.p3,B.dN),b,a),r=A.uM(s.c9(0),a)
 s.a!==$&&A.bd()
 s.a=r
@@ -8681,13 +8681,13 @@ case 1:s=B.f2
 break
 case 2:s=B.ot
 break}break
-case 1:switch(b.a){case 0:s=B.a3L
+case 1:switch(b.a){case 0:s=B.a3M
 break
 case 1:s=B.f2
 break
-case 2:s=B.a3N
+case 2:s=B.a3O
 break}break
-case 2:switch(b.a){case 0:s=B.a3M
+case 2:switch(b.a){case 0:s=B.a3N
 break
 case 1:s=B.or
 break
@@ -9280,7 +9280,7 @@ j=A.ad(m.h(l,"message"))
 i=typeof k=="string"?A.lZ(k,null):A.e8(k)
 h=A.b([],t.fh)
 if(m.a7(l,"errors")&&n.b(m.h(l,"errors"))){n=J.d4(n.a(m.h(l,"errors")),new A.aRe(),t.bk)
-h=A.Y(n,n.$ti.i("aq.E"))}throw A.e(A.aY4(i,j,h,t.a.a(o)))}case 6:throw A.e(A.aY4(g,"No error details. HTTP status was: "+g+".",B.Mr,null))
+h=A.Y(n,n.$ti.i("aq.E"))}throw A.e(A.aY4(i,j,h,t.a.a(o)))}case 6:throw A.e(A.aY4(g,"No error details. HTTP status was: "+g+".",B.Ms,null))
 case 4:q=a
 s=1
 break
@@ -9690,7 +9690,7 @@ _.e=d
 _.f=e
 _.r=f},
 bbe(a){if(a<0||a>=14)return new A.fd(a,0,"Unknown",!1,!1)
-return B.Me[a]},
+return B.Mf[a]},
 fd:function fd(a,b,c,d,e){var _=this
 _.a=a
 _.b=b
@@ -9982,8 +9982,8 @@ return s},
 aTK(a,b,c){var s,r,q=new A.v6(a,b,c,new A.bB(A.b([],t.G),t.R),new A.eX(A.w(t.M,t.S),t.PD))
 if(b!=null)if(a.gt(a)===b.gt(b)){q.a=b
 q.b=null
-s=b}else{if(a.gt(a)>b.gt(b))q.c=B.a54
-else q.c=B.a53
+s=b}else{if(a.gt(a)>b.gt(b))q.c=B.a55
+else q.c=B.a54
 s=a}else s=a
 s.fp(q.gtM())
 s=q.gMe()
@@ -13732,7 +13732,7 @@ case 4:s=l.a
 s===$&&A.a()
 s=A.bV(s,200)
 r=A.bV(A.ade(l,B.qE,B.Lw),24)
-q=A.bV(A.ade(l,B.qE,B.Md),32)
+q=A.bV(A.ade(l,B.qE,B.Me),32)
 p=A.bV(l.a,10)
 o=A.bV(l.a,12)
 l.d===$&&A.a()
@@ -13742,8 +13742,8 @@ break
 case 5:s=l.a
 s===$&&A.a()
 s=A.bV(A.F3(s+240),40)
-r=A.bV(A.ade(l,B.qG,B.N1),24)
-q=A.bV(A.ade(l,B.qG,B.N2),32)
+r=A.bV(A.ade(l,B.qG,B.N2),24)
+q=A.bV(A.ade(l,B.qG,B.N3),32)
 p=A.bV(l.a+15,8)
 o=A.bV(l.a+15,12)
 l.d===$&&A.a()
@@ -14277,9 +14277,9 @@ _.Q=l
 _.as=m},
 a05:function a05(){},
 aft(a,b,c){var s=null
-return new A.DC(B.a41,b,s,s,s,c,B.z,s,!1,s,!0,s,a,s)},
+return new A.DC(B.a42,b,s,s,s,c,B.z,s,!1,s,!0,s,a,s)},
 xr(a,b){var s=null
-return new A.DC(B.a42,b,s,s,s,s,B.z,s,!1,s,!0,s,a,s)},
+return new A.DC(B.a43,b,s,s,s,s,B.z,s,!1,s,!0,s,a,s)},
 bbl(a,b,c,d,e,f){var s,r,q,p,o,n,m,l=null
 A:{s=l
 if(b==null)break A
@@ -15494,7 +15494,7 @@ _.f=a2
 _.$ti=a3},
 TC:function TC(){},
 KA:function KA(){},
-bbd(a,b,c,d){var s=new A.pa(new A.kJ(b,new A.bB(A.b([],t.G),t.R),0),new A.aeU(),new A.aeV(),d,null),r=A.Fb(a,B.a4p,t.X)
+bbd(a,b,c,d){var s=new A.pa(new A.kJ(b,new A.bB(A.b([],t.G),t.R),0),new A.aeU(),new A.aeV(),d,null),r=A.Fb(a,B.a4q,t.X)
 r=r==null?null:r.gl8()
 if(r===!1)return s
 if(b.gaR(0).gkh())r=A.a8(a).ax.k2
@@ -16702,7 +16702,7 @@ bfU(a){if(a===B.Dg||a===B.nR)return 14.5
 return 9.5},
 bfW(a,b){if(a===0)return b===1?B.nR:B.Df
 if(a===b-1)return B.Dg
-return B.a51},
+return B.a52},
 bfV(a){var s,r=null,q=a.a.a
 switch(q){case 1:s=A.zw(r,r,r,r).ax.k3===a.k3
 break
@@ -17001,7 +17001,7 @@ if(s==null)s=a.i3.c
 return new A.TA(a,b,B.nG,b.a,b.b,b.c,b.d,b.e,b.f,s,b.w)},
 bgp(a){var s
 A:{if(B.ab===a||B.B===a||B.aX===a){s=B.eK
-break A}if(B.aQ===a||B.ax===a||B.aR===a){s=B.a3y
+break A}if(B.aQ===a||B.ax===a||B.aR===a){s=B.a3z
 break A}s=null}return s},
 bgq(a,b,c){var s,r
 if(a===b)return a
@@ -22139,7 +22139,7 @@ r.toString
 A.dP(r)
 q=a.h(0,"swipeEdge")
 q.toString
-return new A.pU(s,r,B.LW[A.eo(q)])},
+return new A.pU(s,r,B.LX[A.eo(q)])},
 HR:function HR(a,b){this.a=a
 this.b=b},
 pU:function pU(a,b,c){this.a=a
@@ -24449,9 +24449,9 @@ if(a.as!==q)return q?-1:1
 return 0},
 baY(a,b){var s=A.Z(b).i("aa<1,et>")
 s=A.Y(new A.aa(b,new A.ae7(),s),s.i("aq.E"))
-return A.bad(!0,s,a,B.MC,!0,B.He,null)},
+return A.bad(!0,s,a,B.MD,!0,B.He,null)},
 aSm(a){var s
-try{a.eC()}catch(s){a.VR()}a.w=B.a3V
+try{a.eC()}catch(s){a.VR()}a.w=B.a3W
 try{a.bB(A.blJ())}catch(s){}},
 baW(a){a.bR()
 a.bB(A.b3t())},
@@ -24977,7 +24977,7 @@ _.as=!0
 _.at=!1
 _.$ti=d},
 SG(a,b){var s
-if(a.j(0,b))return new A.PP(B.Mn)
+if(a.j(0,b))return new A.PP(B.Mo)
 s=A.b([],t.fJ)
 A.c8()
 a.lm(new A.aid(b,A.aF(t.u),s))
@@ -26429,7 +26429,7 @@ Be:function Be(){},
 Fb(a,b,c){var s=A.bP(a,b,t.Fe)
 s=s==null?null:s.Q
 return c.i("eL<0>?").a(s)},
-aZJ(a){var s=A.Fb(a,B.a4o,t.X)
+aZJ(a){var s=A.Fb(a,B.a4p,t.X)
 return s==null?null:s.gki()},
 bec(a,b,c,d,e,f,g,h,i,j,a0,a1){var s=null,r=A.b([],t.Zt),q=$.a7,p=A.j1(B.c_),o=A.b([],t.wi),n=$.aA(),m=$.a7,l=a1.i("a0<0?>"),k=a1.i("aS<0?>")
 return new A.pX(f,c,d,b,j,i,a,!1,s,a0,s,r,A.aF(t.f9),new A.bK(s,a1.i("bK<l0<0>>")),new A.bK(s,t.B),new A.uf(),s,0,new A.aS(new A.a0(q,a1.i("a0<0?>")),a1.i("aS<0?>")),p,o,g,B.j4,new A.by(s,n,t.XR),new A.aS(new A.a0(m,l),k),new A.aS(new A.a0(m,l),k),a1.i("pX<0>"))},
@@ -31434,7 +31434,7 @@ var $async$aOa=A.t(function(a,b){if(a===1){o.push(b)
 s=p}for(;;)switch(s){case 0:p=4
 k=t.N
 s=7
-return A.i(A.aVk(A.fJ("https://alid67-git.github.io/MedyaAtlas/version.json"),A.P(["User-Agent","MediaAtlas/1.0.108"],k,k)).pd(0,B.Hn),$async$aOa)
+return A.i(A.aVk(A.fJ("https://alid67-git.github.io/MedyaAtlas/version.json"),A.P(["User-Agent","MediaAtlas/1.0.109"],k,k)).pd(0,B.Hn),$async$aOa)
 case 7:n=b
 if(n.b!==200){q=null
 s=1
@@ -31528,7 +31528,7 @@ aOh(a){var s=0,r=A.r(t.nA),q,p,o
 var $async$aOh=A.t(function(b,c){if(b===1)return A.o(c,r)
 for(;;)switch(s){case 0:p=t.N
 s=3
-return A.i(A.aVk(A.fJ("https://api.github.com/repos/alid67-git/MedyaAtlas/releases/tags/"+a),A.P(["Accept","application/vnd.github+json","User-Agent","MediaAtlas/1.0.108"],p,p)).pd(0,B.pn),$async$aOh)
+return A.i(A.aVk(A.fJ("https://api.github.com/repos/alid67-git/MedyaAtlas/releases/tags/"+a),A.P(["Accept","application/vnd.github+json","User-Agent","MediaAtlas/1.0.109"],p,p)).pd(0,B.pn),$async$aOh)
 case 3:o=c
 if(o.b!==200){q=null
 s=1
@@ -31542,7 +31542,7 @@ var $async$aOA=A.t(function(a,b){if(a===1){o.push(b)
 s=p}for(;;)switch(s){case 0:p=4
 h=t.N
 s=7
-return A.i(A.aVk(A.fJ("https://api.github.com/repos/alid67-git/MedyaAtlas/releases?per_page=15"),A.P(["Accept","application/vnd.github+json","User-Agent","MediaAtlas/1.0.108"],h,h)).pd(0,B.pn),$async$aOA)
+return A.i(A.aVk(A.fJ("https://api.github.com/repos/alid67-git/MedyaAtlas/releases?per_page=15"),A.P(["Accept","application/vnd.github+json","User-Agent","MediaAtlas/1.0.109"],h,h)).pd(0,B.pn),$async$aOA)
 case 7:n=b
 if(n.b!==200){q=null
 s=1
@@ -31968,7 +31968,7 @@ case 3:s=6
 return A.i(new A.RD(p).aGI(0,"nextPageToken,files(id,name,mimeType,size,modifiedTime,imageMediaMetadata)","user",100,o,'(mimeType contains "image/" or mimeType contains "video/") and trashed = false',"drive"),$async$aPW)
 case 6:n=a4
 m=n.a
-if(m==null)m=B.Mp
+if(m==null)m=B.Mq
 l=m.length
 k=0
 for(;k<m.length;m.length===l||(0,A.x)(m),++k){j=m[k]
@@ -31993,7 +31993,7 @@ a=null}a0.push(new A.tj(i,f,"drive/"+h+"/"+i,null,e,b,a,null,new A.aPX(a1,h)))
 if(a0.length>=400)break}o=n.d
 a2.$1("Drive: "+a0.length+" medya\u2026")
 case 4:if(o!=null&&a0.length<400){s=3
-break}case 5:q=new A.ly("Google Drive ("+a1.a+")",a0,B.Mq)
+break}case 5:q=new A.ly("Google Drive ("+a1.a+")",a0,B.Mr)
 s=1
 break
 case 1:return A.p(q,r)}})
@@ -32554,7 +32554,7 @@ aIF:function aIF(){},
 aVA(a,b,c){var s=null
 if(!A.mE(a))return s
 a.toString
-return new A.tC(A.b_w(b,s,new A.yj(a,1,s,B.a3z),!1),new A.aQC(),new A.aQD(),s,c,!0,s)},
+return new A.tC(A.b_w(b,s,new A.yj(a,1,s,B.a3A),!1),new A.aQC(),new A.aQD(),s,c,!0,s)},
 aQC:function aQC(){},
 aQD:function aQD(){},
 a8C(a,b,c){var s=0,r=A.r(t.jI),q,p,o
@@ -32666,7 +32666,7 @@ aVx(a){var s=0,r=A.r(t.y),q,p
 var $async$aVx=A.t(function(b,c){if(b===1)return A.o(c,r)
 for(;;)switch(s){case 0:p=window
 p.toString
-q=B.a3B.aKd(p,a).bU(new A.aQz(),t.y).i0(new A.aQA())
+q=B.a3C.aKd(p,a).bU(new A.aQz(),t.y).i0(new A.aQA())
 s=1
 break
 case 1:return A.p(q,r)}})
@@ -33285,7 +33285,7 @@ q=s.a+"/"+r
 if(q==="application/json")return!0
 if(q==="text/json")return!0
 return B.d.e1(r,"+json")},
-b3v(a,b){return(B.MN[(a^b)&255]^B.f.bQ(a,8))>>>0},
+b3v(a,b){return(B.MO[(a^b)&255]^B.f.bQ(a,8))>>>0},
 blU(a,b,c,d){var s,r,q,p,o,n=A.w(d,c.i("K<0>"))
 for(s=c.i("E<0>"),r=0;r<1;++r){q=a[r]
 p=b.$1(q)
@@ -33996,7 +33996,7 @@ ah_(a){var s=a/100
 return(s<=0.0031308?s*12.92:1.055*Math.pow(s,0.4166666666666667)-0.055)*255},
 aSB(a){var s=Math.pow(Math.abs(a),0.42)
 return A.lN(a)*400*s/(s+27.13)},
-aSC(a){var s=A.aSY(a,B.N0),r=A.aSB(s[0]),q=A.aSB(s[1]),p=A.aSB(s[2])
+aSC(a){var s=A.aSY(a,B.N1),r=A.aSB(s[0]),q=A.aSB(s[1]),p=A.aSB(s[2])
 return Math.atan2((r+q-2*p)/9,(11*r+-12*q+p)/11)},
 bbO(a,b){var s,r,q,p,o,n=B.f.aV(b,4)<=1?0:100,m=(b&1)===0?0:100
 if(b<4){s=(a-n*0.7152-m*0.0722)/0.2126
@@ -35640,7 +35640,7 @@ zU(){var s=this.as
 s===$&&A.a()
 return s},
 zV(a,b,c,d){var s,r,q,p
-if(a<0||b<0)return B.MA
+if(a<0||b<0)return B.MB
 s=this.a
 s===$&&A.a()
 s=s.a
@@ -35659,7 +35659,7 @@ l.push(new A.f3(n[0],n[1],n[2],n[3],B.lQ[m]))}return l},
 ds(a){var s,r,q=this.a
 q===$&&A.a()
 s=q.a.getGlyphPositionAtCoordinate(a.a,a.b)
-r=B.LY[J.aM(s.affinity.value)]
+r=B.LZ[J.aM(s.affinity.value)]
 return new A.av(J.aM(s.pos),r)},
 Rc(a){var s=this.a
 s===$&&A.a()
@@ -38350,7 +38350,7 @@ q=s}return q},
 K8(a){var s,r,q=this,p=q.a1d(a),o=q.c
 if(p==o)return
 if(p==null){o.toString
-s=new A.zR(o,B.a3v,B.CN)}else{o=q.a.b.h(0,p)
+s=new A.zR(o,B.a3w,B.CN)}else{o=q.a.b.h(0,p)
 r=o==null?null:o.geD().a
 s=new A.zR(p,B.nC,a!=null&&J.d(a,r)?q.d:B.CN)}q.Mc(q.c,!0)
 q.Mc(p,!1)
@@ -38402,7 +38402,7 @@ $S:0}
 A.aya.prototype={
 $1(a){var s=!1
 if(A.dy(a,"KeyboardEvent")){s=a.shiftKey
-if(s==null)s=!1}if(s)this.a.d=B.a3u},
+if(s==null)s=!1}if(s)this.a.d=B.a3v},
 $S:2}
 A.ayb.prototype={
 $1(a){this.a.d=B.CO},
@@ -39484,7 +39484,7 @@ j(a,b){if(b==null)return!1
 if(!(b instanceof A.t5))return!1
 return b.d===this.d&&b.b==this.b&&A.iH(b.c,this.c)},
 gA(a){var s=this,r=s.c
-return A.R(s.d,s.a,s.b,A.bN(r==null?B.MB:r),B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a)},
+return A.R(s.d,s.a,s.b,A.bN(r==null?B.MC:r),B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a)},
 $ijC:1}
 A.pe.prototype={
 afb(a,b,c,d){var s=this,r=A.b9Q(a,s,"BackendImage",new A.aen(),new A.aeo(),t.ay,t.u2)
@@ -41681,7 +41681,7 @@ if(r.f!==B.q2){r.f=B.q2
 r.Yl()}}return r.d.a.aah(a)},
 Yl(){var s,r
 for(s=this.w,r=0;r<s.length;++r)s[r].$1(this.f)},
-aag(a){if(B.c.n(B.Mh,a))return this.f===B.ik
+aag(a){if(B.c.n(B.Mi,a))return this.f===B.ik
 return!1}}
 A.aeM.prototype={
 $0(){return new A.bA(Date.now(),0,!1)},
@@ -49703,7 +49703,7 @@ if(s==null||s.length<b)s=this.c=new Uint8Array(b)
 return J.dR(B.k.gaD(s),s.byteOffset,b)}}
 A.azA.prototype={
 C(a,b){this.Bb(0,b,0,J.bC(b),!1)},
-av(a){this.Bb(0,B.Ml,0,0,!0)},
+av(a){this.Bb(0,B.Mm,0,0,!0)},
 e8(a,b,c,d){A.dB(b,c,a.length,null,null)
 this.Bb(0,a,b,c,d)}}
 A.azm.prototype={
@@ -53815,8 +53815,8 @@ case 1:return A.p(q,r)}})
 return A.q($async$ru,r)},
 auI(a,b,c,d,e,f,g,h){var s,r,q={}
 if(d==null)d=A.w(t.N,t.yp)
-if(g!==B.kp)d.l(0,"alt",B.MT)
-else d.l(0,"alt",B.MM)
+if(g!==B.kp)d.l(0,"alt",B.MU)
+else d.l(0,"alt",B.MN)
 q.a=null
 s=this.b
 q.b=B.d.n(B.d.aY(a,"/")?q.a=s+B.d.c3(a,1):q.a=s+this.c+a,"?")
@@ -53947,7 +53947,7 @@ return!0}}return!0},
 au7(a){var s,r,q,p
 for(s=!0,r=!0,q=0;q<6;++q){p=a.dX(8)
 if(p!==B.Nf[q])r=!1
-if(p!==B.LQ[q])s=!1
+if(p!==B.LR[q])s=!1
 if(!s&&!r)return-1}return r?0:2},
 au8(d4,d5){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,b0,b1,b2,b3,b4,b5,b6,b7,b8,b9,c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,d0=this,d1=4294967295,d2=d4.dX(1),d3=((d4.dX(8)<<8|d4.dX(8))<<8|d4.dX(8))>>>0
 d0.c=new Uint8Array(16)
@@ -54649,7 +54649,7 @@ if(r>19)return-1
 q=new Uint8Array(19)
 for(p=0;p<r;++p){o=i.jI(3)
 if(o===-1)return-1
-q[B.MS[p]]=o}n=A.Sp(q)
+q[B.MT[p]]=o}n=A.Sp(q)
 m=h+s
 l=new Uint8Array(m)
 k=J.dR(B.k.gaD(l),0,h)
@@ -54662,11 +54662,11 @@ if(r<0||r>285)return-1
 if(r===256)break
 if(r<256){s.f8(r&255)
 continue}q=r-257
-p=B.MV[q]
+p=B.MW[q]
 o=m.jI(B.Nd[q])
 n=m.L1(b)
 if(n<0||n>29)return-1
-s.aLj(B.MW[n]+m.jI(B.LD[n]),p+o)}while(s=m.e,s>=8){m.e=s-8
+s.aLj(B.MX[n]+m.jI(B.LD[n]),p+o)}while(s=m.e,s>=8){m.e=s-8
 s=m.glE()
 p=--s.c
 o=s.d
@@ -57519,7 +57519,7 @@ r=A.jN(B.Qh,B.h,r==null?1:r)
 r.toString
 q=p.am(0,q.gt(q))
 if(q==null)q=1
-return A.b0l(A.b_l(null,B.z,new A.y4(q,B.LU,new A.dg(B.DF,this.e)),s,1,B.Vv),r)}}
+return A.b0l(A.b_l(null,B.z,new A.y4(q,B.LV,new A.dg(B.DF,this.e)),s,1,B.Vv),r)}}
 A.Ns.prototype={
 m(){var s=this,r=s.bX$
 if(r!=null)r.I(0,s.gjc())
@@ -58391,7 +58391,7 @@ gkt(){var s=this.c
 return s==null?this.x.c:s},
 glj(){var s=null,r=this.d
 if(r==null){r=this.x.w
-r=new A.aBL(r.a,r.b,B.a52,this.gf6(),s,s,s,s,s,s,s,s,s)}return r},
+r=new A.aBL(r.a,r.b,B.a53,this.gf6(),s,s,s,s,s,s,s,s,s)}return r},
 gmQ(){var s=this.e
 return s==null?this.x.d:s},
 glr(){var s=this.f
@@ -59306,7 +59306,7 @@ if(r.at!=null)r.cM("onStart",new A.ag4(r,s))}}r.w_(a)},
 hz(a){var s=this,r=s.dy
 if(r===B.jM)r=s.dy=B.D0
 if(s.at!=null&&r===B.jN)s.cM("onStart",new A.ag2(s))},
-qE(a){var s=this,r=s.dy,q=r===B.jN||r===B.a44
+qE(a){var s=this,r=s.dy,q=r===B.jN||r===B.a45
 if(r===B.jM){s.a2(B.at)
 return}if(q&&s.ch!=null)if(s.ch!=null)s.cM("onEnd",new A.ag3(s))
 s.dy=B.nI},
@@ -61258,7 +61258,7 @@ A.A5.prototype={
 H(){return"_CornerId."+this.b}}
 A.ok.prototype={}
 A.y9.prototype={
-mD(){var s,r,q,p=this,o=A.bjN(B.Ma,new A.ame(p,p.b.gbd().M(0,p.a.gbd()))),n=p.a
+mD(){var s,r,q,p=this,o=A.bjN(B.Mb,new A.ame(p,p.b.gbd().M(0,p.a.gbd()))),n=p.a
 n.toString
 s=o.a
 r=p.td(n,s)
@@ -62542,7 +62542,7 @@ break
 case null:case void 0:s.d.$1(!1)
 break}},
 K(a){var s,r,q,p,o,n,m,l,k,j=this,i=null
-switch(0){case 0:s=new A.Rr(new A.Cp(j.c,j.d,i,i,i,i,!1,B.mg,i,i,i,!1,i,i,!1,i,B.a3K,i),i)
+switch(0){case 0:s=new A.Rr(new A.Cp(j.c,j.d,i,i,i,i,!1,B.mg,i,i,i,!1,i,i,!1,i,B.a3L,i),i)
 break}A.aZn(a)
 r=j.go
 A:{if(B.qs===r){q=new A.ak(s,j.dy)
@@ -64415,7 +64415,7 @@ o=A.Ss(m,m,m,m,m,m,m,n.z,m,m,n.c,p,q,n.e,m,m,m)
 s=n.fr
 if(s!=null)o=s.br(o)
 if(o.gef()==null)o=o.aB8(o.gdG())
-return new A.LZ(m,o,m,B.a47,!1,n.ax,n.db,n.w,m,m,m,m)}}
+return new A.LZ(m,o,m,B.a48,!1,n.ax,n.db,n.w,m,m,m,m)}}
 A.LZ.prototype={
 ak(){return new A.a4o()}}
 A.a4o.prototype={
@@ -64469,7 +64469,7 @@ gbm(){var s,r=this,q=r.id
 if(q===$){s=A.a8(r.fy)
 r.id!==$&&A.aE()
 q=r.id=s.ax}return q},
-gcj(a){return B.a3A},
+gcj(a){return B.a3B},
 gdG(){return new A.bF(new A.aGC(this),t.b)},
 geG(){return new A.bF(new A.aGD(this),t.b)},
 gec(a){return B.eL},
@@ -65555,7 +65555,7 @@ return s.b}}
 A.kZ.prototype={
 H(){return"_ListTileSlot."+this.b}}
 A.a1h.prototype={
-gSm(){return B.M5},
+gSm(){return B.M6},
 a2l(a){var s,r=this
 switch(a.a){case 0:s=r.d
 break
@@ -65869,7 +65869,7 @@ r.f=s.d},
 $S:0}
 A.Tr.prototype={
 K(a){var s=this.c.R(0,new A.h(0,40.95))
-return A.b_l(A.p5(null,B.Gf,!0),B.J,new A.y4(1,B.ML,new A.dg(B.DE,B.u)),s,1.25,B.Vw)}}
+return A.b_l(A.p5(null,B.Gf,!0),B.J,new A.y4(1,B.MM,new A.dg(B.DE,B.u)),s,1.25,B.Vw)}}
 A.tZ.prototype={
 H(){return"MaterialType."+this.b}}
 A.F_.prototype={
@@ -66325,7 +66325,7 @@ $R:3,
 $S:277}
 A.Ur.prototype={
 ago(a){var s=t.Tr
-s=A.Y(new A.aa(B.M9,new A.aoA(a),s),s.i("aq.E"))
+s=A.Y(new A.aa(B.Ma,new A.aoA(a),s),s.i("aq.E"))
 return s},
 j(a,b){if(b==null)return!1
 if(this===b)return!0
@@ -66495,7 +66495,7 @@ if(!J.d(s.e,a)&&s.c!=null)s.J(new A.aJA(s,a))},
 sE9(a){var s=this
 if(!J.d(s.f,a)&&s.c!=null)s.J(new A.aJy(s,a))},
 a4F(a){var s,r,q,p=this
-p.sG6(B.a4Q)
+p.sG6(B.a4R)
 s=a.a
 if(s!=null)s=a.b===0&&s.j(0,B.h)
 else s=!0
@@ -66511,11 +66511,11 @@ if(s!=null)s.a3n()
 p.sE9(a)
 p.sHN(a)
 return!0},
-a4L(a){this.sG6(B.a4R)
+a4L(a){this.sG6(B.a4S)
 this.a.d.aFa(1-a.b)
 this.sE9(a)},
 a4u(){var s=this
-s.sG6(B.a4S)
+s.sG6(B.a4T)
 s.a.d.ZJ(!0)
 s.sE9(null)
 s.sHN(null)},
@@ -66627,7 +66627,7 @@ default:q===$&&A.a()
 r=q.a
 r=o.at=new A.h(q.b.am(0,r.gt(r)).a,o.BG(A.bP(a,B.D6,t.w).w.a.b))
 break}q=o.e.am(0,o.r.gt(0))
-p=A.bP(a,B.a4m,t.w).w.go
+p=A.bP(a,B.a4n,t.w).w.go
 return A.bga(A.b0l(A.aT4(A.abb(p==null?A.hd(o.d.am(0,n.gt(0))):p,b),q),r),s)},
 $S:286}
 A.a7g.prototype={}
@@ -67368,7 +67368,7 @@ e=A.bP(a,B.bU,f).w
 l.gtB()
 q=A.bP(a,B.hi,f).w
 n=e.r.E_(q.f.d)
-e=A.bP(a,B.a4j,f).w
+e=A.bP(a,B.a4k,f).w
 l.gtB()
 f=A.bP(a,B.hi,f).w
 f=f.f.d!==0?0:k
@@ -71054,7 +71054,7 @@ gZ4(){var s=this.f
 return s==null?this.f=this.a.c.a2y():s},
 gPa(){var s,r,q,p=this,o=p.gjt(),n=p.r
 if(n!=null&&o.j(0,p.w))return n
-if(!isFinite(o.a)||!isFinite(o.b))s=B.MD
+if(!isFinite(o.a)||!isFinite(o.b))s=B.ME
 else if(o.j(0,B.h))s=p.gZ4()
 else{r=p.gZ4()
 q=A.Z(r).i("aa<1,px>")
@@ -79389,7 +79389,7 @@ if(s.y!=null)r.I(0,s.gmb())
 s.a_=b
 if(s.y!=null)b.V(0,s.gmb())
 s.Y()},
-sRQ(a){var s=a==null?B.a4P:a
+sRQ(a){var s=a==null?B.a4Q:a
 if(s.j(0,this.aa))return
 this.aa=s
 this.Y()},
@@ -79860,19 +79860,19 @@ A.qC.prototype={
 H(){return"WrapAlignment."+this.b},
 Bi(a,b,c,d){var s,r,q=this
 A:{if(B.cj===q){s=new A.ak(d?a:0,b)
-break A}if(B.a3C===q){s=B.cj.Bi(a,b,c,!d)
-break A}r=B.a3D===q
+break A}if(B.a3D===q){s=B.cj.Bi(a,b,c,!d)
+break A}r=B.a3E===q
 if(r&&c<2){s=B.cj.Bi(a,b,c,d)
 break A}if(B.CQ===q){s=new A.ak(a/2,b)
 break A}if(r){s=new A.ak(0,a/(c-1)+b)
-break A}if(B.a3E===q){s=a/c
+break A}if(B.a3F===q){s=a/c
 s=new A.ak(s/2,s+b)
-break A}if(B.a3F===q){s=a/(c+1)
+break A}if(B.a3G===q){s=a/(c+1)
 s=new A.ak(s,s+b)
 break A}s=null}return s}}
 A.IX.prototype={
 H(){return"WrapCrossAlignment."+this.b},
-gakg(){switch(this.a){case 0:var s=B.a3G
+gakg(){switch(this.a){case 0:var s=B.a3H
 break
 case 1:s=B.eM
 break
@@ -81476,7 +81476,7 @@ break
 case 1:return A.p(q,r)}})
 return A.q($async$Ka,r)},
 akz(a,b){var s,r,q,p
-if(a===b)return B.My
+if(a===b)return B.Mz
 s=A.b([],t.QP)
 if(a==null)s.push(b)
 else{r=B.c.fg(B.fy,a)
@@ -83498,7 +83498,7 @@ A.nJ.prototype={}
 A.UZ.prototype={
 nh(a,b,c){var s,r,q,p,o,n=$.a5.ab$.d.c
 if(n==null||n.e==null)return!1
-for(s=t.C,r=0;r<2;++r){q=B.Mi[r]
+for(s=t.C,r=0;r<2;++r){q=B.Mj[r]
 p=n.e
 p.toString
 o=A.aRM(p,q,s)
@@ -83610,7 +83610,7 @@ this.jd()}}
 A.A1.prototype={
 k(a){return"Entry#"+A.bG(this)+"("+this.d.k(0)+")"}}
 A.BO.prototype={
-ak(){return new A.YK(A.aF(t.me),B.Mo,null,null)},
+ak(){return new A.YK(A.aF(t.me),B.Mp,null,null)},
 aKL(a,b){return A.b38().$2(a,b)},
 aGD(a,b){return A.bkr().$2(a,b)}}
 A.YK.prototype={
@@ -83841,7 +83841,7 @@ r=m.gapp()
 q=m.a
 q=q.ch
 q.toString
-p=A.aZM(B.z,r,s,q,A.b3V(),m.garr(),l,m.gast(),B.Mu,!0,"nav",B.a0v)
+p=A.aZM(B.z,r,s,q,A.b3V(),m.garr(),l,m.gast(),B.Mv,!0,"nav",B.a0v)
 k.a=p
 s=p}else m.a.toString
 if(s!=null)k.a=A.bbw(!0,s,"Navigator Scope",!0,l,l,l,l)
@@ -84040,7 +84040,7 @@ if(s!=null){s.ac()
 s.eK()
 r.hK$=null}}},
 K(a){if(this.gvq()&&this.hK$==null)this.wB()
-return B.a4L}}
+return B.a4M}}
 A.a1Z.prototype={
 K(a){throw A.e(A.jz("Widgets that mix AutomaticKeepAliveClientMixin into their State must call super.build() but must ignore the return value of the superclass."))}}
 A.a6i.prototype={
@@ -85952,7 +85952,7 @@ s=o.grA()
 $.cN().a0x(s)}$.bX.ry$.push(new A.adU(o))}if(A.aT()!==B.B&&A.aT()!==B.ab)return
 s=o.c
 s.toString
-p=A.bP(s,B.a4n,t.w).w.gri(0)
+p=A.bP(s,B.a4o,t.w).w.gri(0)
 s=o.k1
 if(s==null){o.k1=p
 return}if(p!==s){o.k1=p
@@ -86353,7 +86353,7 @@ h.Mb()
 r=h.galu()
 q=q.yI
 h.e!==$&&A.bd()
-h.e=new A.Wn(f,new A.by(B.OM,l,t.kr),new A.tS(),p,B.ch,0,j,h.gao1(),h.gao3(),r,B.ch,0,i,h.ganW(),h.ganY(),r,k,B.Ms,s,g.CW,g.cx,g.cy,o,g,n,m,g.x,q,new A.Qm(),new A.Qm())
+h.e=new A.Wn(f,new A.by(B.OM,l,t.kr),new A.tS(),p,B.ch,0,j,h.gao1(),h.gao3(),r,B.ch,0,i,h.ganW(),h.ganY(),r,k,B.Mt,s,g.CW,g.cx,g.cy,o,g,n,m,g.x,q,new A.Qm(),new A.Qm())
 return h},
 Bn(a,b){var s,r,q,p=this,o=p.a.c,n=o.a.a.length
 if(n<a.b||n<a.a)return
@@ -86942,8 +86942,8 @@ s=n.B
 if(s>=0&&s<=l.c.a.a.length){r=A.b([],t.s6)
 l=n.a
 q=l.c.a.a.length-n.B
-if(l.k2!==1){r.push(B.a50)
-r.push(new A.os(new A.J(n.gaq().gv(0).a,0),B.aD,B.ew,m,m))}else r.push(B.a5_)
+if(l.k2!==1){r.push(B.a51)
+r.push(new A.os(new A.J(n.gaq().gv(0).a,0),B.aD,B.ew,m,m))}else r.push(B.a50)
 l=n.fr
 l===$&&A.a()
 s=A.b([A.f4(m,m,m,m,m,m,m,m,m,m,B.d.a1(n.a.c.a.a,0,q))],t.VO)
@@ -87165,7 +87165,7 @@ k=k.k2!==1?B.bj:B.cm
 s=m.ghW()
 r=m.a
 q=r.ck
-q=r.k2===1&&A.aT()===B.B?B.a4K:n
+q=r.k2===1&&A.aT()===B.B?B.a4L:n
 r=r.bk
 p=A.nS(a).aBR(!1,m.a.k2!==1)
 return A.aw_(A.nr(new A.zG(j,new A.adB(m),new A.adC(),new A.adD(m),i,n,A.ku(!1,n,new A.e2(new A.adE(m),A.asA(k,B.J,s,r,!0,B.ag,m.ay,q,n,p,n,new A.adF(o.a,m,o.c,o.d,o.e,o.f,o.r)),n,t.WA),n,n,n,i,!1,n,n,n,n,n,n),n,t.pm),B.Cd,n,n,n,n),n,B.jw,l,new A.adG(m,a))},
@@ -89445,7 +89445,7 @@ j(a,b){var s=this
 if(b==null)return!1
 if(J.a_(b)!==A.F(s))return!1
 return b instanceof A.cq&&b.a===s.a&&b.b==s.b&&b.d===s.d&&A.cA(null,null)},
-gA(a){return A.R(this.a,this.b,null,this.d,A.bN(B.Mz),B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a)},
+gA(a){return A.R(this.a,this.b,null,this.d,A.bN(B.MA),B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a,B.a)},
 k(a){return"IconData(U+"+B.d.dg(B.f.jx(this.a,16).toUpperCase(),5,"0")+")"}}
 A.tB.prototype={
 d5(a){return!this.w.j(0,a.w)},
@@ -89498,7 +89498,7 @@ s=r.c
 s.toString
 if(A.b0g(s)){s=r.c
 s.toString
-s=A.bZ(s,B.a4l)
+s=A.bZ(s,B.a4m)
 s=s==null?null:s.ax
 s=s===!0}else s=!0
 r.ax=s
@@ -89517,7 +89517,7 @@ Ek(){this.adh()
 this.J(new A.aGO(this))},
 a0K(){var s=this.c
 s.toString
-s=A.bZ(s,B.a4k)
+s=A.bZ(s,B.a4l)
 s=s==null?null:s.Q
 if(s==null){s=$.uN.EN$
 s===$&&A.a()
@@ -90036,7 +90036,7 @@ s.vg(-b)
 s.d4(-q,-p,0,1)
 return s},
 By(a){var s
-A:{if(B.a45===a){s=!1
+A:{if(B.a46===a){s=!1
 break A}if(B.jO===a){this.a.toString
 s=!0
 break A}if(B.hh===a||a==null){s=this.a.y
@@ -90807,7 +90807,7 @@ a=a8?a2:a4.fx
 if(a==null)a=a3.b.f.z
 a4=a8?a2:a4.fy
 if(a4==null)a4=a3.b.f.Q
-a0=new A.F5(a5,a7,s,r,m,q,p,a6,f===!0,o,n,h,g,l,k,j,i,e,new A.x9(a2),B.Mv,d===!0,c,b,a,a4,A.bcX(a3))
+a0=new A.F5(a5,a7,s,r,m,q,p,a6,f===!0,o,n,h,g,l,k,j,i,e,new A.x9(a2),B.Mw,d===!0,c,b,a,a4,A.bcX(a3))
 if(!a0.j(0,a1.e))a1.J(new A.aHQ(a1,a0))},
 Ek(){if(this.d==null)this.tP()},
 ND(){this.tP()},
@@ -91086,7 +91086,7 @@ q=c.CW.x
 q===$&&A.a()
 s.st(0,q)}n.acw(c)
 p.d=B.hj}if(a)n.qB(null)
-s=o===B.a4Y||o===B.Db
+s=o===B.a4Z||o===B.Db
 q=b.w
 if(s){q.hu(0,new A.KO(n,d))
 if(d!=null&&d.c instanceof A.vo){t.sd.a(d.c)
@@ -91100,7 +91100,7 @@ r.C5()
 s.f=new A.oz(new ($.Oy())(a),t.xs)
 if(s.w!=null)a.f.a.bU(new A.aKV(s),t.P).i0(new A.aKW())},
 aEJ(a,b){var s,r=this
-r.d=B.a4U
+r.d=B.a4V
 s=r.a
 if((s.e.a.a&30)!==0)return!0
 if(!s.m_(r.y)){r.d=B.hj
@@ -91116,11 +91116,11 @@ aAI(a,b,c,d){var s=this
 if(s.d.a>=10)return
 s.z=!0
 s.y=b
-s.d=B.a4Z
+s.d=B.a5_
 s.x=!1},
 a2u(a,b,c,d){return this.aAI(0,b,c,d,t.z)},
 m(){var s,r,q,p,o,n,m,l=this,k={}
-l.d=B.a4W
+l.d=B.a4X
 s=l.a
 r=s.r
 q=new A.aKT()
@@ -91420,7 +91420,7 @@ a=!0
 switch(p.d.a){case 1:a0=a9.o1(r-1,A.mG())
 a1=a0>=0?q[a0]:b0
 a1=a1==null?b0:a1.a
-p.d=B.a4X
+p.d=B.a4Y
 g.hu(0,new A.AB(p.a,a1))
 continue A
 case 2:if(d||e==null){a1=p.a
@@ -91479,14 +91479,14 @@ a1=a1.e.a
 if((a1.a&30)!==0)A.U(A.a2("Future already completed"))
 a1.kG(a2)
 p.y=null
-p.d=B.a4T
+p.d=B.a4U
 continue A
 case 10:if(!c&&p.a.b!=null){if(f!=null)p.F4(f)
 f=b0}a0=a9.o1(r,A.Ob())
 a1=a0>=0?q[a0]:b0
 a1=a1==null?b0:a1.a
 a2=p.a
-if(a2.b===a9)p.d=B.a4V
+if(a2.b===a9)p.d=B.a4W
 else p.d=B.jY
 if(p.z)m.hu(0,new A.KN(a2,a1))
 continue A
@@ -91658,7 +91658,7 @@ K(a){var s,r,q=this,p=null,o=q.ganp(),n=A.pi(a),m=q.cE$,l=q.d
 l===$&&A.a()
 s=q.a.ay
 if(l.gU()==null){r=q.gTR()
-r=J.tE(r.slice(0),A.Z(r).c)}else r=B.Mm
+r=J.tE(r.slice(0),A.Z(r).c)}else r=B.Mn
 return A.aYN(new A.e2(new A.anJ(q,a),A.tO(B.c1,new A.OM(!1,A.aSu(A.ku(!0,p,A.axB(m,new A.yn(r,s,l)),p,p,p,q.y,!1,p,p,p,p,p,!0),p,n),p),p,o,q.gaqT(),p,p,p,p,o),p,t.em))}}
 A.anE.prototype={
 $1(a){var s,r=this.a
@@ -92889,7 +92889,7 @@ r===$&&A.a()
 r.e=A.e0(0,B.e.aC(0.15+l*0.02),0)
 r.m4(0,0)
 n.at=0.5
-n.a=B.a46}else{q=a.d
+n.a=B.a47}else{q=a.d
 if(q!=null){p=a.b.ga3()
 p.toString
 t.x.a(p)
@@ -97660,7 +97660,7 @@ r.CY()
 return s.aT()},
 m(){var s,r,q,p,o=this
 for(s=o.b,r=s.length,q=o.gKe(),p=0;p<s.length;s.length===r||(0,A.x)(s),++p)s[p].I(0,q)
-o.b=B.Mx
+o.b=B.My
 o.y=!1
 o.eK()},
 f3(a,b){return a.ov(b)},
@@ -102726,7 +102726,7 @@ r=s==null?l:s.a
 if(r==null)r=A.U(A.a2(u.b))
 s=m.c
 s.toString
-s=A.pD(s,B.a43)
+s=A.pD(s,B.a44)
 q=s==null?l:s.b
 if(q==null)q=A.U(A.a2("`MapController.of()` should not be called outside a `FlutterMap` and its children"))
 s=m.e
@@ -102957,7 +102957,7 @@ p.l(0,"x",B.e.k(r))
 q=b.b
 p.l(0,"y",B.e.k(q))
 p.l(0,"z",B.f.k(s))
-r=B.Mb[B.e.aV(r+q,3)]
+r=B.Mc[B.e.aV(r+q,3)]
 p.l(0,"s",r)
 r=c.dx
 r===$&&A.a()
@@ -103066,7 +103066,7 @@ d=k==null?null:A.a8l().b
 c=null
 if(d!=null){c=d
 b1=c.jy()
-a7=B.M2[A.G3(b1)-1]
+a7=B.M3[A.G3(b1)-1]
 b2=A.nI(b1)<=9?"0":""
 b3=B.f.k(A.nI(b1))
 b4=B.lM[A.h_(b1)-1]
@@ -108623,7 +108623,7 @@ if(p.c==null){s=1
 break}if(o==null){if(a)p.J(new A.aDM(p))
 s=1
 break}n=o.a
-if(A.aP4(n,"1.0.108")<=0){p.ok=null
+if(A.aP4(n,"1.0.109")<=0){p.ok=null
 if(a)p.J(new A.aDN(p))
 s=1
 break}if(!a&&p.ok===n){s=1
@@ -110196,7 +110196,7 @@ f=A.P([B.Vc,f,B.n4,new A.aGr(q)],t.Vz,t.M)
 if(q.cy)i=B.Gp
 else{e=t.p
 d=A.b([A.ic(q.agO(l,k,o))],e)
-if(i.a.a>=960&&q.dy!=null)B.c.O(d,A.b([B.a3n,A.j9(new A.dF(new A.aGs(q,o),p),p,360)],e))
+if(i.a.a>=960&&q.dy!=null)B.c.O(d,A.b([B.a3o,A.j9(new A.dF(new A.aGs(q,o),p),p,360)],e))
 i=A.j7(d,B.a9,B.ap,0)}e=t.p
 i=A.b([A.G1(0,i)],e)
 if(q.as||q.at||q.CW!=null)i.push(A.G1(0,A.fU(B.ag,B.Gs,B.Y,!1,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,new A.aGt(q),p,p,p,!1,B.aP)))
@@ -110220,7 +110220,7 @@ h=q.Q
 d=h?p:q.gali()
 i.push(A.pT(m,A.hK(!1,B.K,!0,p,A.hF(p,p,h?B.VA:B.Jh,p,p,d,p,p,"Konumum (son g\xfcnler)"),B.z,B.bB,4,p,p,B.Fk,p,p,B.bn),p,p,p,14,p,p))}m=A.b([new A.PM(f,A.ku(!0,p,A.b_A(p,B.fc,A.GV(!0,A.h1(B.bt,i,B.J,B.bz),B.ae,!0)),p,p,p,p,!0,p,p,p,p,p,p),p)],e)
 return A.h1(B.bt,m,B.J,B.bz)},
-aqi(a,b,c,a0,a1,a2){var s,r,q,p,o,n,m,l,k,j,i=this,h=null,g=A.ic(A.b03(A.f4(A.b([A.f4(h,h,h,h,h,h,h,h,h,A.ej(h,h,B.l.dM(0.55),h,h,h,h,h,h,h,h,14,h,h,B.cb,h,h,!0,h,h,h,h,h,h,h,h),"  v1.0.108")],t.VO),h,h,h,h,h,h,h,h,B.Yq,"MediaAtlas"),h,h)),f=a0.gSa(),e=i.f?h:new A.aEY(i),d=t.p
+aqi(a,b,c,a0,a1,a2){var s,r,q,p,o,n,m,l,k,j,i=this,h=null,g=A.ic(A.b03(A.f4(A.b([A.f4(h,h,h,h,h,h,h,h,h,A.ej(h,h,B.l.dM(0.55),h,h,h,h,h,h,h,h,14,h,h,B.cb,h,h,!0,h,h,h,h,h,h,h,h),"  v1.0.109")],t.VO),h,h,h,h,h,h,h,h,B.Yq,"MediaAtlas"),h,h)),f=a0.gSa(),e=i.f?h:new A.aEY(i),d=t.p
 e=A.b([A.j7(A.b([g,new A.l4(f,B.J8,h,!1,e,h)],d),B.a9,B.ap,0),B.VC,A.bx(a0.ga3g()+": Ali Din\xe7er",h,h,A.ej(h,h,B.l.dM(0.55),h,h,h,h,h,h,h,h,13,h,h,h,h,h,!0,h,h,h,h,h,h,h,h),h)],d)
 if(!i.f){g=a0.gaaA()
 f=i.as
@@ -110483,10 +110483,10 @@ A.aDM.prototype={
 $0(){return this.a.cx="S\xfcr\xfcm kontrol\xfc ba\u015far\u0131s\u0131z (a\u011f)."},
 $S:0}
 A.aDN.prototype={
-$0(){return this.a.cx="G\xfcncelsiniz: v1.0.108"},
+$0(){return this.a.cx="G\xfcncelsiniz: v1.0.109"},
 $S:0}
 A.aFl.prototype={
-$1(a){var s=null,r=this.b,q=A.bx("Sizin: v1.0.108\nG\xfcncel: v"+r.a,s,s,s,s),p=A.Xq(B.a0i,new A.aFj(a),s)
+$1(a){var s=null,r=this.b,q=A.bx("Sizin: v1.0.109\nG\xfcncel: v"+r.a,s,s,s,s),p=A.Xq(B.a0i,new A.aFj(a),s)
 return A.a9k(A.b([p,A.aft(A.bx(r.d===B.dJ?"Yenile":"G\xfcncelle",s,s,s,s),new A.aFk(this.a,r,a),s)],t.p),s,s,q,s,B.a0f)},
 $S:131}
 A.aFj.prototype={
@@ -111507,7 +111507,7 @@ A.aNf.prototype={
 $0(){return this.a.e=!1},
 $S:0}
 A.MI.prototype={
-ak(){return new A.a5U(B.Mt)}}
+ak(){return new A.a5U(B.Mu)}}
 A.a5U.prototype={
 ar(){this.aP()
 this.Z9()},
@@ -111629,7 +111629,7 @@ for(s=0;s<3;++s){r=B.qI[s]
 i.push(new A.PS(A.bx(n.aGw(r),o,o,o,o),new A.aQm(b,r),b.b===r,o))}i=A.IW(B.cj,i,B.eM,0,8)
 q=A.pz(!1,B.ae,o,o,!0,o,o,!0,o,o,o,o,o,o,o,!1,o,o,o,o,B.a0e,o,A.bx(n.ga3g(),o,o,o,o),o,o,o)
 p=A.bx(n.gaL6(0),o,o,o,o)
-j=A.b([m,B.VB,l,B.nf,k,B.cg,i,B.cg,q,A.pz(!1,B.ae,o,o,!0,o,o,!0,o,o,o,o,o,o,o,!1,o,o,o,o,A.bx("v1.0.108",o,o,o,o),o,p,o,o,o)],j)
+j=A.b([m,B.VB,l,B.nf,k,B.cg,i,B.cg,q,A.pz(!1,B.ae,o,o,!0,o,o,!0,o,o,o,o,o,o,o,!1,o,o,o,o,A.bx("v1.0.109",o,o,o,o),o,p,o,o,o)],j)
 j.push(A.pz(!1,B.ae,o,o,!0,o,o,!0,o,B.Ju,o,o,o,o,new A.aQn(this.b,this.a),!1,o,o,o,o,A.bx("Web: GitHub s\xfcr\xfcm\xfc \u2192 sayfa yenile",o,o,o,o),o,B.a0c,o,o,o))
 j.push(A.pz(!1,B.ae,o,o,!0,o,o,!0,o,o,o,o,o,o,new A.aQo(a),!1,o,o,o,o,o,o,A.bx(n.ga81(),o,o,o,o),o,B.Jr,o))
 j.push(B.cg)
@@ -111657,7 +111657,7 @@ $R:3,
 $S:708}
 A.aQv.prototype={
 $2(a,b){var s=null,r=this.a,q=t.p
-return A.eE(A.b([B.ne,A.jt(s,s,B.z,new A.es(B.kH,s,s,A.hd(99),s,s,B.bk),4,s,s,40),new A.bU(B.pw,A.j7(A.b([A.ic(A.bx(r.ga81(),s,s,B.nq,s)),A.hF(s,s,B.ir,s,s,new A.aQs(a),s,s,r.glW(0))],q),B.a9,B.ap,0),s),A.ic(A.aZq(b,new A.aQt(this.b),100,B.pt,new A.aQu()))],q),B.a9,B.aa,B.ap)},
+return A.eE(A.b([B.ne,A.jt(s,s,B.z,new A.es(B.kH,s,s,A.hd(99),s,s,B.bk),4,s,s,40),new A.bU(B.pw,A.j7(A.b([A.ic(A.bx(r.ga81(),s,s,B.nq,s)),A.hF(s,s,B.ir,s,s,new A.aQs(a),s,s,r.glW(0))],q),B.a9,B.ap,0),s),A.ic(A.aZq(b,new A.aQt(this.b),101,B.pt,new A.aQu()))],q),B.a9,B.aa,B.ap)},
 $S:709}
 A.aQs.prototype={
 $0(){A.ew(this.a,!1).i9(null)
@@ -111667,7 +111667,7 @@ A.aQu.prototype={
 $2(a,b){return B.e3},
 $S:182}
 A.aQt.prototype={
-$2(a,b){var s=null,r=B.N3[b],q=A.bx("v"+r.a,s,s,B.XD,s)
+$2(a,b){var s=null,r=B.LQ[b],q=A.bx("v"+r.a,s,s,B.XD,s)
 return A.pz(!1,B.ae,s,s,!0,s,s,!0,s,s,s,s,s,s,s,!1,s,s,s,s,new A.bU(B.HI,A.bx(r.aKs(0,this.a.b),s,s,s,s),s),s,q,s,s,s)},
 $S:174}
 A.aQe.prototype={
@@ -112099,7 +112099,7 @@ r=l.d
 q=l.c
 p=l.b
 o=t.t_
-s.sAv(new A.G8(B.D,0.5,B.dH,k,0,A.b([r.dM(0.95),q.dM(0.55),p.dM(0.22),p.dM(0)],o),B.MY,k).a32(0,A.m2(j,i)))
+s.sAv(new A.G8(B.D,0.5,B.dH,k,0,A.b([r.dM(0.95),q.dM(0.55),p.dM(0.22),p.dM(0)],o),B.MZ,k).a32(0,A.m2(j,i)))
 a.l_(j,i,s)
 n=A.aZ()
 m=i*0.72
@@ -112295,7 +112295,7 @@ $S:260}
 A.UC.prototype={
 K(a){var s,r=null,q=A.aXn(B.l,3),p=t.p,o=A.b([new A.a2f(this.c,this.d,r)],p),n=this.e
 if(n>1){s=A.hd(8)
-o.push(A.pT(2,A.jt(r,A.bx(n>99?"99+":""+n,r,r,B.XS,r),B.z,new A.es(B.Gn,r,r,s,r,r,B.bk),r,r,B.I1,r),r,r,r,2,r,r))}return A.j9(A.eE(A.b([A.jt(r,new A.Q4(A.h1(B.bt,o,B.J,B.nh),r),B.z,new A.es(r,r,q,r,B.ME,r,B.hu),48,r,r,48),A.iK(r,r,!1,r,new A.a2g(r),B.Vo,!1)],p),B.a9,B.aa,B.b3),57,48)}}
+o.push(A.pT(2,A.jt(r,A.bx(n>99?"99+":""+n,r,r,B.XS,r),B.z,new A.es(B.Gn,r,r,s,r,r,B.bk),r,r,B.I1,r),r,r,r,2,r,r))}return A.j9(A.eE(A.b([A.jt(r,new A.Q4(A.h1(B.bt,o,B.J,B.nh),r),B.z,new A.es(r,r,q,r,B.MF,r,B.hu),48,r,r,48),A.iK(r,r,!1,r,new A.a2g(r),B.Vo,!1)],p),B.a9,B.aa,B.b3),57,48)}}
 A.a2g.prototype={
 aB(a,b){var s=new A.bS($.a3().r,B.F,null,null,A.b([],t.v)),r=b.a
 s.aH(new A.fi(r/2,b.b))
@@ -112351,7 +112351,7 @@ a8B(a){var s=0,r=A.r(t.jI),q,p=2,o=[],n,m,l
 var $async$$1=A.t(function(b,c){if(b===1){o.push(c)
 s=p}for(;;)switch(s){case 0:if(a.length===0||!A.mE(a)){q=null
 s=1
-break}n=new A.va(A.fJ(a).k(0),B.a3t,$.aA())
+break}n=new A.va(A.fJ(a).k(0),B.a3u,$.aA())
 p=4
 s=7
 return A.i(J.a9_(n),$async$$1)
@@ -113192,7 +113192,7 @@ A.j_.prototype={
 H(){return"PermissionStatus."+this.b}}
 A.pN.prototype={}
 A.c_.prototype={
-k(a){return"Permission."+B.MJ[this.a]},
+k(a){return"Permission."+B.MK[this.a]},
 j(a,b){if(b==null)return!1
 if(this===b)return!0
 if(J.a_(b)!==A.F(this))return!1
@@ -114844,12 +114844,12 @@ if(!p.d){p.d=!0
 s=p.b
 r=A.bl0(s.duration)
 q=isFinite(s.videoHeight)?new A.J(s.videoWidth,s.videoHeight):null
-p.a.C(0,new A.k2(B.a3o,r,q,null,null))}},
+p.a.C(0,new A.k2(B.a3p,r,q,null,null))}},
 vP(a){var s,r=null
 if(this.e!==a){this.e=a
-s=a?B.a3r:B.a3s
+s=a?B.a3s:B.a3t
 this.a.C(0,new A.k2(s,r,r,r,r))}},
-a_c(){this.a.C(0,new A.k2(B.a3q,null,null,this.axc(this.b.buffered),null))},
+a_c(){this.a.C(0,new A.k2(B.a3r,null,null,this.axc(this.b.buffered),null))},
 axc(a){var s,r=A.b([],t.SE)
 for(s=0;s<a.length;++s)r.push(new A.t3(new A.aV(1000*B.e.aC(a.start(s)*1000)),new A.aV(1000*B.e.aC(a.end(s)*1000))))
 return r}}
@@ -114882,7 +114882,7 @@ $S:24}
 A.ay0.prototype={
 $1(a){var s=null,r=this.a
 r.vP(!1)
-r.a.C(0,new A.k2(B.a3p,s,s,s,s))},
+r.a.C(0,new A.k2(B.a3q,s,s,s,s))},
 $S:24}
 A.ay1.prototype={
 $1(a){A.ep(a)
@@ -117984,7 +117984,7 @@ B.k=A.ns.prototype
 B.fP=A.Fy.prototype
 B.AS=J.UH.prototype
 B.ny=J.ml.prototype
-B.a3B=A.qB.prototype
+B.a3C=A.qB.prototype
 B.hm=new A.BI(0,"none")
 B.eU=new A.BI(1,"blockSubtree")
 B.kb=new A.BI(2,"blockNode")
@@ -117992,7 +117992,7 @@ B.dN=new A.we(0,"nothing")
 B.kc=new A.we(1,"requestedFocus")
 B.Dh=new A.we(2,"receivedDomFocus")
 B.Di=new A.we(3,"receivedDomBlur")
-B.a55=new A.a98(0,"unknown")
+B.a56=new A.a98(0,"unknown")
 B.Dn=new A.fb(1,1)
 B.I0=new A.aN(4,4,4,4)
 B.q9=new A.cq(58573,"MaterialIcons",!1)
@@ -118131,18 +118131,18 @@ B.o8=new A.lG(A.bmz(),A.al("lG<cg>"))
 B.km=new A.lG(A.bmC(),A.al("lG<k>"))
 B.E5=new A.a99()
 B.E7=new A.OX()
-B.a56=new A.Pu()
+B.a57=new A.Pu()
 B.kn=new A.Ps()
 B.o9=new A.Pt()
 B.oa=new A.aah()
 B.t=new A.aV(0)
 B.ko=new A.PO()
 B.hw=new A.Qu()
-B.a5g=new A.abL(1,"offset")
-B.a57=new A.abK()
+B.a5h=new A.abL(1,"offset")
+B.a58=new A.abK()
 B.E8=new A.ac6()
 B.eX=new A.QK(A.al("QK<0&>"))
-B.a58=new A.QI()
+B.a59=new A.QI()
 B.E9=new A.QJ()
 B.Ea=new A.QL()
 B.Eb=new A.QO(A.al("QO<@>"))
@@ -118160,13 +118160,13 @@ B.dT=new A.Rh()
 B.a2=new A.Rh()
 B.Eh=new A.aeN()
 B.cn=new A.aME()
-B.a5p=new A.D(-20037508.342789244,-20037508.342789244,20037508.342789244,20037508.342789244)
+B.a5q=new A.D(-20037508.342789244,-20037508.342789244,20037508.342789244,20037508.342789244)
 B.hy=new A.auN()
-B.a5o=new A.ak(-180,180)
+B.a5p=new A.ak(-180,180)
 B.hx=new A.aeO()
 B.al=new A.aV(1e5)
 B.eY=new A.lw()
-B.a59=new A.S2()
+B.a5a=new A.S2()
 B.Ej=new A.agK()
 B.Ek=new A.Sc()
 B.of=new A.ahM()
@@ -118328,7 +118328,7 @@ B.EA=new A.Ur()
 B.av=new A.jT(4,"keyboard")
 B.kq=new A.nx()
 B.EB=new A.ap0()
-B.a5a=new A.apB()
+B.a5b=new A.apB()
 B.ED=new A.apF()
 B.ol=new A.pZ()
 B.EF=new A.ask()
@@ -118362,10 +118362,10 @@ B.c8=new A.Ya()
 B.oJ=new A.O(0.7,1,0,0,B.i)
 B.FU=new A.O(0.2,0.19607843137254902,0.19607843137254902,0.7843137254901961,B.i)
 B.p1=new A.O(0.5,0.7843137254901961,0.7843137254901961,0.7843137254901961,B.i)
-B.a5b=new A.ay3()
+B.a5c=new A.ay3()
 B.eJ=new A.zS(0,0,0,0)
-B.Mv=s([],A.al("E<acR>"))
-B.a5c=new A.ay5()
+B.Mw=s([],A.al("E<acR>"))
+B.a5d=new A.ay5()
 B.aM=new A.ayO()
 B.hz=new A.YC()
 B.c_=new A.YD()
@@ -118376,7 +118376,7 @@ B.oq=new A.ZH()
 B.EW=new A.a_6()
 B.db=new A.a_k()
 B.EX=new A.aBI()
-B.a5d=new A.a_o()
+B.a5e=new A.a_o()
 B.as=new A.a_r()
 B.f1=new A.aBV()
 B.E=new A.aCa()
@@ -118400,7 +118400,7 @@ B.F5=new A.a6s()
 B.F4=new A.a6t()
 B.F6=new A.a6M()
 B.ou=new A.aNx()
-B.a5e=new A.aas(0,"pixel")
+B.a5f=new A.aas(0,"pixel")
 B.F7=new A.lj("DirectoryIndex2",4,A.b3S())
 B.hA=new A.lj("DirectoryIndex",4,A.b3S())
 B.F8=new A.lj("FileIndex2",4,A.aVv())
@@ -118409,7 +118409,7 @@ B.ku=new A.lj("FileIndex",4,A.aVv())
 B.hB=new A.lj("CameraTemperature",1,A.bmx())
 B.Fd=new A.Ck(null,null,null,null,null,null,null)
 B.Fe=new A.Cl(null,null,null,null,null,null)
-B.a5u=new A.az0(0,"material")
+B.a5v=new A.az0(0,"material")
 B.ox=new A.rK(null,null,null,null,null,null,null,null)
 B.kv=new A.js(B.D,null,null,B.ox,null)
 B.a09=new A.dC("Bu g\xf6r\xfcn\xfcmde medya yok.",null,null,null,null,null,null)
@@ -118607,7 +118607,7 @@ B.b0=new A.eF(0.25,0.1,0.25,1)
 B.GJ=new A.eF(0.075,0.82,0.165,1)
 B.dg=new A.eF(0,0,0.58,1)
 B.kU=new A.eF(0.67,0.03,0.65,0.09)
-B.a5f=new A.abB(2,"large")
+B.a5g=new A.abB(2,"large")
 B.f7=new A.O(0.25098039215686274,0,0,0,B.i)
 B.hN=new A.O(0.25098039215686274,1,1,1,B.i)
 B.GK=new A.d1(B.f7,null,null,B.f7,B.hN,B.f7,B.hN,B.f7,B.hN,B.f7,B.hN)
@@ -118658,8 +118658,8 @@ B.FC=new A.O(1,0.10980392156862745,0.10980392156862745,0.11764705882352941,B.i)
 B.Gg=new A.O(1,0.1411764705882353,0.1411764705882353,0.14901960784313725,B.i)
 B.GR=new A.d1(B.l,"systemBackground",null,B.l,B.n,B.l,B.n,B.l,B.FC,B.l,B.Gg)
 B.pg=new A.d1(B.n,"label",null,B.n,B.l,B.n,B.l,B.n,B.l,B.n,B.l)
-B.a3Q=new A.a_d(B.pg,B.i0)
-B.nG=new A.a_f(null,B.cq,B.l,B.GL,B.GR,B.cq,!1,B.a3Q)
+B.a3R=new A.a_d(B.pg,B.i0)
+B.nG=new A.a_f(null,B.cq,B.l,B.GL,B.GR,B.cq,!1,B.a3R)
 B.cr=new A.x4(B.nG,null,null,null,null,null,null,null,null)
 B.aV=new A.Qx(0,"base")
 B.i1=new A.Qx(1,"elevated")
@@ -118676,13 +118676,13 @@ B.H4=new A.QD(0,"inverseHitTest")
 B.H5=new A.QD(1,"traversalOrder")
 B.dh=new A.QG(0,"background")
 B.H6=new A.QG(1,"foreground")
-B.a4N=new A.a2_(null)
-B.e2=new A.p9(null,null,null,B.a4N,null)
+B.a4O=new A.a2_(null)
+B.e2=new A.p9(null,null,null,B.a4O,null)
 B.Cs=new A.B(!0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.cB=new A.zu(0,"clip")
 B.b6=new A.awu(0,"parent")
-B.a4O=new A.a21(null)
-B.pk=new A.x7(B.Cs,null,!0,B.cB,null,B.b6,null,B.a4O,null)
+B.a4P=new A.a21(null)
+B.pk=new A.x7(B.Cs,null,!0,B.cB,null,B.b6,null,B.a4P,null)
 B.kV=new A.rX(!1)
 B.fi=new A.rX(!0)
 B.kW=new A.rY(!1)
@@ -118694,7 +118694,7 @@ B.H8=new A.x9(1)
 B.aI=new A.D1(3,"info")
 B.H9=new A.D1(5,"hint")
 B.Ha=new A.D1(6,"summary")
-B.a5h=new A.mW(1,"sparse")
+B.a5i=new A.mW(1,"sparse")
 B.Hb=new A.mW(10,"shallow")
 B.Hc=new A.mW(11,"truncateChildren")
 B.Hd=new A.mW(5,"error")
@@ -118775,7 +118775,7 @@ B.HZ=new A.aN(24,0,24,24)
 B.pz=new A.aN(36,120,36,72)
 B.I_=new A.aN(40,24,40,24)
 B.ca=new A.aN(4,0,4,0)
-B.a5i=new A.aN(4,4,4,5)
+B.a5j=new A.aN(4,4,4,5)
 B.I1=new A.aN(5,1,5,1)
 B.I2=new A.aN(6,6,6,6)
 B.fn=new A.aN(8,0,8,0)
@@ -118789,8 +118789,8 @@ B.I6=new A.Dp(0,"noOpinion")
 B.I7=new A.Dp(1,"enabled")
 B.fo=new A.Dp(2,"disabled")
 B.I8=new A.Rg(null)
-B.LS=s([-1,0,0,1,0,0,-1,0,1,0,0,0,-1,1,0,1,1,1,1,0],t.n)
-B.I9=new A.t5(null,null,B.LS,B.oA)
+B.LT=s([-1,0,0,1,0,0,-1,0,1,0,0,0,-1,1,0,1,1,1,1,0],t.n)
+B.I9=new A.t5(null,null,B.LT,B.oA)
 B.pB=new A.ck(0,"incrementable")
 B.l3=new A.ck(1,"scrollable")
 B.l4=new A.ck(10,"link")
@@ -118890,7 +118890,7 @@ B.ih=new A.DI(1,"Update")
 B.ii=new A.DI(2,"End")
 B.pY=new A.ph(0,"touch")
 B.lE=new A.ph(1,"traditional")
-B.a5j=new A.afT(0,"automatic")
+B.a5k=new A.afT(0,"automatic")
 B.pZ=new A.afX("focus")
 B.cb=new A.ig(600)
 B.bE=new A.ig(700)
@@ -119068,15 +119068,15 @@ B.Ko=new A.tN(2,"top")
 B.qu=new A.tN(3,"center")
 B.Kp=new A.tN(4,"bottom")
 B.ao=s([82,9,106,213,48,54,165,56,191,64,163,158,129,243,215,251,124,227,57,130,155,47,255,135,52,142,67,68,196,222,233,203,84,123,148,50,166,194,35,61,238,76,149,11,66,250,195,78,8,46,161,102,40,217,36,178,118,91,162,73,109,139,209,37,114,248,246,100,134,104,152,22,212,164,92,204,93,101,182,146,108,112,72,80,253,237,185,218,94,21,70,87,167,141,157,132,144,216,171,0,140,188,211,10,247,228,88,5,184,179,69,6,208,44,30,143,202,63,15,2,193,175,189,3,1,19,138,107,58,145,17,65,79,103,220,234,151,242,207,206,240,180,230,115,150,172,116,34,231,173,53,133,226,249,55,232,28,117,223,110,71,241,26,113,29,41,197,137,111,183,98,14,170,24,190,27,252,86,62,75,198,210,121,32,154,219,192,254,120,205,90,244,31,221,168,51,136,7,199,49,177,18,16,89,39,128,236,95,96,81,127,169,25,181,74,13,45,229,122,159,147,201,156,239,160,224,59,77,174,42,245,176,200,235,187,60,131,83,153,97,23,43,4,126,186,119,214,38,225,105,20,99,85,33,12,125],t.t)
-B.a3w=new A.qz(0,"auto")
-B.a3x=new A.qz(1,"contain")
+B.a3x=new A.qz(0,"auto")
+B.a3y=new A.qz(1,"contain")
 B.CP=new A.qz(2,"cover")
-B.Kr=s([B.a3w,B.a3x,B.CP],A.al("E<qz>"))
+B.Kr=s([B.a3x,B.a3y,B.CP],A.al("E<qz>"))
 B.Kt=s([144,169],t.t)
-B.Mc=s([1373.2198709594231,-1100.4251190754821,-7.278681089101213],t.n)
-B.LT=s([-271.815969077903,559.6580465940733,-32.46047482791194],t.n)
+B.Md=s([1373.2198709594231,-1100.4251190754821,-7.278681089101213],t.n)
+B.LU=s([-271.815969077903,559.6580465940733,-32.46047482791194],t.n)
 B.Nh=s([1.9622899599665666,-57.173814538844006,308.7233197812385],t.n)
-B.Ku=s([B.Mc,B.LT,B.Nh],t.zg)
+B.Ku=s([B.Md,B.LU,B.Nh],t.zg)
 B.qv=s(["text","multiline","number","phone","datetime","emailAddress","url","visiblePassword","name","address","none","webSearch","twitter"],t.s)
 B.Kv=s([239,191,189],t.t)
 B.mc=new A.kD(0,"satellite")
@@ -119087,14 +119087,14 @@ B.qw=s([B.mc,B.OT,B.OU,B.OV],A.al("E<kD>"))
 B.lM=s(["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],t.s)
 B.KU=s([4,9,14,19],t.t)
 B.KV=s(["Paz","Pzt","Sal","\xc7ar","Per","Cum","Cmt"],t.s)
-B.MU=s([137,80,78,71,13,10,26,10],t.Z)
+B.MV=s([137,80,78,71,13,10,26,10],t.Z)
 B.JC=new A.pm(0,"png")
 B.JK=new A.lD(B.JC,!1,0,"png")
-B.JA=new A.nh(B.MU,B.JK,0,"png")
-B.MX=s([71,73,70,56,55,97],t.Z)
-B.Jz=new A.nh(B.MX,B.is,1,"gif87a")
-B.M8=s([71,73,70,56,57,97],t.Z)
-B.Jy=new A.nh(B.M8,B.is,2,"gif89a")
+B.JA=new A.nh(B.MV,B.JK,0,"png")
+B.MY=s([71,73,70,56,55,97],t.Z)
+B.Jz=new A.nh(B.MY,B.is,1,"gif87a")
+B.M9=s([71,73,70,56,57,97],t.Z)
+B.Jy=new A.nh(B.M9,B.is,2,"gif89a")
 B.Kw=s([255,216,255],t.Z)
 B.JD=new A.pm(2,"jpeg")
 B.JO=new A.lD(B.JD,!1,3,"jpeg")
@@ -119110,27 +119110,27 @@ B.nM=new A.LK(0,"named")
 B.Dd=new A.LK(1,"anonymous")
 B.L5=s([B.nM,B.Dd],A.al("E<LK>"))
 B.qx=s(["January","February","March","April","May","June","July","August","September","October","November","December"],t.s)
-B.LV=s([0.41233895,0.35762064,0.18051042],t.n)
+B.LW=s([0.41233895,0.35762064,0.18051042],t.n)
 B.Ly=s([0.2126,0.7152,0.0722],t.n)
 B.N8=s([0.01932141,0.11916382,0.95034478],t.n)
-B.L7=s([B.LV,B.Ly,B.N8],t.zg)
+B.L7=s([B.LW,B.Ly,B.N8],t.zg)
 B.qy=s([0,4,12,1,5,13,3,7,15],t.t)
 B.La=s([1,2,4,8,16,32,64,128,27,54,108,216,171,77,154,47,94,188,99,198,151,53,106,212,179,125,250,239,197,145],t.t)
 B.Lb=s([65533],t.t)
 B.Le=s([".THM",".thm",".JPG",".jpg",".JPEG",".jpeg",".PNG",".png",".WEBP",".webp"],t.s)
 B.lN=s(["https://www.googleapis.com/auth/drive.readonly"],t.s)
-B.a48=new A.iy(0,1)
-B.a4d=new A.iy(0.5,1)
-B.a4g=new A.iy(0.5375,0.75)
-B.a4i=new A.iy(0.575,0.5)
-B.a4e=new A.iy(0.6125,0.25)
-B.a4c=new A.iy(0.65,0)
-B.a4b=new A.iy(0.85,0)
-B.a4h=new A.iy(0.8875,0.25)
-B.a4f=new A.iy(0.925,0.5)
-B.a49=new A.iy(0.9625,0.75)
-B.a4a=new A.iy(1,1)
-B.Ll=s([B.a48,B.a4d,B.a4g,B.a4i,B.a4e,B.a4c,B.a4b,B.a4h,B.a4f,B.a49,B.a4a],A.al("E<iy>"))
+B.a49=new A.iy(0,1)
+B.a4e=new A.iy(0.5,1)
+B.a4h=new A.iy(0.5375,0.75)
+B.a4j=new A.iy(0.575,0.5)
+B.a4f=new A.iy(0.6125,0.25)
+B.a4d=new A.iy(0.65,0)
+B.a4c=new A.iy(0.85,0)
+B.a4i=new A.iy(0.8875,0.25)
+B.a4g=new A.iy(0.925,0.5)
+B.a4a=new A.iy(0.9625,0.75)
+B.a4b=new A.iy(1,1)
+B.Ll=s([B.a49,B.a4e,B.a4h,B.a4j,B.a4f,B.a4d,B.a4c,B.a4i,B.a4g,B.a4a,B.a4b],A.al("E<iy>"))
 B.cA=new A.o5(0,"left")
 B.eH=new A.o5(1,"right")
 B.hb=new A.o5(3,"justify")
@@ -119139,16 +119139,16 @@ B.jq=new A.o5(5,"end")
 B.Lm=s([B.cA,B.eH,B.bQ,B.hb,B.bh,B.jq],A.al("E<o5>"))
 B.LG=s([2,1.13276676],t.n)
 B.Kz=s([2.18349805,1.20311921],t.n)
-B.MH=s([2.33888662,1.28698796],t.n)
-B.MK=s([2.48660575,1.36351941],t.n)
+B.MI=s([2.33888662,1.28698796],t.n)
+B.ML=s([2.48660575,1.36351941],t.n)
 B.Ls=s([2.62226596,1.44717976],t.n)
 B.Lz=s([2.7514899,1.53385819],t.n)
-B.M6=s([3.36298265,1.98288283],t.n)
+B.M7=s([3.36298265,1.98288283],t.n)
 B.LJ=s([4.08649929,2.23811846],t.n)
-B.LX=s([4.85481134,2.47563463],t.n)
+B.LY=s([4.85481134,2.47563463],t.n)
 B.Lx=s([5.62945551,2.72948597],t.n)
 B.LH=s([6.43023796,2.98020421],t.n)
-B.qz=s([B.LG,B.Kz,B.MH,B.MK,B.Ls,B.Lz,B.M6,B.LJ,B.LX,B.Lx,B.LH],t.zg)
+B.qz=s([B.LG,B.Kz,B.MI,B.ML,B.Ls,B.Lz,B.M7,B.LJ,B.LY,B.Lx,B.LH],t.zg)
 B.Ln=s([5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5],t.t)
 B.Lo=s(["AM","PM"],t.s)
 B.qA=s(["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],t.s)
@@ -119217,56 +119217,158 @@ B.LI=s([B.q4,B.q5,B.q3,B.q6],A.al("E<tt>"))
 B.Ni=new A.tP("en",null,"US")
 B.lO=s([B.Ni],t.ss)
 B.qE=s([0,41,61,101,131,181,251,301,360],t.n)
-B.a3W=new A.ol(0,0)
-B.a40=new A.ol(1,0.05)
-B.a3Z=new A.ol(3,0.08)
-B.a4_=new A.ol(6,0.11)
-B.a3Y=new A.ol(8,0.12)
-B.a3X=new A.ol(12,0.14)
-B.qF=s([B.a3W,B.a40,B.a3Z,B.a4_,B.a3Y,B.a3X],A.al("E<ol>"))
+B.a3X=new A.ol(0,0)
+B.a41=new A.ol(1,0.05)
+B.a4_=new A.ol(3,0.08)
+B.a40=new A.ol(6,0.11)
+B.a3Z=new A.ol(8,0.12)
+B.a3Y=new A.ol(12,0.14)
+B.qF=s([B.a3X,B.a41,B.a4_,B.a40,B.a3Z,B.a3Y],A.al("E<ol>"))
 B.qG=s([0,21,51,121,151,191,271,321,360],t.n)
 B.ft=s([0,79764919,159529838,222504665,319059676,398814059,445009330,507990021,638119352,583659535,797628118,726387553,890018660,835552979,1015980042,944750013,1276238704,1221641927,1167319070,1095957929,1595256236,1540665371,1452775106,1381403509,1780037320,1859660671,1671105958,1733955601,2031960084,2111593891,1889500026,1952343757,2552477408,2632100695,2443283854,2506133561,2334638140,2414271883,2191915858,2254759653,3190512472,3135915759,3081330742,3009969537,2905550212,2850959411,2762807018,2691435357,3560074640,3505614887,3719321342,3648080713,3342211916,3287746299,3467911202,3396681109,4063920168,4143685023,4223187782,4286162673,3779000052,3858754371,3904687514,3967668269,881225847,809987520,1023691545,969234094,662832811,591600412,771767749,717299826,311336399,374308984,453813921,533576470,25881363,88864420,134795389,214552010,2023205639,2086057648,1897238633,1976864222,1804852699,1867694188,1645340341,1724971778,1587496639,1516133128,1461550545,1406951526,1302016099,1230646740,1142491917,1087903418,2896545431,2825181984,2770861561,2716262478,3215044683,3143675388,3055782693,3001194130,2326604591,2389456536,2200899649,2280525302,2578013683,2640855108,2418763421,2498394922,3769900519,3832873040,3912640137,3992402750,4088425275,4151408268,4197601365,4277358050,3334271071,3263032808,3476998961,3422541446,3585640067,3514407732,3694837229,3640369242,1762451694,1842216281,1619975040,1682949687,2047383090,2127137669,1938468188,2001449195,1325665622,1271206113,1183200824,1111960463,1543535498,1489069629,1434599652,1363369299,622672798,568075817,748617968,677256519,907627842,853037301,1067152940,995781531,51762726,131386257,177728840,240578815,269590778,349224269,429104020,491947555,4046411278,4126034873,4172115296,4234965207,3794477266,3874110821,3953728444,4016571915,3609705398,3555108353,3735388376,3664026991,3290680682,3236090077,3449943556,3378572211,3174993278,3120533705,3032266256,2961025959,2923101090,2868635157,2813903052,2742672763,2604032198,2683796849,2461293480,2524268063,2284983834,2364738477,2175806836,2238787779,1569362073,1498123566,1409854455,1355396672,1317987909,1246755826,1192025387,1137557660,2072149281,2135122070,1912620623,1992383480,1753615357,1816598090,1627664531,1707420964,295390185,358241886,404320391,483945776,43990325,106832002,186451547,266083308,932423249,861060070,1041341759,986742920,613929101,542559546,756411363,701822548,3316196985,3244833742,3425377559,3370778784,3601682597,3530312978,3744426955,3689838204,3819031489,3881883254,3928223919,4007849240,4037393693,4100235434,4180117107,4259748804,2310601993,2373574846,2151335527,2231098320,2596047829,2659030626,2470359227,2550115596,2947551409,2876312838,2788305887,2733848168,3165939309,3094707162,3040238851,2985771188],t.t)
-B.LQ=s([23,114,69,56,80,144],t.t)
-B.LR=s(["Q1","Q2","Q3","Q4"],t.s)
+B.a2G=new A.aB("1.0.109","Android derleme: AGP 9.1.1 + Gradle 9.5 (Flutter 3.50 minimum). Web 1.0.108\u2019deki iPhone klas\xf6r/disk taramas\u0131 ayn\u0131.","Android build: AGP 9.1.1 + Gradle 9.5 (Flutter 3.50 minimum). Same iPhone folder/disk scan as web 1.0.108.","Android-Build: AGP 9.1.1 + Gradle 9.5 (Flutter-3.50-Minimum). Gleicher iPhone Ordner/Disk-Scan wie Web 1.0.108.")
+B.a2r=new A.aB("1.0.108","1.0.107 derleme d\xfczeltmesi: web\u2019de eksik import; Android Gradle 9.3.1 (Flutter minimum). iPhone klas\xf6r/disk taramas\u0131 bu s\xfcr\xfcmle yay\u0131nda.","1.0.107 build fix: missing web import; Android Gradle 9.3.1 (Flutter minimum). iPhone folder/disk scan ships in this release.","1.0.107 Build-Fix: fehlender Web-Import; Android Gradle 9.3.1 (Flutter-Minimum). iPhone Ordner/Disk-Scan in dieser Version live.")
+B.a2T=new A.aB("1.0.107","iPhone (Safari / Ana Ekran): Kaynaklar\u2019a \xabKlas\xf6r / disk (Dosyalar)\xbb eklendi \u2014 iOS 18.4+ Dosyalar se\xe7icisiyle harici HDD/USB klas\xf6r\xfc ve alt klas\xf6rleri tarayabilirsiniz; klas\xf6rdeki GPX/KML de otomatik iz olarak al\u0131n\u0131r. (Tak\u0131l\u0131nca otomatik de\u011fil; her seferinde klas\xf6r se\xe7ilir.)","iPhone (Safari / Home Screen): Sources now has \u201cFolder / disk (Files)\u201d \u2014 on iOS 18.4+ the Files picker can scan an external HDD/USB folder and subfolders; GPX/KML inside are imported as tracks automatically. (Not auto-on-plug; you pick the folder each time.)","iPhone (Safari / Home-Bildschirm): Quellen haben \u201eOrdner / Disk (Dateien)\u201c \u2014 unter iOS 18.4+ kann der Dateien-Dialog externe HDD/USB-Ordner inkl. Unterordner scannen; GPX/KML darin werden automatisch als Tracks \xfcbernommen. (Nicht automatisch beim Anstecken; Ordner jeweils w\xe4hlen.)")
+B.a1P=new A.aB("1.0.106","Performans: k\xfc\xe7\xfck pin/grid \xf6nizlemeleri art\u0131k tam \xe7\xf6z\xfcn\xfcrl\xfck yerine k\xfc\xe7\xfclt\xfclm\xfc\u015f decode ediliyor \u2014 binlerce medyal\u0131 k\xfct\xfcphanede bellek ve tak\u0131lma riskini d\xfc\u015f\xfcr\xfcr. Haritada gezinirken (pan) \u0131s\u0131 pinleri art\u0131k t\xfcm ekran\u0131 de\u011fil, yaln\u0131zca kendi dar katman\u0131n\u0131 yeniden \xe7iziyor.","Performance: small pin/grid thumbnails now decode at a reduced size instead of full resolution - cuts memory and jank risk in large libraries. Panning the map now only redraws the heat-pin layer itself, not the whole screen.","Performance: Kleine Pin-/Grid-Vorschauen werden jetzt verkleinert statt in voller Aufl\xf6sung dekodiert - reduziert Speicher- und Ruckelrisiko bei gro\xdfen Bibliotheken. Beim Verschieben der Karte wird nur noch die W\xe4rme-Pin-Ebene neu gezeichnet, nicht der ganze Bildschirm.")
+B.a39=new A.aB("1.0.105",'A\xe7\u0131l\u0131\u015ftaki otomatik g\xfcncelleme kontrol\xfc art\u0131k tamamen sessiz: yeni bir s\xfcr\xfcm bulunca "G\xfcncelleme var, ister misin?" diye sormadan direkt indirip uyguluyor (Android\'de kurulum an\u0131nda Android\'in kendi kurulum onay ekran\u0131 yine de \xe7\u0131kar - bunu hi\xe7bir uygulama atlayamaz). Ayarlar\'daki elle "G\xfcncellemeleri kontrol et" h\xe2l\xe2 soruyor.','The automatic launch-time update check is now fully silent: when it finds a newer version, it downloads and applies it right away instead of asking "Update available, install it?" (on Android, the system\'s own install-confirmation screen still appears - no app can skip that). The manual "Check for updates" in Settings still asks first.','Die automatische Update-Pr\xfcfung beim Start ist jetzt v\xf6llig lautlos: Wird eine neuere Version gefunden, wird sie sofort heruntergeladen und angewendet, statt zu fragen "Update verf\xfcgbar, installieren?" (unter Android erscheint weiterhin der systemeigene Installationsbest\xe4tigungsbildschirm - das kann keine App umgehen). Die manuelle "Nach Updates suchen" in den Einstellungen fragt weiterhin zuerst.')
+B.a2t=new A.aB("1.0.104","Web 404 d\xfczeltmesi: GitHub Pages site kapal\u0131yken resmi Actions da\u011f\u0131t\u0131m\u0131 d\xfc\u015f\xfcyordu. Art\u0131k gh-pages dal\u0131na yay\u0131nlan\u0131yor ve workflow siteyi yeniden a\xe7may\u0131 deniyor.","Web 404 fix: official Actions deploy failed while GitHub Pages was disabled. Now publishes to the gh-pages branch and the workflow tries to re-enable the site.","Web-404-Fix: Offizielles Actions-Deploy scheiterte, solange GitHub Pages deaktiviert war. Jetzt Ver\xf6ffentlichung auf gh-pages; der Workflow versucht, die Site wieder zu aktivieren.")
+B.a2R=new A.aB("1.0.103","Web (GitHub Pages) yeniden yay\u0131nland\u0131: site kapal\u0131 kald\u0131\u011f\u0131 i\xe7in 404 veriyordu \u2014 resmi Pages da\u011f\u0131t\u0131m\u0131yla a\xe7\u0131l\u0131yor.","Web (GitHub Pages) republished: the site was disabled and returned 404 \u2014 now deployed with the official Pages action.","Web (GitHub Pages) neu ver\xf6ffentlicht: Die Site war deaktiviert und lieferte 404 \u2014 jetzt mit der offiziellen Pages-Aktion.")
+B.a20=new A.aB("1.0.102",'GPX/KML i\xe7e aktarma bazen sessizce hi\xe7bir \u015fey yapm\u0131yordu: taray\u0131c\u0131n\u0131n dosya se\xe7me penceresinde "cancel" olay\u0131, ger\xe7ekten bir dosya se\xe7ilmi\u015f olsa bile "change" olay\u0131ndan \xf6nce tetiklenebiliyordu; bu da se\xe7imi sessizce "hi\xe7bir \u015fey se\xe7ilmedi" say\u0131p yutuyordu. Art\u0131k sabit bir gecikme yerine, ger\xe7ek se\xe7im gelene kadar (en fazla ~2sn) kontrol tekrarlan\u0131yor.','GPX/KML import sometimes silently did nothing: the browser\'s file picker could fire its "cancel" event before the real "change" event even when a file was actually picked, silently swallowing the selection as "nothing chosen". Now it keeps re-checking (up to ~2s) until the real selection arrives instead of guessing a fixed delay.','Der GPX/KML-Import tat manchmal stillschweigend nichts: Der "cancel"-Event des Datei-Dialogs im Browser konnte vor dem echten "change"-Event ausgel\xf6st werden, selbst wenn tats\xe4chlich eine Datei ausgew\xe4hlt wurde, wodurch die Auswahl stillschweigend als "nichts gew\xe4hlt" verworfen wurde. Jetzt wird so lange erneut gepr\xfcft (bis zu ~2s), bis die echte Auswahl eintrifft, statt eine feste Verz\xf6gerung zu raten.')
+B.a3l=new A.aB("1.0.101",'Zorunlu g\xfcncelleme kilit ekran\u0131 kald\u0131r\u0131ld\u0131 \u2014 art\u0131k her g\xfcncelleme RideAtlas tarz\u0131: tek seferlik "G\xfcncelleme var" sorusu, ard\u0131ndan indirme arka planda s\xfcrerken haritay\u0131 hi\xe7 kilitlemiyor. \u0130ndirme y\xfczdesi art\u0131k alttaki durum \xe7ubu\u011funda g\xf6r\xfcn\xfcyor.','Removed the mandatory-update lock screen \u2014 every update is now RideAtlas-style: a one-time "Update available" prompt, then the download runs in the background without ever locking the map. Download percentage now shows in the bottom status chip.','Der Sperrbildschirm f\xfcr Pflicht-Updates wurde entfernt \u2014 jedes Update l\xe4uft jetzt im RideAtlas-Stil: eine einmalige Abfrage "Update verf\xfcgbar", danach l\xe4uft der Download im Hintergrund, ohne die Karte zu sperren. Der Download-Prozentsatz erscheint jetzt im unteren Statuschip.')
+B.a1O=new A.aB("1.0.100","En uzak zoom art\u0131k ekran geni\u015fli\u011fine tam d\xfcnyay\u0131 (360\xb0) s\u0131\u011fd\u0131r\u0131yor \u2014 gerekirse kutuplar \xfcstten/alttan kesilir. Bu zoom\u2019da sa\u011fa-sola kayd\u0131rma yine a\xe7\u0131k (\xf6nce yak\u0131nla\u015ft\u0131rma \u015fart de\u011fil).","Max zoom-out now fits the full world width (360\xb0) to the screen \u2014 poles may be cropped top/bottom if needed. Panning left/right stays enabled at that zoom (no need to zoom in first).","Maximaler Zoom-out passt jetzt die volle Weltbreite (360\xb0) auf den Bildschirm \u2014 Pole k\xf6nnen oben/unten beschnitten werden. Schwenken links/rechts bleibt auf diesem Zoom m\xf6glich (kein vorheriges Reinzoomen n\xf6tig).")
+B.a2y=new A.aB("1.0.99","Pine t\u0131klay\u0131nca \xf6nizleme art\u0131k yaln\u0131zca o k\xfcmenin birka\xe7 medyas\u0131n\u0131 de\u011fil, o an haritada g\xf6r\xfcnen T\xdcM medyay\u0131 listeliyor (harita g\xf6r\xfcn\xfcm\xfc bozulmadan).","Tapping a pin now previews ALL media currently visible on the map, not just the few items in that cluster \u2014 without zooming the map away.","Tippen auf einen Pin zeigt jetzt ALLE aktuell auf der Karte sichtbaren Medien in der Vorschau, nicht nur die wenigen des Clusters \u2014 ohne die Karte wegzuzoomen.")
+B.a3d=new A.aB("1.0.98","G\xfcncelleme: kurulum ekran\u0131 a\xe7\u0131l\u0131nca eski s\xfcre\xe7 art\u0131k tamamen kapan\u0131yor (g\xf6rev listesinden de silinir). Harita en uzak zoom\u2019da s\xfcr\xfcklenince u\xe7larda tak\u0131l\u0131p z\u0131plama hissi giderildi \u2014 tek d\xfcnya ortalan\u0131r, pan kilitlenir; yak\u0131nla\u015f\u0131nca yine kayd\u0131r\u0131labilir.","Update: when the installer opens, the old process now fully exits (also removed from recents). At max zoom-out, edge pan jitter is gone \u2014 the single world stays centered and panning locks until you zoom back in.","Update: Beim \xd6ffnen des Installers beendet sich der alte Prozess jetzt vollst\xe4ndig (auch aus den Letzten Apps). Beim maximalen Herauszoomen kein Kanten-Ruckeln mehr \u2014 die eine Welt bleibt zentriert, Schwenken ist gesperrt bis zum Reinzoomen.")
+B.a1U=new A.aB("1.0.97","\u0130z ismi etiketi ekran kenar\u0131nda kesiliyordu \u2014 art\u0131k ekran i\xe7inde kalacak \u015fekilde kayd\u0131r\u0131l\u0131yor.","Track name labels were clipped at the screen edge \u2014 they now stay fully inside the viewport.","Track-Namensschilder wurden am Bildschirmrand abgeschnitten \u2014 sie bleiben jetzt vollst\xe4ndig im sichtbaren Bereich.")
+B.a3_=new A.aB("1.0.96",'Haritay\u0131 k\xfc\xe7\xfclt\xfcnce yan yana birden fazla d\xfcnya a\xe7\u0131lmas\u0131 engellendi \u2014 en uzak zoom art\u0131k ekran\u0131n s\u0131\u011fd\u0131rabildi\u011fi tek d\xfcnyan\u0131n tamam\u0131. "S\u0131\u011fd\u0131r" da ayn\u0131 tek-d\xfcnya taban\u0131na sayg\u0131 duyuyor.','Pinching out no longer tiles multiple worlds side by side \u2014 the farthest zoom is now exactly one full world that fits the screen. "Fit all" respects that same single-world floor.',"Herauszoomen zeigt keine mehreren Welten nebeneinander mehr \u2014 der weiteste Zoom ist genau eine volle Welt, die auf den Bildschirm passt. \u201eAlles einpassen\u201c respektiert dieselbe Ein-Welt-Untergrenze.")
+B.a2q=new A.aB("1.0.95",'"S\u0131\u011fd\u0131r" tu\u015fu d\xfcnya kenar-k\u0131s\u0131t\u0131 y\xfcz\xfcnden geni\u015f yay\u0131lan iz/medyay\u0131 (\xf6r. Amerika + Tayland) dikey telefonda hi\xe7 s\u0131\u011fd\u0131ram\u0131yordu \u2014 kamera art\u0131k yaln\u0131zca merkezi d\xfcnyada tutuyor; t\xfcm g\xf6r\xfcn\xfcr iz ve medya tek bak\u0131\u015fta s\u0131\u011fd\u0131r\u0131l\u0131yor.','"Fit all" could not fit widely spread tracks/media (e.g. America + Thailand) on a tall phone because the world edge constraint blocked the required zoom-out \u2014 the camera now only keeps its center in the world, so every visible track and media item fits in one view.','"Alles einpassen" konnte weit verstreute Tracks/Medien (z. B. Amerika + Thailand) auf einem hohen Telefon nicht einpassen, weil die Welt-Randbegrenzung den n\xf6tigen Zoom-out blockierte \u2014 die Kamera h\xe4lt jetzt nur noch ihren Mittelpunkt in der Welt, sodass alle sichtbaren Tracks und Medien in eine Ansicht passen.')
+B.a2l=new A.aB("1.0.94",'Android g\xfcncellemesi: kurulum ekran\u0131 a\xe7\u0131ld\u0131ktan sonra eski s\xfcre\xe7 art\u0131k kendini kapat\u0131yor \u2014 eskisine geri d\xf6n\xfclm\xfcyor. "S\u0131\u011fd\u0131r" tu\u015fu, harita zaten hedefteyken de reddedilmi\u015f say\u0131p anlams\u0131zca t\xfcm d\xfcnyaya zumluyordu \u2014 d\xfczeltildi. \u0130z art\u0131k sadece rozetinden de\u011fil, \xe7izginin herhangi bir noktas\u0131ndan da isim etiketini a\xe7\u0131p kapat\u0131yor. Bir pine t\u0131klay\u0131nca \xf6nizleme, t\u0131klanan tek medya yerine o an haritada g\xf6z\xfcken T\xdcM medyayla a\xe7\u0131l\u0131yor; \xf6nizleme kapan\u0131nca harita, k\xfcme i\xe7in zumlamadan \xf6nceki h\xe2line d\xf6n\xfcyor.','Android update: after the installer opens, the old process now closes itself instead of leaving you back in the stale version. "Fit all" was treating an already-on-target map as a rejection and zooming out to the whole world for no reason \u2014 fixed. Tracks now toggle their name label from any point along the line, not just the small badge. Tapping a pin now opens the preview with ALL media currently visible on the map, not just the one tapped; closing the preview returns the map to its view from before it zoomed into that cluster.','Android-Update: Nach dem \xd6ffnen des Installers beendet sich der alte Prozess jetzt selbst, statt in der alten Version zu bleiben. "Alles einpassen" behandelte eine bereits am Ziel befindliche Karte f\xe4lschlich als abgelehnt und zoomte grundlos auf die ganze Welt \u2014 behoben. Tracks zeigen ihr Namensschild jetzt bei Tipp auf einen beliebigen Punkt der Linie, nicht nur auf das kleine Abzeichen. Tippen auf einen Pin \xf6ffnet die Vorschau jetzt mit ALLEN aktuell auf der Karte sichtbaren Medien statt nur dem angetippten; beim Schlie\xdfen kehrt die Karte zur Ansicht vor dem Einzoomen in den Cluster zur\xfcck.')
+B.a2u=new A.aB("1.0.93",'"S\u0131\u011fd\u0131r" geni\u015f enlem/boylam yay\u0131l\u0131m\u0131nda (\xf6r. Amerika + Tayland + Avrupa) dar telefon ekran\u0131nda ortal\u0131yor ama kenarlardaki izleri d\u0131\u015far\u0131da b\u0131rak\u0131yordu \u2014 enlemi d\xfcnya s\u0131n\u0131r\u0131nda tutan zoom, boylam\u0131 s\u0131\u011fd\u0131rmak i\xe7in gerekenden daha yak\u0131n kal\u0131yordu. \u0130deal s\u0131\u011fd\u0131rma reddedilirse art\u0131k her noktay\u0131 kapsayan t\xfcm-d\xfcnya g\xf6r\xfcn\xfcm\xfcne d\xfc\u015f\xfcyor.','"Fit all" on a very wide spread (e.g. America + Thailand + Europe) centered on a narrow phone screen but left the edge tracks out of view \u2014 the zoom that kept latitude within world bounds stayed too close-in to also fit the longitude spread. When the ideal fit is rejected it now falls back to a whole-world view that always covers every point.','"Alles einpassen" bei sehr weiter Streuung (z. B. Amerika + Thailand + Europa) zentrierte auf einem schmalen Telefonbildschirm, lie\xdf aber die Tracks am Rand au\xdfen vor \u2014 der Zoom, der die Breite innerhalb der Weltgrenzen hielt, blieb zu nah, um auch die L\xe4ngengrad-Streuung einzupassen. Wird die ideale Einpassung abgelehnt, f\xe4llt es jetzt auf eine Weltansicht zur\xfcck, die immer jeden Punkt abdeckt.')
+B.a34=new A.aB("1.0.92","G\xfcncelleme: kurulumdan d\xf6n\xfcnce ayn\u0131 s\xfcr\xfcm\xfc tekrar tekrar \xf6nermiyordu; her zaman do\u011frudan en son APK (ara s\xfcr\xfcm yok).","Updates: no more re-prompting the same version after install; always jumps straight to the latest APK (skips intermediates).","Updates: dieselbe Version nach der Installation nicht erneut anbieten; immer direkt die neueste APK (Zwischenversionen \xfcberspringen).")
+B.a32=new A.aB("1.0.91","Zum / s\u0131\u011fd\u0131r ikonu: d\xfcnya-k\u0131s\u0131t\u0131 ideal zoom\u2019u reddedince harita hi\xe7 k\u0131p\u0131rdam\u0131yordu \u2014 art\u0131k en uygun zoom\u2019a d\xfc\u015f\xfcp yine s\u0131\u011fd\u0131r\u0131yor.","Fit/zoom icon: when the world-repeat guard rejected the ideal zoom the map did nothing \u2014 now climbs to the nearest allowed zoom and still fits.","Einpassen/Zoom: Wenn die Welt-Wiederholungsbegrenzung den Idealzoom ablehnte, bewegte sich die Karte nicht \u2014 jetzt zum n\xe4chsten erlaubten Zoom und trotzdem einpassen.")
+B.a2o=new A.aB("1.0.90","Uygulama ad\u0131 yeniden MediaAtlas oldu. \u0130z \xe7izgisindeki a\u015f\u0131r\u0131 ekran-\xfcst\xfc sadele\u015ftirme (2.5\u21920.4) da\u011f ge\xe7idi gibi virajl\u0131 yollarda k\xf6\u015feleri kesip yolu takip etmeyen kaba bir \xe7izgi b\u0131rak\u0131yordu \u2014 d\xfczeltildi. G\xf6r\xfcnt\xfcleyicide foto\u011fraf/video silme tu\u015fu eklendi. \u0130z rozetine t\u0131klay\u0131nca ismi bir etiket kutusunda g\xf6sterir, tekrar t\u0131klay\u0131nca gizler. Medya/iz/konum/t\xfcr a\xe7\u0131l\u0131r kutular\u0131 art\u0131k d\u0131\u015far\u0131ya t\u0131klay\u0131nca kapan\u0131yor.","App name is MediaAtlas again. Track lines had overly aggressive on-screen simplification (2.5\u21920.4) that cut corners on winding roads like mountain passes into a blocky line not following the road \u2014 fixed. Added a delete button in the media viewer. Tapping a track badge now shows its name in a label; tapping again hides it. The media/track/location/kind dropdown panels now close on an outside tap.","Der App-Name ist wieder MediaAtlas. Die Bildschirm-Vereinfachung der Track-Linien war zu aggressiv (2.5\u21920.4) und schnitt bei kurvenreichen Stra\xdfen wie Bergp\xe4ssen Ecken ab, sodass die Linie der Stra\xdfe nicht folgte \u2014 behoben. L\xf6sch-Button im Medienbetrachter hinzugef\xfcgt. Tippen auf ein Track-Abzeichen zeigt jetzt den Namen in einem Label; erneutes Tippen blendet ihn aus. Die Dropdown-Felder f\xfcr Medien/Tracks/Standort/Art schlie\xdfen sich jetzt bei einem Tipp au\xdferhalb.")
+B.a1Y=new A.aB("1.0.89",'"S\u0131\u011fd\u0131r" h\xe2l\xe2 d\xfcnya \xe7ap\u0131nda yay\u0131lan veriyi tam g\xf6steremiyordu: b\xfcy\xfck dolgu (\xf6zellikle \xfcst bo\u015fluk), d\xfcnya-tekrar\u0131n\u0131 \xf6nleyen k\u0131s\u0131tla \xe7ak\u0131\u015f\u0131p gereken uzakla\u015fmay\u0131 engelliyordu. S\u0131n\u0131rlar zaten d\xfcnya \xf6l\xe7e\u011fine yak\u0131nsa dolgu otomatik azal\u0131yor.','"Fit all" still couldn\'t fully show world-spanning data: the large padding (especially the top gap) conflicted with the world-repeat guard, blocking the zoom-out it needed. Padding now shrinks automatically when the bounds are already near world scale.','"Alles einpassen" zeigte weltweit verteilte Daten immer noch nicht vollst\xe4ndig: der gro\xdfe Abstand (besonders oben) kollidierte mit dem Schutz gegen Weltwiederholung und blockierte das n\xf6tige Herauszoomen. Abstand schrumpft jetzt automatisch, wenn die Grenzen schon Weltma\xdfstab haben.')
+B.a36=new A.aB("1.0.88","\"S\u0131\u011fd\u0131r\", d\xfcnya \xe7ap\u0131nda yay\u0131lan izleri (\xf6r. Amerika + Tayland + Avrupa) tam g\xf6steremiyordu \u2014 1.0.84'te d\xfcnya tekrar\u0131n\u0131 \xf6nlemek i\xe7in eklenen sabit minZoom, gereken d\xfc\u015f\xfck zoom'u engelliyordu. Kald\u0131r\u0131ld\u0131.",'"Fit all" couldn\'t show tracks spread across the whole world (e.g. America + Thailand + Europe) - the fixed minZoom added in 1.0.84 to stop the world repeating was blocking the lower zoom that fit needed. Removed.','"Alles einpassen" konnte weltweit verteilte Tracks (z. B. Amerika + Thailand + Europa) nicht vollst\xe4ndig zeigen \u2014 der in 1.0.84 gegen die Weltwiederholung hinzugef\xfcgte feste minZoom blockierte den daf\xfcr n\xf6tigen niedrigeren Zoom. Entfernt.')
+B.a21=new A.aB("1.0.87","\xc7ok say\u0131da iz a\xe7\u0131kken hepsi ayn\u0131 renkti \u2014 art\u0131k her iz farkl\u0131, birbirinden ay\u0131rt edilebilir bir renk al\u0131yor.","With many tracks visible, they all had the same color \u2014 each track now gets a distinct, easy-to-tell-apart color.","Bei vielen sichtbaren Tracks hatten alle dieselbe Farbe \u2014 jeder Track bekommt jetzt eine eigene, gut unterscheidbare Farbe.")
+B.a2L=new A.aB("1.0.86","\u0130z \xe7izimi \xe7ok kaba kal\u0131yordu: haritan\u0131n kendi katman\u0131, 30 iz a\xe7\u0131kken tavan\u0131 500 noktaya kadar d\xfc\u015f\xfcr\xfcyordu (eski kaba algoritmayla ayn\u0131 sonu\xe7). O ikinci s\u0131n\u0131rlama kald\u0131r\u0131ld\u0131 \u2014 RideAtlas gibi tek sadele\u015ftirme katman\u0131 kald\u0131.","Track lines were still very coarse: the map's own display layer was capping each track down to as low as 500 points when many tracks were visible at once (same result as the old crude algorithm). Removed that second cap \u2014 one simplification layer now, like RideAtlas.","Track-Linien blieben sehr grob: Die eigene Anzeigeebene der Karte begrenzte jeden Track bei vielen sichtbaren Tracks auf bis zu 500 Punkte (gleiches Ergebnis wie der alte grobe Algorithmus). Diese zweite Begrenzung entfernt \u2014 jetzt nur noch eine Vereinfachungsebene wie bei RideAtlas.")
+B.a2f=new A.aB("1.0.85",'iPhone\'da GPX/KML se\xe7iciyi a\xe7\u0131nca gereksiz "Foto\u011fraf Kitapl\u0131\u011f\u0131" / "Video \xc7ek" se\xe7enekleri \xe7\u0131k\u0131yordu \u2014 art\u0131k sadece dosya se\xe7ici geliyor.','Opening the GPX/KML picker on iPhone showed unnecessary "Photo Library" / "Take Photo or Video" options \u2014 now only the file browser opens.','Der GPX/KML-Dateiausw\xe4hler auf dem iPhone zeigte unn\xf6tige Optionen \u201eFotomediathek" / \u201eFoto oder Video aufnehmen" \u2014 jetzt \xf6ffnet sich nur die Dateiauswahl.')
+B.a3g=new A.aB("1.0.84","Haritay\u0131 \xe7ok k\xfc\xe7\xfclt\xfcnce d\xfcnya yan yana tekrar tekrar \xe7\u0131k\u0131yordu \u2014 art\u0131k tek d\xfcnyada kilitli.","Zooming the map way out repeated the world side by side \u2014 now locked to a single world view.","Beim starken Herauszoomen wiederholte sich die Welt nebeneinander \u2014 jetzt auf eine einzelne Weltansicht begrenzt.")
+B.a2Z=new A.aB("1.0.83","\u0130z \xe7izimi RideAtlas gibi k\xf6\u015fe koruyarak inceltiliyor (sabit indeks-ad\u0131m\u0131 k\xf6\u015feleri siliyordu); pan/zoom s\u0131ras\u0131nda yeniden \xe7izilmiyor (iz listesi de\u011fi\u015fmedik\xe7e).","Track lines now thin RideAtlas-style, keeping corners (fixed-step decimation was erasing them); no longer rebuilt during pan/zoom (only when the track set itself changes).","Track-Linien d\xfcnnen jetzt wie RideAtlas aus, Ecken bleiben erhalten (festes Indexraster l\xf6schte sie); kein Neuzeichnen bei Pan/Zoom (nur wenn sich die Track-Liste \xe4ndert).")
+B.a27=new A.aB("1.0.82","1.0.67\u20131.0.81 aras\u0131 geri al\u0131nd\u0131 (3D d\xfcnya, pin stilleri, ekran ortas\u0131 \u015ferit vb.) \u2014 yava\u015fl\u0131k ve gerek duyulmamas\u0131 nedeniyle 1.0.66 taban\u0131na d\xf6n\xfcld\xfc.","Reverted 1.0.67\u20131.0.81 (3D globe, pin styles, media strip, etc.) \u2014 rolled back to the 1.0.66 baseline due to slowness and no longer being needed.","1.0.67\u20131.0.81 zur\xfcckgesetzt (3D-Globus, Pin-Stile, Medienleiste usw.) \u2014 wegen Verlangsamung und Nichtbedarf auf 1.0.66-Basis zur\xfcckgekehrt.")
+B.a25=new A.aB("1.0.66","Harita pan/zoom kilitlenmesi: \u0131s\u0131 pinleri hareket s\u0131ras\u0131nda gizlenir; izler sadele\u015ftirildi.","Map pan/zoom freeze: hide heat pins while moving; lighter track polylines.","Karten-Pan/Zoom-Freeze: Heat-Pins beim Bewegen aus; leichtere Track-Linien.")
+B.a2J=new A.aB("1.0.65","Telefon tarama \xf6zeti: Konumlular\u0131 / Konumsuzlar\u0131 G\xf6ster; rapor a\xe7\u0131k kal\u0131r.","Phone scan report: Show Located / Show Missing; report stays open.","Telefon-Scan-Bericht: Mit / Ohne Standort zeigen; Bericht bleibt offen.")
+B.a2_=new A.aB("1.0.64","Telefonda GX012490 gibi GoPro b\xf6l\xfcm adlar\u0131 + .THM: GoPro ve derin GPMF GPS.","Phone GX012490-style GoPro chapter names: GoPro kind + deep GPMF GPS.","Telefon GX012490 GoPro-Kapitelnamen: GoPro-Art + tiefes GPMF-GPS.")
+B.a38=new A.aB("1.0.63","Web deploy d\xfczeltmesi; GPS arka planda harita a\xe7\u0131k; g\xfcncelleme metni sade; eski s\xfcr\xfcm kapan\u0131r.","Web deploy fix; map live during GPS retry; simpler update text; old app exits.","Web-Deploy-Fix; Karte bei GPS-Retry live; k\xfcrzerer Update-Text; alte App beendet.")
+B.a2b=new A.aB("1.0.62","\u0130z s\u0131ras\u0131 yaln\u0131zca GPX/KML rota zaman\u0131na g\xf6re; y\xfckleme tarihi kullan\u0131lmaz.","Track order uses GPX/KML route time only; import date ignored.","Track-Reihenfolge nur nach GPX/KML-Routenzeit; Importdatum ignoriert.")
+B.a2K=new A.aB("1.0.61","Eski yumu\u015fak \u0131s\u0131 haritas\u0131 geri; rota rozeti k\xfc\xe7\xfck ve lekelerin \xfcst\xfcnde.","Restored soft heat blobs; smaller route badge above heat markers.","Weiche Heat-Blobs zur\xfcck; kleineres Routen-Badge \xfcber Heat-Markern.")
+B.a2H=new A.aB("1.0.60","\u0130zler listesi: rota tarihine g\xf6re yeniden eskiye (GPX saati).","Tracks list: newest-to-oldest by route date (GPX time).","Track-Liste: nach Routendatum absteigend (GPX-Zeit).")
+B.a2e=new A.aB("1.0.59","Android DJI: galeri .SRT GPS + HEVC oynatma d\xfczeltmesi.","Android DJI: gallery .SRT GPS + HEVC playback fix.","Android DJI: Galerie-.SRT-GPS + HEVC-Wiedergabe.")
+B.a2C=new A.aB("1.0.58","Konumum d\xfczeltmesi; a\xe7\u0131l\u0131\u015fta hafif telefon taramas\u0131 + \xf6zet; \xabyeni medya bulundu\xbb.","My-location fix; startup light phone scan + summary; \xabnew media found\xbb copy.","Standort-Fix; leichter Start-Scan + Zusammenfassung; \xabneue Medien\xbb Text.")
+B.a26=new A.aB("1.0.57","\u0130zler listesi: en son kay\u0131t edilen \xfcstte.","Tracks list: newest registered first.","Track-Liste: neueste Registrierung oben.")
+B.a2E=new A.aB("1.0.56","G\xfcncelleme arka planda + uyar\u0131; harita k\xfcme \xf6nbelle\u011fi / iz sadele\u015ftirme (ANR).","Background update + banner; map cluster cache / track downsample (ANR).","Update im Hintergrund + Hinweis; Cluster-Cache / Track-Downsample (ANR).")
+B.a1Z=new A.aB("1.0.55","GPS yeniden dene arka planda + rapor; GX telefon videosu (yanl\u0131\u015f GoPro d\xfczeltmesi); tarama h\u0131zland\u0131.","GPS retry in background + report; GX phone videos (not false GoPro); faster scan.","GPS-Retry im Hintergrund + Bericht; GX-Handyvideos (kein falsches GoPro); schneller Scan.")
+B.a1T=new A.aB("1.0.54","G\xfcncelleme diyalo\u011fu: Sizin / G\xfcncel s\xfcr\xfcm; uzun a\xe7\u0131klama kald\u0131r\u0131ld\u0131.","Update dialog: Yours / Latest versions; drop long copy.","Update-Dialog: Ihre / Aktuelle Version; langer Text weg.")
+B.a3k=new A.aB("1.0.53","Birle\u015fik: uygulama i\xe7i video; h\u0131zl\u0131 telefon tarama; Tamam \xf6zeti; konumum; k\xfcmede yana kayd\u0131rma.","Combined: in-app video; fast phone scan; OK summary; my location; cluster swipe.","Kombi: In-App-Video; schneller Telefonscan; OK-Zusammenfassung; Standort; Cluster-Wischen.")
+B.a2p=new A.aB("1.0.52","T\xfcm telefon: kay\u0131tl\u0131 atla + GPS; \xf6zet Tamam; izler d\u0131\u015far\u0131 t\u0131k; GPX\u2260galeri; konumum butonu.","Whole phone skip+GPS; OK dialog; tracks outside-tap; GPX\u2260gallery; my-location button.","Telefon skip+GPS; OK-Dialog; Spuren Au\xdfentipp; GPX\u2260Galerie; Mein-Standort-Button.")
+B.a3n=new A.aB("1.0.51","Android: telefon videolar\u0131 content URI ile uygulama i\xe7inde; codec olmazsa sistem oynat\u0131c\u0131.","Android: play phone videos in-app via content URI; system player if codec fails.","Android: Telefonvideos per content URI in-App; Systemplayer bei Codec-Fehler.")
+B.a2v=new A.aB("1.0.50","\xc7oklu GPX; se\xe7ici already_active d\xfczeltmesi; izler haritada ad\u0131m ad\u0131m; yinelenen rota uyar\u0131s\u0131 1 sn.","Multi GPX; fix picker already_active; progressive map add; 1s duplicate toast.","Mehrere GPX; already_active behoben; schrittweise Karte; 1s Duplikat-Hinweis.")
+B.a23=new A.aB("1.0.49","Drive \u2260 Google Foto netle\u015ftirildi; OAuth yoksa k\u0131sa yard\u0131m; Foto i\xe7in T\xfcm telefon.","Clarify Drive \u2260 Google Photos; short OAuth help; use Whole phone for Photos.","Drive \u2260 Google Fotos klar; kurze OAuth-Hilfe; Fotos = Ganzes Telefon.")
+B.a2W=new A.aB("1.0.48","\u0130z \xfcst\xfc medya: 2.5 km + segment; zaman (\xb12s) ile GPS\u2019siz GoPro yerle\u015ftirilir.","On-track media: 2.5 km + segments; time (\xb12h) places GPS-less GoPros.","Medien auf Spur: 2,5 km + Segmente; Zeit (\xb12h) platziert GoPros ohne GPS.")
+B.a29=new A.aB("1.0.47","\u0130z kutusu=harita; T\xfcm\xfc yeterli; k\xfc\xe7\xfck net pinler; iz \xfczerindeki / gizle medya.","Track checkbox=map; All only; smaller pins; media on-track / hide filters.","Spur-Checkbox=Karte; nur Alle; kleinere Pins; Medien auf Spur / ausblenden.")
+B.a28=new A.aB("1.0.46","Harita kayd\u0131r/zoom: izler pan s\u0131ras\u0131nda yeniden \xe7izilmez (RideAtlas gibi ANR yok).","Map pan/zoom: tracks not rebuilt during gestures (no ANR, like RideAtlas).","Karte schwenken/zoomen: Spuren nicht neu gebaut (kein ANR, wie RideAtlas).")
+B.a2V=new A.aB("1.0.45","GPS yeniden dene: arka planda (ANR yok); GoPro dosya sonu GPMF; t\xfcr chip\u2019leriyle ayr\u0131 tara.","GPS retry: background (no ANR); GoPro end-of-file GPMF; per-kind via chips.","GPS-Retry: Hintergrund (kein ANR); GoPro GPMF am Dateiende; je Typ per Chip.")
+B.a1S=new A.aB("1.0.44","S\u0131\u011fd\u0131r: kuzey yukar\u0131 + tam ekran; izler k\xfc\xe7\xfck zoom\u2019da kal\u0131n \xe7izgi + rozet.","Fit-all: north-up + fill screen; tracks thick + badge at low zoom.","Einpassen: Norden oben; Spuren bei Zoom-out dick + Badge.")
+B.a2i=new A.aB("1.0.43","Yeniden tara \xe7ift ekleme yok: sabit telefon kayna\u011f\u0131 + asset id anahtar\u0131.","Rescan no longer doubles media: stable phone source + asset-id key.","Neu-Scan verdoppelt Medien nicht: stabile Telefon-Quelle + Asset-ID.")
+B.a2w=new A.aB("1.0.42","\u0130ptal tu\u015fu: dilimli okuma + s\u0131k kontrol \u2014 gecikme azal\u0131r; belirgin \u0130ptal butonu.","Cancel: chunked reads + frequent checks \u2014 less delay; clearer Cancel button.","Abbruch: st\xfcckweises Lesen + h\xe4ufige Checks \u2014 weniger Verz\xf6gerung.")
+B.a1V=new A.aB("1.0.41","GPS yeniden dene: denenmi\u015fleri atlar (ANR yok); yeniden tara yaln\u0131zca yenileri; iptal h\u0131zl\u0131; zorunlu g\xfcncelleme kapal\u0131.","GPS retry skips already-tried (no ANR); rescan only new; faster cancel; force-update off.","GPS-Retry \xfcberspringt Gepr\xfcfte (kein ANR); Neu-Scan nur neue; schneller Abbruch; Zwangsupdate aus.")
+B.a3i=new A.aB("1.0.40","Uzant\u0131s\u0131z Drive GPX\u2019leri tan\u0131r (iPhone+Android); i\xe7erikten parse.","Recognizes extensionless Drive GPX (iPhone+Android); parse by content.","Erkennt GPX ohne Endung (Drive) auf iPhone+Android; Inhalt-Parse.")
+B.a1W=new A.aB("1.0.39","GPX: Galeri de\u011fil Dosyalar; Android/iPhone medya butonlar\u0131 ayr\u0131ld\u0131; net hata metni.","GPX: Files not Gallery; Android/iPhone media buttons split; clearer errors.","GPX: Dateien statt Galerie; Android/iPhone-Medien getrennt; klare Fehler.")
+B.a2m=new A.aB("1.0.38","\u0130zler men\xfcs\xfc: \xe7oklu se\xe7im (biri/hepsi); b\xfcy\xfck GPX okuma + do\u011fru hata mesaj\u0131.","Tracks menu: multi-select (one/all); large GPX read + honest error messages.","Spur-Men\xfc: Mehrfachauswahl; gro\xdfe GPX-Dateien + klare Fehlermeldungen.")
+B.a3c=new A.aB("1.0.37","G\xfcncelleme ekran\u0131: tam ekran b\xfcy\xfck y\xfczde (RideAtlas/GPX tarz\u0131).","Update screen: full-screen large percent (RideAtlas/GPX style).","Update-Bildschirm: gro\xdfer Prozentwert im Vollbild (RideAtlas/GPX-Stil).")
+B.a3e=new A.aB("1.0.36","Tek tu\u015f g\xfcncelleme: ara s\xfcr\xfcm yok, do\u011frudan en son APK; indirmede y\xfczde g\xf6sterilir.","One-tap update: jump straight to latest APK (no intermediate versions); download shows %.","Ein-Tipp-Update: direkt neueste APK (keine Zwischenversionen); Download zeigt %.")
+B.a2B=new A.aB("1.0.35","Sabit indirme: android-latest/MedyaAtlas.apk; web ayn\u0131 adrese yaz\u0131l\u0131r (s\xfcr\xfcm klas\xf6r\xfc yok).","Stable download: android-latest/MedyaAtlas.apk; web overwrites same URL (no version folders).","Fester Download: android-latest/MedyaAtlas.apk; Web \xfcberschreibt dieselbe URL.")
+B.a2N=new A.aB("1.0.34","GPX se\xe7icide yaln\u0131zca Dosyalar (galeri/kamera yok); web videolar uygulama i\xe7inde oynar.","GPX picker shows Files only (no gallery/camera); web videos play in-app.","GPX-Auswahl nur Dateien (keine Galerie/Kamera); Web-Videos in der App.")
+B.a2D=new A.aB("1.0.33","GPX/KML se\xe7ici d\xfczeltmesi (\xf6zellikle iPhone Safari); dosya filtresi engeli kald\u0131r\u0131ld\u0131.","GPX/KML picker fix (esp. iPhone Safari); no longer blocked by file filters.","GPX/KML-Auswahl korrigiert (bes. iPhone Safari); Dateifilter blockiert nicht mehr.")
+B.a2c=new A.aB("1.0.32","GPX/KML/KMZ iz y\xfckleme; kaynaklar: Klas\xf6r, Galeri, T\xfcm telefon, Google Drive.","GPX/KML/KMZ track import; sources: Folder, Gallery, Whole phone, Google Drive.","GPX/KML/KMZ-Track-Import; Quellen: Ordner, Galerie, Ganzes Telefon, Google Drive.")
+B.a3h=new A.aB("1.0.31","Kaynaklar sade: Klas\xf6r/Galeri/Telefon; her kaynakta \xabyeniden tara\xbb.","Sources simplified: Folder/Gallery/Phone; sync on each source to rescan.","Quellen vereinfacht: Ordner/Galerie/Telefon; Sync pro Quelle zum erneuten Scannen.")
+B.a2a=new A.aB("1.0.30","G\xfcncelleme d\xf6ng\xfcs\xfc: uygulama art\u0131k cache d\u0131\u015f\u0131 /r/1.0.30/ yolundan a\xe7\u0131l\u0131r (28\u219429 tak\u0131lmas\u0131).","Update loop fix: app opens from cache-bust path /r/1.0.30/ (stops 28\u219429 bounce).","Update-Schleife: App startet \xfcber Cache-freien Pfad /r/1.0.30/.")
+B.a2Q=new A.aB("1.0.29","iPhone g\xfcncelleme tak\u0131lmas\u0131: go.html temiz giri\u015f; Ana Ekran ikonunu silip Safari\u2019den go.html a\xe7\u0131n.","iPhone update stuck: clean go.html entry; delete Home Screen icon and open go.html in Safari.","iPhone-Update h\xe4ngt: sauberer go.html-Einstieg; Home-Screen-Icon l\xf6schen und go.html in Safari \xf6ffnen.")
+B.a3b=new A.aB("1.0.28","Zorunlu g\xfcncelleme iPhone\u2019da ger\xe7ekten yeniler: SW/cache temizlenir, eski main.dart.js tak\u0131lmaz.","Forced update really refreshes on iPhone: clears SW/cache so old main.dart.js cannot stick.","Zwangsupdate aktualisiert auf iPhone wirklich: SW/Cache wird geleert, altes main.dart.js bleibt nicht h\xe4ngen.")
+B.a2X=new A.aB("1.0.27","Web g\xfcncelleme: canl\u0131 version.json da kontrol edilir (yaln\u0131zca Pages deploy yetmez diye uyar\u0131 ka\xe7mas\u0131n).","Web updates: also checks live version.json so a Pages-only deploy still prompts.","Web-Updates: pr\xfcft auch live version.json, damit Pages-Deploy allein warnt.")
+B.a3m=new A.aB("1.0.26","\xd6l\xfc blob URL yok: sekmeyi kapat\u0131nca k\u0131r\u0131k ikon yerine \xabyeniden se\xe7in\xbb; blob indeksine yaz\u0131lmaz.","No dead blob URLs: after closing the tab you get \u201creselect\u201d, not a broken icon; blobs stay out of the index.","Keine toten Blob-URLs: nach Tab-Schlie\xdfung \u201eerneut ausw\xe4hlen\u201c statt kaputtem Icon; Blobs nicht im Index.")
+B.a2s=new A.aB("1.0.25","B\xfcy\xfck k\xfct\xfcphanede Galeri'den ekleme art\u0131k yava\u015flam\u0131yor.","Adding from Gallery no longer slows down as your library grows.","Hinzuf\xfcgen aus der Galerie wird bei gro\xdfer Bibliothek nicht mehr langsam.")
+B.a2I=new A.aB("1.0.24","\xabYeniden dene\xbb art\u0131k web/iPhone\u2019da da \xe7al\u0131\u015f\u0131yor \u2014 dosya se\xe7im oturumundan GPS okur.","\u201cRetry\u201d now works on web/iPhone too \u2014 reads GPS from the in-session file.","\u201eErneut versuchen\u201c funktioniert jetzt auch im Web/iPhone \u2014 liest GPS aus der Sitzungsdatei.")
+B.a2O=new A.aB("1.0.23","Web video: yava\u015f uygulama i\xe7i player yok \u2014 do\u011frudan Safari\u2019de a\xe7\u0131l\u0131r.","Web video: skip slow in-app player \u2014 opens in Safari immediately.","Web-Video: kein langsamer In-App-Player \u2014 sofort in Safari.")
+B.a2g=new A.aB("1.0.22","Web video se\xe7imi: OK sonras\u0131 dosya okunmaz; blob/GPS/\xf6nizleme ertelenir.","Web video pick: no file reads after OK; blob/GPS/preview deferred.","Web-Video: nach OK keine Dateilesung; Blob/GPS/Vorschau sp\xe4ter.")
+B.a2U=new A.aB("1.0.21","Tek video OK sonras\u0131 bekleme yok; \xabkopyalanmad\u0131\xbb yaz\u0131s\u0131 kald\u0131r\u0131ld\u0131.","No wait after OK for a single video; removed \u201cnot copied\u201d status text.","Kein Warten nach OK bei einem Video; \u201enicht kopiert\u201c-Text entfernt.")
+B.a30=new A.aB("1.0.20","Web: OK sonras\u0131 an\u0131nda ekle; GPS arka planda (bekleme yok).","Web: add instantly after OK; GPS in background (no long wait).","Web: sofort nach OK hinzuf\xfcgen; GPS im Hintergrund.")
+B.a1Q=new A.aB("1.0.19","Dosya kopyas\u0131 yok: yaln\u0131zca indeks; eski Hive medya kopyalar\u0131 silindi.","No file copies: index only; cleared old Hive media copies.","Keine Dateikopien: nur Index; alte Hive-Medienkopien gel\xf6scht.")
+B.a2d=new A.aB("1.0.18","Web: \xe7oklu se\xe7im donmas\u0131 azalt\u0131ld\u0131; HEIC \xf6nizleme; GoPro HEVC i\xe7in Safari\u2019de a\xe7.","Web: faster multi-select; HEIC thumbs; open GoPro HEVC in Safari.","Web: schnellere Mehrfachauswahl; HEIC-Vorschau; GoPro-HEVC in Safari.")
+B.a2Y=new A.aB("1.0.17","GPS\u2019siz medya listesi \xfcst \xe7ubu\u011fun arkas\u0131nda kalm\u0131yor; ba\u015fl\u0131k alt\u0131nda a\xe7\u0131k liste.","No-GPS media list no longer hides behind the top bar; clear list below header.","Medien ohne GPS nicht mehr hinter der Leiste; klare Liste unter dem Header.")
+B.a31=new A.aB("1.0.16","iPhone: Favori/galeri se\xe7imi Safari\u2019de i\xe7eri al\u0131n\u0131r; Se\xe7\u2192i\u015faretle\u2192Ekle (video oynatmadan).","iPhone: Favorites/gallery selection imports on Safari; Select\u2192tap\u2192Add (no video play).","iPhone: Favoriten/Galerie-Auswahl in Safari; Ausw\xe4hlen\u2192tippen\u2192Hinzuf\xfcgen.")
+B.a2A=new A.aB("1.0.15","iPhone web: \xf6nizleme, foto/video oynatma ve GPS okuma (blob + Hive bayt).","iPhone web: preview, photo/video playback and GPS (blob + Hive bytes).","iPhone-Web: Vorschau, Foto/Video-Wiedergabe und GPS (Blob + Hive).")
+B.a1N=new A.aB("1.0.14","Favoriler (t\xfcm\xfc) Android/iOS uygulamas\u0131nda; web\u2019de \xe7oklu se\xe7im rehberi.","Add all Favorites on Android/iOS app; guided multi-select on web.","Alle Favoriten in der Android/iOS-App; Mehrfachauswahl-Hilfe im Web.")
+B.a1R=new A.aB("1.0.13","Haritada \u0131s\u0131 lekesi; t\u0131klan\u0131nca dairesel foto pin + tarihe g\xf6re medya paneli.","Heat blobs on the map; tap shows circular photo pin + date-grouped media panel.","Heat-Blobs auf der Karte; Tippen zeigt Foto-Pin + nach Datum gruppierte Medien.")
+B.a1X=new A.aB("1.0.12","Ana Ekrana/Desktop\u2019a Ekle i\xe7in k\xf6k apple-touch-icon (eski Flutter ikonu kalkar).","Root apple-touch-icon for Add to Home/Desktop (removes old Flutter icon).","Root-apple-touch-icon f\xfcr \u201eZum Home/Desktop\u201c (altes Flutter-Icon weg).")
+B.a2F=new A.aB("1.0.11","MedyaAtlas marka ikonu (web/iPhone); web\u2019de g\xfcncelleme kontrol\xfc + sayfa yenileme.","MedyaAtlas brand icons for web/iPhone; web update check + page reload.","MedyaAtlas-Markensymbol f\xfcr Web/iPhone; Web-Updatepr\xfcfung + Seitenreload.")
+B.a2S=new A.aB("1.0.10","iPhone web \xf6nbelle\u011fi temizlendi; GitHub Pages\u2019te g\xfcncel Flutter s\xfcr\xfcm\xfc.","Cleared iPhone web cache; GitHub Pages serves the current Flutter build.","iPhone-Web-Cache geleert; GitHub Pages liefert den aktuellen Flutter-Build.")
+B.a35=new A.aB("1.0.9","\u0130ptal alt tarama \xe7ubu\u011funda; b\xfcy\xfck diskte DCIM/GoPro/DJI \xf6nce ve GPS okuma; iPhone i\xe7in web (dosya se\xe7ici).","Cancel on bottom scan bar; prioritize DCIM/GoPro/DJI + GPS on large disks; web for iPhone file pick.","Abbruch in der unteren Scan-Leiste; DCIM/GoPro/DJI zuerst + GPS; Web f\xfcr iPhone-Dateiauswahl.")
+B.a22=new A.aB("1.0.8","SD kart Android/data izin hatas\u0131 atlan\u0131r; tarama DCIM ve di\u011fer klas\xf6rlerde devam eder.","Skip SD Android/data permission errors; scan continues in DCIM and other folders.","SD Android/data-Berechtigungsfehler \xfcberspringen; Scan in DCIM u. a. weiter.")
+B.a24=new A.aB("1.0.7","SD / harici disk taramas\u0131 h\u0131zland\u0131; UI kilitlenmesi azalt\u0131ld\u0131. GPS derin tarama \u201cyeniden dene\u201d ile.","Faster SD/external disk scanning; less UI freeze. Deep GPS via retry missing.","Schnellerer SD-/Externspeicher-Scan; weniger UI-Einfrieren. Tiefes GPS \xfcber erneutes Pr\xfcfen.")
+B.a33=new A.aB("1.0.6","2 s\xfcr\xfcm geride kalan cihazlarda zorunlu g\xfcncelleme; aksi halde uygulama kullan\u0131lamaz.","Force update when two or more versions behind; otherwise the app cannot be used.","Zwangsupdate bei zwei oder mehr Versionen R\xfcckstand; sonst ist die App nicht nutzbar.")
+B.a2h=new A.aB("1.0.5","Release derlemesi d\xfczeltildi (video_thumbnail kald\u0131r\u0131ld\u0131); g\xfcncelleme 1.0.x\u2019e \xe7\u0131kar. K\xfc\xe7\xfck hata d\xfczeltmeleri.","Fixed release build (removed video_thumbnail); updates reach 1.0.x. Minor bug fixes.","Release-Build behoben (video_thumbnail entfernt); Updates erreichen 1.0.x. Kleine Fehlerkorrekturen.")
+B.a37=new A.aB("1.0.4","Videolar telefonda d\xfc\u011fmesiz otomatik oynar; gerekirse telefon oynat\u0131c\u0131s\u0131 a\xe7\u0131l\u0131r. K\xfc\xe7\xfck hata d\xfczeltmeleri.","Videos auto-play on phone without a play button; falls back to the phone player if needed. Minor bug fixes.","Videos starten auf dem Telefon automatisch ohne Play-Button; sonst Telefon-Player. Kleine Fehlerkorrekturen.")
+B.a3j=new A.aB("1.0.3","Telefonda GoPro/DJI i\xe7in \u201cTelefonda oynat\u201d; Windows ifadesi kald\u0131r\u0131ld\u0131. K\xfc\xe7\xfck hata d\xfczeltmeleri.","Phone playback label for GoPro/DJI on Android; removed Windows wording. Minor bug fixes.","Wiedergabe auf dem Telefon f\xfcr GoPro/DJI unter Android; Windows-Text entfernt. Kleine Fehlerkorrekturen.")
+B.a2k=new A.aB("1.0.2","SD kart / harici disk tarama; disk \xe7\u0131k\u0131nca pinler gizlenir, tak\u0131l\u0131nca geri gelir. K\xfc\xe7\xfck hata d\xfczeltmeleri.","Scan SD card / external disk; pins hide when removed and return on remount. Minor bug fixes.","SD-Karte / externe Festplatte scannen; Pins ausblenden beim Entfernen, zur\xfcck beim erneuten Anschlie\xdfen. Kleine Fehlerkorrekturen.")
+B.a2M=new A.aB("1.0.1","GoPro GPMF ve DJI SRT/konum okuma; Android\u2019de GoPro/DJI video oynatma. K\xfc\xe7\xfck hata d\xfczeltmeleri.","GoPro GPMF and DJI SRT/location reading; GoPro/DJI playback on Android. Minor bug fixes.","GoPro-GPMF- und DJI-SRT/Standortlesung; GoPro/DJI-Wiedergabe auf Android. Kleine Fehlerkorrekturen.")
+B.a2x=new A.aB("1.0.0","Video \u0131zgaras\u0131nda ilk kare \xf6nizleme; ayarlarda s\xfcr\xfcm ge\xe7mi\u015fi; geli\u015ftiren ad\u0131 sabit kredi. K\xfc\xe7\xfck hata d\xfczeltmeleri.","First-frame video thumbnails in the grid; version history in settings; fixed developer credit. Minor bug fixes.","Erste-Frame-Vorschaubilder f\xfcr Videos; Versionsverlauf in den Einstellungen; fester Entwicklername. Kleine Fehlerkorrekturen.")
+B.a3f=new A.aB("0.8.0","Marka odakl\u0131 aray\xfcz; T\xfcrk\xe7e / \u0130ngilizce / Almanca; yard\u0131m; harita t\xfcrleri; ayarlar.","Brand-focused UI; Turkish / English / German; help; map layers; settings.","Markenorientierte Oberfl\xe4che; T\xfcrkisch / Englisch / Deutsch; Hilfe; Kartenebenen; Einstellungen.")
+B.a2P=new A.aB("0.7.9","Harita odakl\u0131 ana ekran; a\xe7\u0131l\u0131\u015fta otomatik g\xfcncelleme kontrol\xfc.","Map-first home screen; automatic update check on launch.","Kartenorientierter Startbildschirm; automatische Update-Pr\xfcfung beim Start.")
+B.a3a=new A.aB("0.7.8","Sabit APK imzas\u0131 \u2014 g\xfcncelleme i\xe7in uygulamay\u0131 silmeye gerek yok.","Stable APK signing \u2014 updates without uninstalling.","Stabile APK-Signatur \u2014 Updates ohne Neuinstallation.")
+B.a2n=new A.aB("0.7.6","T\xfcm telefon medya taramas\u0131; GPS konum okuma iyile\u015ftirmeleri.","Full-phone media scan; GPS location reading improvements.","Vollst\xe4ndiger Telefon-Medienscan; verbesserte GPS-Standortlesung.")
+B.a2z=new A.aB("0.7.3","Uygulama i\xe7i GitHub Releases g\xfcncellemesi (Android + Windows).","In-app updates from GitHub Releases (Android + Windows).","In-App-Updates \xfcber GitHub Releases (Android + Windows).")
+B.a2j=new A.aB("0.7.1","Windows zip s\xfcr\xfcm\xfc ve indirme ba\u011flant\u0131lar\u0131.","Windows zip release and download links.","Windows-Zip-Release und Download-Links.")
+B.LQ=s([B.a2G,B.a2r,B.a2T,B.a1P,B.a39,B.a2t,B.a2R,B.a20,B.a3l,B.a1O,B.a2y,B.a3d,B.a1U,B.a3_,B.a2q,B.a2l,B.a2u,B.a34,B.a32,B.a2o,B.a1Y,B.a36,B.a21,B.a2L,B.a2f,B.a3g,B.a2Z,B.a27,B.a25,B.a2J,B.a2_,B.a38,B.a2b,B.a2K,B.a2H,B.a2e,B.a2C,B.a26,B.a2E,B.a1Z,B.a1T,B.a3k,B.a2p,B.a3n,B.a2v,B.a23,B.a2W,B.a29,B.a28,B.a2V,B.a1S,B.a2i,B.a2w,B.a1V,B.a3i,B.a1W,B.a2m,B.a3c,B.a3e,B.a2B,B.a2N,B.a2D,B.a2c,B.a3h,B.a2a,B.a2Q,B.a3b,B.a2X,B.a3m,B.a2s,B.a2I,B.a2O,B.a2g,B.a2U,B.a30,B.a1Q,B.a2d,B.a2Y,B.a31,B.a2A,B.a1N,B.a1R,B.a1X,B.a2F,B.a2S,B.a35,B.a22,B.a24,B.a33,B.a2h,B.a37,B.a3j,B.a2k,B.a2M,B.a2x,B.a3f,B.a2P,B.a3a,B.a2n,B.a2z,B.a2j],A.al("E<aB>"))
+B.LR=s([23,114,69,56,80,144],t.t)
+B.LS=s(["Q1","Q2","Q3","Q4"],t.s)
 B.DD=new A.PA(2,"outer")
 B.oN=new A.O(0.09803921568627451,0,0,0,B.i)
 B.h=new A.h(0,0)
 B.DZ=new A.eD(0.2,B.DD,B.oN,B.h,11)
-B.LU=s([B.DZ],t.sq)
+B.LV=s([B.DZ],t.sq)
 B.Cb=new A.HR(0,"left")
 B.Cc=new A.HR(1,"right")
-B.LW=s([B.Cb,B.Cc],A.al("E<HR>"))
+B.LX=s([B.Cb,B.Cc],A.al("E<HR>"))
 B.a5=new A.I4(0,"upstream")
-B.LY=s([B.a5,B.m],A.al("E<I4>"))
+B.LZ=s([B.a5,B.m],A.al("E<I4>"))
 B.ay=new A.I9(0,"rtl")
 B.a1=new A.I9(1,"ltr")
 B.lQ=s([B.ay,B.a1],A.al("E<I9>"))
 B.L=s([99,124,119,123,242,107,111,197,48,1,103,43,254,215,171,118,202,130,201,125,250,89,71,240,173,212,162,175,156,164,114,192,183,253,147,38,54,63,247,204,52,165,229,241,113,216,49,21,4,199,35,195,24,150,5,154,7,18,128,226,235,39,178,117,9,131,44,26,27,110,90,160,82,59,214,179,41,227,47,132,83,209,0,237,32,252,177,91,106,203,190,57,74,76,88,207,208,239,170,251,67,77,51,133,69,249,2,127,80,60,159,168,81,163,64,143,146,157,56,245,188,182,218,33,16,255,243,210,205,12,19,236,95,151,68,23,196,167,126,61,100,93,25,115,96,129,79,220,34,42,144,136,70,238,184,20,222,94,11,219,224,50,58,10,73,6,36,92,194,211,172,98,145,149,228,121,231,200,55,109,141,213,78,169,108,86,244,234,101,122,174,8,186,120,37,46,28,166,180,198,232,221,116,31,75,189,139,138,112,62,181,102,72,3,246,14,97,53,87,185,134,193,29,158,225,248,152,17,105,217,142,148,155,30,135,233,206,85,40,223,140,161,137,13,191,230,66,104,65,153,45,15,176,84,187,22],t.t)
-B.M2=s(["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],t.s)
+B.M3=s(["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],t.s)
 B.Fa=new A.wE(0,"auto")
 B.Fb=new A.wE(1,"full")
 B.Fc=new A.wE(2,"chromium")
-B.M3=s([B.Fa,B.Fb,B.Fc],A.al("E<wE>"))
+B.M4=s([B.Fa,B.Fb,B.Fc],A.al("E<wE>"))
 B.d2=new A.kZ(0,"leading")
 B.bT=new A.kZ(1,"title")
 B.d3=new A.kZ(2,"subtitle")
 B.eS=new A.kZ(3,"trailing")
-B.M5=s([B.d2,B.bT,B.d3,B.eS],A.al("E<kZ>"))
+B.M6=s([B.d2,B.bT,B.d3,B.eS],A.al("E<kZ>"))
 B.aX=new A.hq(1,"fuchsia")
-B.M9=s([B.ab,B.aX,B.B,B.aQ,B.ax,B.aR],A.al("E<hq>"))
+B.Ma=s([B.ab,B.aX,B.B,B.aQ,B.ax,B.aR],A.al("E<hq>"))
 B.fu=s([619,720,127,481,931,816,813,233,566,247,985,724,205,454,863,491,741,242,949,214,733,859,335,708,621,574,73,654,730,472,419,436,278,496,867,210,399,680,480,51,878,465,811,169,869,675,611,697,867,561,862,687,507,283,482,129,807,591,733,623,150,238,59,379,684,877,625,169,643,105,170,607,520,932,727,476,693,425,174,647,73,122,335,530,442,853,695,249,445,515,909,545,703,919,874,474,882,500,594,612,641,801,220,162,819,984,589,513,495,799,161,604,958,533,221,400,386,867,600,782,382,596,414,171,516,375,682,485,911,276,98,553,163,354,666,933,424,341,533,870,227,730,475,186,263,647,537,686,600,224,469,68,770,919,190,373,294,822,808,206,184,943,795,384,383,461,404,758,839,887,715,67,618,276,204,918,873,777,604,560,951,160,578,722,79,804,96,409,713,940,652,934,970,447,318,353,859,672,112,785,645,863,803,350,139,93,354,99,820,908,609,772,154,274,580,184,79,626,630,742,653,282,762,623,680,81,927,626,789,125,411,521,938,300,821,78,343,175,128,250,170,774,972,275,999,639,495,78,352,126,857,956,358,619,580,124,737,594,701,612,669,112,134,694,363,992,809,743,168,974,944,375,748,52,600,747,642,182,862,81,344,805,988,739,511,655,814,334,249,515,897,955,664,981,649,113,974,459,893,228,433,837,553,268,926,240,102,654,459,51,686,754,806,760,493,403,415,394,687,700,946,670,656,610,738,392,760,799,887,653,978,321,576,617,626,502,894,679,243,440,680,879,194,572,640,724,926,56,204,700,707,151,457,449,797,195,791,558,945,679,297,59,87,824,713,663,412,693,342,606,134,108,571,364,631,212,174,643,304,329,343,97,430,751,497,314,983,374,822,928,140,206,73,263,980,736,876,478,430,305,170,514,364,692,829,82,855,953,676,246,369,970,294,750,807,827,150,790,288,923,804,378,215,828,592,281,565,555,710,82,896,831,547,261,524,462,293,465,502,56,661,821,976,991,658,869,905,758,745,193,768,550,608,933,378,286,215,979,792,961,61,688,793,644,986,403,106,366,905,644,372,567,466,434,645,210,389,550,919,135,780,773,635,389,707,100,626,958,165,504,920,176,193,713,857,265,203,50,668,108,645,990,626,197,510,357,358,850,858,364,936,638],t.t)
 B.CU=new A.A5(0,"topLeft")
 B.CX=new A.A5(3,"bottomRight")
-B.a3R=new A.ok(B.CU,B.CX)
-B.a3U=new A.ok(B.CX,B.CU)
+B.a3S=new A.ok(B.CU,B.CX)
+B.a3V=new A.ok(B.CX,B.CU)
 B.CV=new A.A5(1,"topRight")
 B.CW=new A.A5(2,"bottomLeft")
-B.a3S=new A.ok(B.CV,B.CW)
-B.a3T=new A.ok(B.CW,B.CV)
-B.Ma=s([B.a3R,B.a3U,B.a3S,B.a3T],A.al("E<ok>"))
+B.a3T=new A.ok(B.CV,B.CW)
+B.a3U=new A.ok(B.CW,B.CV)
+B.Mb=s([B.a3S,B.a3V,B.a3T,B.a3U],A.al("E<ok>"))
 B.bM=s([1364240372,2119394625,449029143,982933031,1003187115,535905693,2896910586,1267925987,542505520,2918608246,2291234508,4112862210,1341970405,3319253802,645940277,3046089570,3729349297,627514298,1167593194,1575076094,3271718191,2165502028,2376308550,1808202195,65494927,362126482,3219880557,2514114898,3559752638,1490231668,1227450848,2386872521,1969916354,4101536142,2573942360,668823993,3199619041,4028083592,3378949152,2108963534,1662536415,3850514714,2539664209,1648721747,2984277860,3146034795,4263288961,4187237128,1884842056,2400845125,2491903198,1387788411,2871251827,1927414347,3814166303,1714072405,2986813675,788775605,2258271173,3550808119,821200680,598910399,45771267,3982262806,2318081231,2811409529,4092654087,1319232105,1707996378,114671109,3508494900,3297443494,882725678,2728416755,87220618,2759191542,188345475,1084944224,1577492337,3176206446,1056541217,2520581853,3719169342,1296481766,2444594516,1896177092,74437638,1627329872,421854104,3600279997,2311865152,1735892697,2965193448,126389129,3879230233,2044456648,2705787516,2095648578,4173930116,0,159614592,843640107,514617361,1817080410,4261150478,257308805,1025430958,908540205,174381327,1747035740,2614187099,607792694,212952842,2467293015,3033700078,463376795,2152711616,1638015196,1516850039,471210514,3792353939,3236244128,1011081250,303896347,235605257,4071475083,767142070,348694814,1468340721,2940995445,4005289369,2751291519,4154402305,1555887474,1153776486,1530167035,2339776835,3420243491,3060333805,3093557732,3620396081,1108378979,322970263,2216694214,2239571018,3539484091,2920362745,3345850665,491466654,3706925234,233591430,2010178497,728503987,2845423984,301615252,1193436393,2831453436,2686074864,1457007741,586125363,2277985865,3653357880,2365498058,2553678804,2798617077,2770919034,3659959991,1067761581,753179962,1343066744,1788595295,1415726718,4139914125,2431170776,777975609,2197139395,2680062045,1769771984,1873358293,3484619301,3359349164,279411992,3899548572,3682319163,3439949862,1861490777,3959535514,2208864847,3865407125,2860443391,554225596,4024887317,3134823399,1255028335,3939764639,701922480,833598116,707863359,3325072549,901801634,1949809742,4238789250,3769684112,857069735,4048197636,1106762476,2131644621,389019281,1989006925,1129165039,3428076970,3839820950,2665723345,1276872810,3250069292,1182749029,2634345054,22885772,4201870471,4214112523,3009027431,2454901467,3912455696,1829980118,2592891351,930745505,1502483704,3951639571,3471714217,3073755489,3790464284,2050797895,2623135698,1430221810,410635796,1941911495,1407897079,1599843069,3742658365,2022103876,3397514159,3107898472,942421028,3261022371,376619805,3154912738,680216892,4282488077,963707304,148812556,3634160820,1687208278,2069988555,3580933682,1215585388,3494008760],t.t)
-B.Mb=s(["a","b","c"],t.s)
-B.Md=s([35,30,20,25,30,35,30,25,25],t.n)
+B.Mc=s(["a","b","c"],t.s)
+B.Me=s([35,30,20,25,30,35,30,25,25],t.n)
 B.Ig=new A.fd(1,1,"Byte",!0,!1)
 B.In=new A.fd(2,1,"ASCII",!0,!1)
 B.Ie=new A.fd(3,2,"Short",!0,!1)
@@ -119280,48 +119382,48 @@ B.Iq=new A.fd(10,8,"Signed Ratio",!0,!0)
 B.Ij=new A.fd(11,4,"Single-Precision Floating Point (32-bit)",!0,!1)
 B.Im=new A.fd(12,8,"Double-Precision Floating Point (64-bit)",!0,!1)
 B.Ik=new A.fd(13,4,"IFD",!0,!1)
-B.Me=s([B.ig,B.Ig,B.In,B.Ie,B.Ii,B.Il,B.Ip,B.If,B.Io,B.Ih,B.Iq,B.Ij,B.Im,B.Ik],A.al("E<fd>"))
+B.Mf=s([B.ig,B.Ig,B.In,B.Ie,B.Ii,B.Il,B.Ip,B.If,B.Io,B.Ih,B.Iq,B.Ij,B.Im,B.Ik],A.al("E<fd>"))
 B.Dr=new A.lb(1,"en")
 B.Ds=new A.lb(2,"de")
 B.qI=s([B.kg,B.Dr,B.Ds],A.al("E<lb>"))
-B.Mh=s(["click","scroll"],t.s)
+B.Mi=s(["click","scroll"],t.s)
 B.E6=new A.wh()
 B.j6=new A.Wg(1,"page")
 B.j7=new A.fC(B.bj,B.j6)
-B.Mi=s([B.E6,B.j7],A.al("E<bt>"))
+B.Mj=s([B.E6,B.j7],A.al("E<bt>"))
 B.w=s([2774754246,2222750968,2574743534,2373680118,234025727,3177933782,2976870366,1422247313,1345335392,50397442,2842126286,2099981142,436141799,1658312629,3870010189,2591454956,1170918031,2642575903,1086966153,2273148410,368769775,3948501426,3376891790,200339707,3970805057,1742001331,4255294047,3937382213,3214711843,4154762323,2524082916,1539358875,3266819957,486407649,2928907069,1780885068,1513502316,1094664062,49805301,1338821763,1546925160,4104496465,887481809,150073849,2473685474,1943591083,1395732834,1058346282,201589768,1388824469,1696801606,1589887901,672667696,2711000631,251987210,3046808111,151455502,907153956,2608889883,1038279391,652995533,1764173646,3451040383,2675275242,453576978,2659418909,1949051992,773462580,756751158,2993581788,3998898868,4221608027,4132590244,1295727478,1641469623,3467883389,2066295122,1055122397,1898917726,2542044179,4115878822,1758581177,0,753790401,1612718144,536673507,3367088505,3982187446,3194645204,1187761037,3653156455,1262041458,3729410708,3561770136,3898103984,1255133061,1808847035,720367557,3853167183,385612781,3309519750,3612167578,1429418854,2491778321,3477423498,284817897,100794884,2172616702,4031795360,1144798328,3131023141,3819481163,4082192802,4272137053,3225436288,2324664069,2912064063,3164445985,1211644016,83228145,3753688163,3249976951,1977277103,1663115586,806359072,452984805,250868733,1842533055,1288555905,336333848,890442534,804056259,3781124030,2727843637,3427026056,957814574,1472513171,4071073621,2189328124,1195195770,2892260552,3881655738,723065138,2507371494,2690670784,2558624025,3511635870,2145180835,1713513028,2116692564,2878378043,2206763019,3393603212,703524551,3552098411,1007948840,2044649127,3797835452,487262998,1994120109,1004593371,1446130276,1312438900,503974420,3679013266,168166924,1814307912,3831258296,1573044895,1859376061,4021070915,2791465668,2828112185,2761266481,937747667,2339994098,854058965,1137232011,1496790894,3077402074,2358086913,1691735473,3528347292,3769215305,3027004632,4199962284,133494003,636152527,2942657994,2390391540,3920539207,403179536,3585784431,2289596656,1864705354,1915629148,605822008,4054230615,3350508659,1371981463,602466507,2094914977,2624877800,555687742,3712699286,3703422305,2257292045,2240449039,2423288032,1111375484,3300242801,2858837708,3628615824,84083462,32962295,302911004,2741068226,1597322602,4183250862,3501832553,2441512471,1489093017,656219450,3114180135,954327513,335083755,3013122091,856756514,3144247762,1893325225,2307821063,2811532339,3063651117,572399164,2458355477,552200649,1238290055,4283782570,2015897680,2061492133,2408352771,4171342169,2156497161,386731290,3669999461,837215959,3326231172,3093850320,3275833730,2962856233,1999449434,286199582,3417354363,4233385128,3602627437,974525996],t.t)
-B.Mr=s([],t.fh)
-B.My=s([],t.QP)
+B.Ms=s([],t.fh)
+B.Mz=s([],t.QP)
 B.qM=s([],A.al("E<bof>"))
-B.MC=s([],t.E)
+B.MD=s([],t.E)
 B.qL=s([],t.SE)
-B.Mp=s([],A.al("E<tb>"))
-B.Mn=s([],t.fJ)
+B.Mq=s([],A.al("E<tb>"))
+B.Mo=s([],t.fJ)
 B.fv=s([],t.A1)
-B.MD=s([],t.ER)
+B.ME=s([],t.ER)
 B.qJ=s([],t.Nx)
-B.Mw=s([],t.cz)
+B.Mx=s([],t.cz)
 B.iz=s([],t._I)
 B.qK=s([],t.tc)
 B.iy=s([],t.jl)
-B.Mm=s([],t.wi)
-B.Mu=s([],A.al("E<lS<@>>"))
-B.Mq=s([],t.zl)
-B.Mt=s([],t.GW)
+B.Mn=s([],t.wi)
+B.Mv=s([],A.al("E<lS<@>>"))
+B.Mr=s([],t.zl)
+B.Mu=s([],t.GW)
 B.lR=s([],t.AO)
-B.Mx=s([],t.D1)
+B.My=s([],t.D1)
 B.fx=s([],t.QF)
-B.MA=s([],t.Lx)
-B.Ms=s([],t.AS)
-B.Mo=s([],t.p)
-B.MB=s([],t.n)
-B.Ml=s([],t.t)
+B.MB=s([],t.Lx)
+B.Mt=s([],t.AS)
+B.Mp=s([],t.p)
+B.MC=s([],t.n)
+B.Mm=s([],t.t)
 B.fw=s([],t.ee)
-B.Mz=s([],t._m)
+B.MA=s([],t._m)
 B.Fr=new A.O(0.4,0,0,0,B.i)
 B.xf=new A.h(0,2)
 B.E_=new A.eD(0,B.dQ,B.Fr,B.xf,8)
-B.ME=s([B.E_],t.sq)
+B.MF=s([B.E_],t.sq)
 B.qN=s(["S","M","T","W","T","F","S"],t.s)
 B.qO=s(["J","F","M","A","M","J","J","A","S","O","N","D"],t.s)
 B.bN=s([3332727651,4169432188,4003034999,4136467323,4279104242,3602738027,3736170351,2438251973,1615867952,33751297,3467208551,1451043627,3877240574,3043153879,1306962859,3969545846,2403715786,530416258,2302724553,4203183485,4011195130,3001768281,2395555655,4211863792,1106029997,3009926356,1610457762,1173008303,599760028,1408738468,3835064946,2606481600,1975695287,3776773629,1034851219,1282024998,1817851446,2118205247,4110612471,2203045068,1750873140,1374987685,3509904869,4178113009,3801313649,2876496088,1649619249,708777237,135005188,2505230279,1181033251,2640233411,807933976,933336726,168756485,800430746,235472647,607523346,463175808,3745374946,3441880043,1315514151,2144187058,3936318837,303761673,496927619,1484008492,875436570,908925723,3702681198,3035519578,1543217312,2767606354,1984772923,3076642518,2110698419,1383803177,3711886307,1584475951,328696964,2801095507,3110654417,0,3240947181,1080041504,3810524412,2043195825,3069008731,3569248874,2370227147,1742323390,1917532473,2497595978,2564049996,2968016984,2236272591,3144405200,3307925487,1340451498,3977706491,2261074755,2597801293,1716859699,294946181,2328839493,3910203897,67502594,4269899647,2700103760,2017737788,632987551,1273211048,2733855057,1576969123,2160083008,92966799,1068339858,566009245,1883781176,4043634165,1675607228,2009183926,2943736538,1113792801,540020752,3843751935,4245615603,3211645650,2169294285,403966988,641012499,3274697964,3202441055,899848087,2295088196,775493399,2472002756,1441965991,4236410494,2051489085,3366741092,3135724893,841685273,3868554099,3231735904,429425025,2664517455,2743065820,1147544098,1417554474,1001099408,193169544,2362066502,3341414126,1809037496,675025940,2809781982,3168951902,371002123,2910247899,3678134496,1683370546,1951283770,337512970,2463844681,201983494,1215046692,3101973596,2673722050,3178157011,1139780780,3299238498,967348625,832869781,3543655652,4069226873,3576883175,2336475336,1851340599,3669454189,25988493,2976175573,2631028302,1239460265,3635702892,2902087254,4077384948,3475368682,3400492389,4102978170,1206496942,270010376,1876277946,4035475576,1248797989,1550986798,941890588,1475454630,1942467764,2538718918,3408128232,2709315037,3902567540,1042358047,2531085131,1641856445,226921355,260409994,3767562352,2084716094,1908716981,3433719398,2430093384,100991747,4144101110,470945294,3265487201,1784624437,2935576407,1775286713,395413126,2572730817,975641885,666476190,3644383713,3943954680,733190296,573772049,3535497577,2842745305,126455438,866620564,766942107,1008868894,361924487,3374377449,2269761230,2868860245,1350051880,2776293343,59739276,1509466529,159418761,437718285,1708834751,3610371814,2227585602,3501746280,2193834305,699439513,1517759789,504434447,2076946608,2835108948,1842789307,742004246],t.t)
@@ -119329,131 +119431,30 @@ B.Gm=new A.O(0.26666666666666666,0,0,0,B.i)
 B.em=new A.h(0,1)
 B.DX=new A.eD(0,B.dQ,B.Gm,B.em,3)
 B.qP=s([B.DX],t.sq)
-B.MJ=s(["calendar","camera","contacts","location","locationAlways","locationWhenInUse","mediaLibrary","microphone","phone","photos","photosAddOnly","reminders","sensors","sms","speech","storage","ignoreBatteryOptimizations","notification","access_media_location","activity_recognition","unknown","bluetooth","manageExternalStorage","systemAlertWindow","requestInstallPackages","appTrackingTransparency","criticalAlerts","accessNotificationPolicy","bluetoothScan","bluetoothAdvertise","bluetoothConnect","nearbyWifiDevices","videos","audio","scheduleExactAlarm","sensorsAlways","calendarWriteOnly","calendarFullAccess","assistant","backgroundRefresh","accessLocalNetwork"],t.s)
+B.MK=s(["calendar","camera","contacts","location","locationAlways","locationWhenInUse","mediaLibrary","microphone","phone","photos","photosAddOnly","reminders","sensors","sms","speech","storage","ignoreBatteryOptimizations","notification","access_media_location","activity_recognition","unknown","bluetooth","manageExternalStorage","systemAlertWindow","requestInstallPackages","appTrackingTransparency","criticalAlerts","accessNotificationPolicy","bluetoothScan","bluetoothAdvertise","bluetoothConnect","nearbyWifiDevices","videos","audio","scheduleExactAlarm","sensorsAlways","calendarWriteOnly","calendarFullAccess","assistant","backgroundRefresh","accessLocalNetwork"],t.s)
 B.bO=s([4098969767,1098797925,387629988,658151006,2872822635,2636116293,4205620056,3813380867,807425530,1991112301,3431502198,49620300,3847224535,717608907,891715652,1656065955,2984135002,3123013403,3930429454,4267565504,801309301,1283527408,1183687575,3547055865,2399397727,2450888092,1841294202,1385552473,3201576323,1951978273,3762891113,3381544136,3262474889,2398386297,1486449470,3106397553,3787372111,2297436077,550069932,3464344634,3747813450,451248689,1368875059,1398949247,1689378935,1807451310,2180914336,150574123,1215322216,1167006205,3734275948,2069018616,1940595667,1265820162,534992783,1432758955,3954313e3,3039757250,3313932923,936617224,674296455,3206787749,50510442,384654466,3481938716,2041025204,133427442,1766760930,3664104948,84334014,886120290,2797898494,775200083,4087521365,2315596513,4137973227,2198551020,1614850799,1901987487,1857900816,557775242,3717610758,1054715397,3863824061,1418835341,3295741277,100954068,1348534037,2551784699,3184957417,1082772547,3647436702,3903896898,2298972299,434583643,3363429358,2090944266,1115482383,2230896926,0,2148107142,724715757,287222896,1517047410,251526143,2232374840,2923241173,758523705,252339417,1550328230,1536938324,908343854,168604007,1469255655,4004827798,2602278545,3229634501,3697386016,2002413899,303830554,2481064634,2696996138,574374880,454171927,151915277,2347937223,3056449960,504678569,4049044761,1974422535,2582559709,2141453664,33005350,1918680309,1715782971,4217058430,1133213225,600562886,3988154620,3837289457,836225756,1665273989,2534621218,3330547729,1250262308,3151165501,4188934450,700935585,2652719919,3000824624,2249059410,3245854947,3005967382,1890163129,2484206152,3913753188,4238918796,4037024319,2102843436,857927568,1233635150,953795025,3398237858,3566745099,4121350017,2057644254,3084527246,2906629311,976020637,2018512274,1600822220,2119459398,2381758995,3633375416,959340279,3280139695,1570750080,3496574099,3580864813,634368786,2898803609,403744637,2632478307,1004239803,650971512,1500443672,2599158199,1334028442,2514904430,4289363686,3156281551,368043752,3887782299,1867173430,2682967049,2955531900,2754719666,1059729699,2781229204,2721431654,1316239292,2197595850,2430644432,2805143e3,82922136,3963746266,3447656016,2434215926,1299615190,4014165424,2865517645,2531581700,3516851125,1783372680,750893087,1699118929,1587348714,2348899637,2281337716,201010753,1739807261,3683799762,283718486,3597472583,3617229921,2704767500,4166618644,334203196,2848910887,1639396809,484568549,1199193265,3533461983,4065673075,337148366,3346251575,4149471949,4250885034,1038029935,1148749531,2949284339,1756970692,607661108,2747424576,488010435,3803974693,1009290057,234832277,2822336769,201907891,3034094820,1449431233,3413860740,852848822,1816687708,3100656215],t.t)
 B.DY=new A.eD(0.75,B.dQ,B.oN,B.xf,1.5)
-B.ML=s([B.DY],t.sq)
-B.MM=s(["json"],t.s)
-B.MN=s([0,1996959894,3993919788,2567524794,124634137,1886057615,3915621685,2657392035,249268274,2044508324,3772115230,2547177864,162941995,2125561021,3887607047,2428444049,498536548,1789927666,4089016648,2227061214,450548861,1843258603,4107580753,2211677639,325883990,1684777152,4251122042,2321926636,335633487,1661365465,4195302755,2366115317,997073096,1281953886,3579855332,2724688242,1006888145,1258607687,3524101629,2768942443,901097722,1119000684,3686517206,2898065728,853044451,1172266101,3705015759,2882616665,651767980,1373503546,3369554304,3218104598,565507253,1454621731,3485111705,3099436303,671266974,1594198024,3322730930,2970347812,795835527,1483230225,3244367275,3060149565,1994146192,31158534,2563907772,4023717930,1907459465,112637215,2680153253,3904427059,2013776290,251722036,2517215374,3775830040,2137656763,141376813,2439277719,3865271297,1802195444,476864866,2238001368,4066508878,1812370925,453092731,2181625025,4111451223,1706088902,314042704,2344532202,4240017532,1658658271,366619977,2362670323,4224994405,1303535960,984961486,2747007092,3569037538,1256170817,1037604311,2765210733,3554079995,1131014506,879679996,2909243462,3663771856,1141124467,855842277,2852801631,3708648649,1342533948,654459306,3188396048,3373015174,1466479909,544179635,3110523913,3462522015,1591671054,702138776,2966460450,3352799412,1504918807,783551873,3082640443,3233442989,3988292384,2596254646,62317068,1957810842,3939845945,2647816111,81470997,1943803523,3814918930,2489596804,225274430,2053790376,3826175755,2466906013,167816743,2097651377,4027552580,2265490386,503444072,1762050814,4150417245,2154129355,426522225,1852507879,4275313526,2312317920,282753626,1742555852,4189708143,2394877945,397917763,1622183637,3604390888,2714866558,953729732,1340076626,3518719985,2797360999,1068828381,1219638859,3624741850,2936675148,906185462,1090812512,3747672003,2825379669,829329135,1181335161,3412177804,3160834842,628085408,1382605366,3423369109,3138078467,570562233,1426400815,3317316542,2998733608,733239954,1555261956,3268935591,3050360625,752459403,1541320221,2607071920,3965973030,1969922972,40735498,2617837225,3943577151,1913087877,83908371,2512341634,3803740692,2075208622,213261112,2463272603,3855990285,2094854071,198958881,2262029012,4057260610,1759359992,534414190,2176718541,4139329115,1873836001,414664567,2282248934,4279200368,1711684554,285281116,2405801727,4167216745,1634467795,376229701,2685067896,3608007406,1308918612,956543938,2808555105,3495958263,1231636301,1047427035,2932959818,3654703836,1088359270,936918e3,2847714899,3736837829,1202900863,817233897,3183342108,3401237130,1404277552,615818150,3134207493,3453421203,1423857449,601450431,3009837614,3294710456,1567103746,711928724,3020668471,3272380065,1510334235,755167117],t.t)
+B.MM=s([B.DY],t.sq)
+B.MN=s(["json"],t.s)
+B.MO=s([0,1996959894,3993919788,2567524794,124634137,1886057615,3915621685,2657392035,249268274,2044508324,3772115230,2547177864,162941995,2125561021,3887607047,2428444049,498536548,1789927666,4089016648,2227061214,450548861,1843258603,4107580753,2211677639,325883990,1684777152,4251122042,2321926636,335633487,1661365465,4195302755,2366115317,997073096,1281953886,3579855332,2724688242,1006888145,1258607687,3524101629,2768942443,901097722,1119000684,3686517206,2898065728,853044451,1172266101,3705015759,2882616665,651767980,1373503546,3369554304,3218104598,565507253,1454621731,3485111705,3099436303,671266974,1594198024,3322730930,2970347812,795835527,1483230225,3244367275,3060149565,1994146192,31158534,2563907772,4023717930,1907459465,112637215,2680153253,3904427059,2013776290,251722036,2517215374,3775830040,2137656763,141376813,2439277719,3865271297,1802195444,476864866,2238001368,4066508878,1812370925,453092731,2181625025,4111451223,1706088902,314042704,2344532202,4240017532,1658658271,366619977,2362670323,4224994405,1303535960,984961486,2747007092,3569037538,1256170817,1037604311,2765210733,3554079995,1131014506,879679996,2909243462,3663771856,1141124467,855842277,2852801631,3708648649,1342533948,654459306,3188396048,3373015174,1466479909,544179635,3110523913,3462522015,1591671054,702138776,2966460450,3352799412,1504918807,783551873,3082640443,3233442989,3988292384,2596254646,62317068,1957810842,3939845945,2647816111,81470997,1943803523,3814918930,2489596804,225274430,2053790376,3826175755,2466906013,167816743,2097651377,4027552580,2265490386,503444072,1762050814,4150417245,2154129355,426522225,1852507879,4275313526,2312317920,282753626,1742555852,4189708143,2394877945,397917763,1622183637,3604390888,2714866558,953729732,1340076626,3518719985,2797360999,1068828381,1219638859,3624741850,2936675148,906185462,1090812512,3747672003,2825379669,829329135,1181335161,3412177804,3160834842,628085408,1382605366,3423369109,3138078467,570562233,1426400815,3317316542,2998733608,733239954,1555261956,3268935591,3050360625,752459403,1541320221,2607071920,3965973030,1969922972,40735498,2617837225,3943577151,1913087877,83908371,2512341634,3803740692,2075208622,213261112,2463272603,3855990285,2094854071,198958881,2262029012,4057260610,1759359992,534414190,2176718541,4139329115,1873836001,414664567,2282248934,4279200368,1711684554,285281116,2405801727,4167216745,1634467795,376229701,2685067896,3608007406,1308918612,956543938,2808555105,3495958263,1231636301,1047427035,2932959818,3654703836,1088359270,936918e3,2847714899,3736837829,1202900863,817233897,3183342108,3401237130,1404277552,615818150,3134207493,3453421203,1423857449,601450431,3009837614,3294710456,1567103746,711928724,3020668471,3272380065,1510334235,755167117],t.t)
 B.qQ=s([0,1,3,7,15,31,63,127,255],t.t)
-B.MS=s([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15],t.t)
-B.MT=s(["media"],t.s)
+B.MT=s([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15],t.t)
+B.MU=s(["media"],t.s)
 B.fy=s([B.d5,B.bV,B.hp,B.hq,B.hr],t.QP)
 B.bd=new A.hl(0,"photo")
 B.aO=new A.hl(1,"video")
 B.b4=new A.hl(2,"gopro")
 B.be=new A.hl(3,"drone")
 B.cQ=s([B.bd,B.aO,B.b4,B.be],A.al("E<hl>"))
-B.MV=s([3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258],t.t)
-B.MW=s([1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577],t.t)
-B.MY=s([0,0.28,0.62,1],t.n)
+B.MW=s([3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258],t.t)
+B.MX=s([1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577],t.t)
+B.MZ=s([0,0.28,0.62,1],t.n)
 B.Lf=s([0.001200833568784504,0.002389694492170889,0.0002795742885861124],t.n)
-B.Mj=s([0.0005891086651375999,0.0029785502573438758,0.0003270666104008398],t.n)
+B.Mk=s([0.0005891086651375999,0.0029785502573438758,0.0003270666104008398],t.n)
 B.Lv=s([0.00010146692491640572,0.0005364214359186694,0.0032979401770712076],t.n)
-B.N0=s([B.Lf,B.Mj,B.Lv],t.zg)
-B.N1=s([45,95,45,20,45,90,45,45,45],t.n)
-B.N2=s([120,120,20,45,20,15,20,120,120],t.n)
-B.a2r=new A.aB("1.0.108","1.0.107 derleme d\xfczeltmesi: web\u2019de eksik import; Android Gradle 9.3.1 (Flutter minimum). iPhone klas\xf6r/disk taramas\u0131 bu s\xfcr\xfcmle yay\u0131nda.","1.0.107 build fix: missing web import; Android Gradle 9.3.1 (Flutter minimum). iPhone folder/disk scan ships in this release.","1.0.107 Build-Fix: fehlender Web-Import; Android Gradle 9.3.1 (Flutter-Minimum). iPhone Ordner/Disk-Scan in dieser Version live.")
-B.a2S=new A.aB("1.0.107","iPhone (Safari / Ana Ekran): Kaynaklar\u2019a \xabKlas\xf6r / disk (Dosyalar)\xbb eklendi \u2014 iOS 18.4+ Dosyalar se\xe7icisiyle harici HDD/USB klas\xf6r\xfc ve alt klas\xf6rleri tarayabilirsiniz; klas\xf6rdeki GPX/KML de otomatik iz olarak al\u0131n\u0131r. (Tak\u0131l\u0131nca otomatik de\u011fil; her seferinde klas\xf6r se\xe7ilir.)","iPhone (Safari / Home Screen): Sources now has \u201cFolder / disk (Files)\u201d \u2014 on iOS 18.4+ the Files picker can scan an external HDD/USB folder and subfolders; GPX/KML inside are imported as tracks automatically. (Not auto-on-plug; you pick the folder each time.)","iPhone (Safari / Home-Bildschirm): Quellen haben \u201eOrdner / Disk (Dateien)\u201c \u2014 unter iOS 18.4+ kann der Dateien-Dialog externe HDD/USB-Ordner inkl. Unterordner scannen; GPX/KML darin werden automatisch als Tracks \xfcbernommen. (Nicht automatisch beim Anstecken; Ordner jeweils w\xe4hlen.)")
-B.a1P=new A.aB("1.0.106","Performans: k\xfc\xe7\xfck pin/grid \xf6nizlemeleri art\u0131k tam \xe7\xf6z\xfcn\xfcrl\xfck yerine k\xfc\xe7\xfclt\xfclm\xfc\u015f decode ediliyor \u2014 binlerce medyal\u0131 k\xfct\xfcphanede bellek ve tak\u0131lma riskini d\xfc\u015f\xfcr\xfcr. Haritada gezinirken (pan) \u0131s\u0131 pinleri art\u0131k t\xfcm ekran\u0131 de\u011fil, yaln\u0131zca kendi dar katman\u0131n\u0131 yeniden \xe7iziyor.","Performance: small pin/grid thumbnails now decode at a reduced size instead of full resolution - cuts memory and jank risk in large libraries. Panning the map now only redraws the heat-pin layer itself, not the whole screen.","Performance: Kleine Pin-/Grid-Vorschauen werden jetzt verkleinert statt in voller Aufl\xf6sung dekodiert - reduziert Speicher- und Ruckelrisiko bei gro\xdfen Bibliotheken. Beim Verschieben der Karte wird nur noch die W\xe4rme-Pin-Ebene neu gezeichnet, nicht der ganze Bildschirm.")
-B.a38=new A.aB("1.0.105",'A\xe7\u0131l\u0131\u015ftaki otomatik g\xfcncelleme kontrol\xfc art\u0131k tamamen sessiz: yeni bir s\xfcr\xfcm bulunca "G\xfcncelleme var, ister misin?" diye sormadan direkt indirip uyguluyor (Android\'de kurulum an\u0131nda Android\'in kendi kurulum onay ekran\u0131 yine de \xe7\u0131kar - bunu hi\xe7bir uygulama atlayamaz). Ayarlar\'daki elle "G\xfcncellemeleri kontrol et" h\xe2l\xe2 soruyor.','The automatic launch-time update check is now fully silent: when it finds a newer version, it downloads and applies it right away instead of asking "Update available, install it?" (on Android, the system\'s own install-confirmation screen still appears - no app can skip that). The manual "Check for updates" in Settings still asks first.','Die automatische Update-Pr\xfcfung beim Start ist jetzt v\xf6llig lautlos: Wird eine neuere Version gefunden, wird sie sofort heruntergeladen und angewendet, statt zu fragen "Update verf\xfcgbar, installieren?" (unter Android erscheint weiterhin der systemeigene Installationsbest\xe4tigungsbildschirm - das kann keine App umgehen). Die manuelle "Nach Updates suchen" in den Einstellungen fragt weiterhin zuerst.')
-B.a2t=new A.aB("1.0.104","Web 404 d\xfczeltmesi: GitHub Pages site kapal\u0131yken resmi Actions da\u011f\u0131t\u0131m\u0131 d\xfc\u015f\xfcyordu. Art\u0131k gh-pages dal\u0131na yay\u0131nlan\u0131yor ve workflow siteyi yeniden a\xe7may\u0131 deniyor.","Web 404 fix: official Actions deploy failed while GitHub Pages was disabled. Now publishes to the gh-pages branch and the workflow tries to re-enable the site.","Web-404-Fix: Offizielles Actions-Deploy scheiterte, solange GitHub Pages deaktiviert war. Jetzt Ver\xf6ffentlichung auf gh-pages; der Workflow versucht, die Site wieder zu aktivieren.")
-B.a2Q=new A.aB("1.0.103","Web (GitHub Pages) yeniden yay\u0131nland\u0131: site kapal\u0131 kald\u0131\u011f\u0131 i\xe7in 404 veriyordu \u2014 resmi Pages da\u011f\u0131t\u0131m\u0131yla a\xe7\u0131l\u0131yor.","Web (GitHub Pages) republished: the site was disabled and returned 404 \u2014 now deployed with the official Pages action.","Web (GitHub Pages) neu ver\xf6ffentlicht: Die Site war deaktiviert und lieferte 404 \u2014 jetzt mit der offiziellen Pages-Aktion.")
-B.a20=new A.aB("1.0.102",'GPX/KML i\xe7e aktarma bazen sessizce hi\xe7bir \u015fey yapm\u0131yordu: taray\u0131c\u0131n\u0131n dosya se\xe7me penceresinde "cancel" olay\u0131, ger\xe7ekten bir dosya se\xe7ilmi\u015f olsa bile "change" olay\u0131ndan \xf6nce tetiklenebiliyordu; bu da se\xe7imi sessizce "hi\xe7bir \u015fey se\xe7ilmedi" say\u0131p yutuyordu. Art\u0131k sabit bir gecikme yerine, ger\xe7ek se\xe7im gelene kadar (en fazla ~2sn) kontrol tekrarlan\u0131yor.','GPX/KML import sometimes silently did nothing: the browser\'s file picker could fire its "cancel" event before the real "change" event even when a file was actually picked, silently swallowing the selection as "nothing chosen". Now it keeps re-checking (up to ~2s) until the real selection arrives instead of guessing a fixed delay.','Der GPX/KML-Import tat manchmal stillschweigend nichts: Der "cancel"-Event des Datei-Dialogs im Browser konnte vor dem echten "change"-Event ausgel\xf6st werden, selbst wenn tats\xe4chlich eine Datei ausgew\xe4hlt wurde, wodurch die Auswahl stillschweigend als "nichts gew\xe4hlt" verworfen wurde. Jetzt wird so lange erneut gepr\xfcft (bis zu ~2s), bis die echte Auswahl eintrifft, statt eine feste Verz\xf6gerung zu raten.')
-B.a3k=new A.aB("1.0.101",'Zorunlu g\xfcncelleme kilit ekran\u0131 kald\u0131r\u0131ld\u0131 \u2014 art\u0131k her g\xfcncelleme RideAtlas tarz\u0131: tek seferlik "G\xfcncelleme var" sorusu, ard\u0131ndan indirme arka planda s\xfcrerken haritay\u0131 hi\xe7 kilitlemiyor. \u0130ndirme y\xfczdesi art\u0131k alttaki durum \xe7ubu\u011funda g\xf6r\xfcn\xfcyor.','Removed the mandatory-update lock screen \u2014 every update is now RideAtlas-style: a one-time "Update available" prompt, then the download runs in the background without ever locking the map. Download percentage now shows in the bottom status chip.','Der Sperrbildschirm f\xfcr Pflicht-Updates wurde entfernt \u2014 jedes Update l\xe4uft jetzt im RideAtlas-Stil: eine einmalige Abfrage "Update verf\xfcgbar", danach l\xe4uft der Download im Hintergrund, ohne die Karte zu sperren. Der Download-Prozentsatz erscheint jetzt im unteren Statuschip.')
-B.a1O=new A.aB("1.0.100","En uzak zoom art\u0131k ekran geni\u015fli\u011fine tam d\xfcnyay\u0131 (360\xb0) s\u0131\u011fd\u0131r\u0131yor \u2014 gerekirse kutuplar \xfcstten/alttan kesilir. Bu zoom\u2019da sa\u011fa-sola kayd\u0131rma yine a\xe7\u0131k (\xf6nce yak\u0131nla\u015ft\u0131rma \u015fart de\u011fil).","Max zoom-out now fits the full world width (360\xb0) to the screen \u2014 poles may be cropped top/bottom if needed. Panning left/right stays enabled at that zoom (no need to zoom in first).","Maximaler Zoom-out passt jetzt die volle Weltbreite (360\xb0) auf den Bildschirm \u2014 Pole k\xf6nnen oben/unten beschnitten werden. Schwenken links/rechts bleibt auf diesem Zoom m\xf6glich (kein vorheriges Reinzoomen n\xf6tig).")
-B.a2y=new A.aB("1.0.99","Pine t\u0131klay\u0131nca \xf6nizleme art\u0131k yaln\u0131zca o k\xfcmenin birka\xe7 medyas\u0131n\u0131 de\u011fil, o an haritada g\xf6r\xfcnen T\xdcM medyay\u0131 listeliyor (harita g\xf6r\xfcn\xfcm\xfc bozulmadan).","Tapping a pin now previews ALL media currently visible on the map, not just the few items in that cluster \u2014 without zooming the map away.","Tippen auf einen Pin zeigt jetzt ALLE aktuell auf der Karte sichtbaren Medien in der Vorschau, nicht nur die wenigen des Clusters \u2014 ohne die Karte wegzuzoomen.")
-B.a3c=new A.aB("1.0.98","G\xfcncelleme: kurulum ekran\u0131 a\xe7\u0131l\u0131nca eski s\xfcre\xe7 art\u0131k tamamen kapan\u0131yor (g\xf6rev listesinden de silinir). Harita en uzak zoom\u2019da s\xfcr\xfcklenince u\xe7larda tak\u0131l\u0131p z\u0131plama hissi giderildi \u2014 tek d\xfcnya ortalan\u0131r, pan kilitlenir; yak\u0131nla\u015f\u0131nca yine kayd\u0131r\u0131labilir.","Update: when the installer opens, the old process now fully exits (also removed from recents). At max zoom-out, edge pan jitter is gone \u2014 the single world stays centered and panning locks until you zoom back in.","Update: Beim \xd6ffnen des Installers beendet sich der alte Prozess jetzt vollst\xe4ndig (auch aus den Letzten Apps). Beim maximalen Herauszoomen kein Kanten-Ruckeln mehr \u2014 die eine Welt bleibt zentriert, Schwenken ist gesperrt bis zum Reinzoomen.")
-B.a1U=new A.aB("1.0.97","\u0130z ismi etiketi ekran kenar\u0131nda kesiliyordu \u2014 art\u0131k ekran i\xe7inde kalacak \u015fekilde kayd\u0131r\u0131l\u0131yor.","Track name labels were clipped at the screen edge \u2014 they now stay fully inside the viewport.","Track-Namensschilder wurden am Bildschirmrand abgeschnitten \u2014 sie bleiben jetzt vollst\xe4ndig im sichtbaren Bereich.")
-B.a2Z=new A.aB("1.0.96",'Haritay\u0131 k\xfc\xe7\xfclt\xfcnce yan yana birden fazla d\xfcnya a\xe7\u0131lmas\u0131 engellendi \u2014 en uzak zoom art\u0131k ekran\u0131n s\u0131\u011fd\u0131rabildi\u011fi tek d\xfcnyan\u0131n tamam\u0131. "S\u0131\u011fd\u0131r" da ayn\u0131 tek-d\xfcnya taban\u0131na sayg\u0131 duyuyor.','Pinching out no longer tiles multiple worlds side by side \u2014 the farthest zoom is now exactly one full world that fits the screen. "Fit all" respects that same single-world floor.',"Herauszoomen zeigt keine mehreren Welten nebeneinander mehr \u2014 der weiteste Zoom ist genau eine volle Welt, die auf den Bildschirm passt. \u201eAlles einpassen\u201c respektiert dieselbe Ein-Welt-Untergrenze.")
-B.a2q=new A.aB("1.0.95",'"S\u0131\u011fd\u0131r" tu\u015fu d\xfcnya kenar-k\u0131s\u0131t\u0131 y\xfcz\xfcnden geni\u015f yay\u0131lan iz/medyay\u0131 (\xf6r. Amerika + Tayland) dikey telefonda hi\xe7 s\u0131\u011fd\u0131ram\u0131yordu \u2014 kamera art\u0131k yaln\u0131zca merkezi d\xfcnyada tutuyor; t\xfcm g\xf6r\xfcn\xfcr iz ve medya tek bak\u0131\u015fta s\u0131\u011fd\u0131r\u0131l\u0131yor.','"Fit all" could not fit widely spread tracks/media (e.g. America + Thailand) on a tall phone because the world edge constraint blocked the required zoom-out \u2014 the camera now only keeps its center in the world, so every visible track and media item fits in one view.','"Alles einpassen" konnte weit verstreute Tracks/Medien (z. B. Amerika + Thailand) auf einem hohen Telefon nicht einpassen, weil die Welt-Randbegrenzung den n\xf6tigen Zoom-out blockierte \u2014 die Kamera h\xe4lt jetzt nur noch ihren Mittelpunkt in der Welt, sodass alle sichtbaren Tracks und Medien in eine Ansicht passen.')
-B.a2l=new A.aB("1.0.94",'Android g\xfcncellemesi: kurulum ekran\u0131 a\xe7\u0131ld\u0131ktan sonra eski s\xfcre\xe7 art\u0131k kendini kapat\u0131yor \u2014 eskisine geri d\xf6n\xfclm\xfcyor. "S\u0131\u011fd\u0131r" tu\u015fu, harita zaten hedefteyken de reddedilmi\u015f say\u0131p anlams\u0131zca t\xfcm d\xfcnyaya zumluyordu \u2014 d\xfczeltildi. \u0130z art\u0131k sadece rozetinden de\u011fil, \xe7izginin herhangi bir noktas\u0131ndan da isim etiketini a\xe7\u0131p kapat\u0131yor. Bir pine t\u0131klay\u0131nca \xf6nizleme, t\u0131klanan tek medya yerine o an haritada g\xf6z\xfcken T\xdcM medyayla a\xe7\u0131l\u0131yor; \xf6nizleme kapan\u0131nca harita, k\xfcme i\xe7in zumlamadan \xf6nceki h\xe2line d\xf6n\xfcyor.','Android update: after the installer opens, the old process now closes itself instead of leaving you back in the stale version. "Fit all" was treating an already-on-target map as a rejection and zooming out to the whole world for no reason \u2014 fixed. Tracks now toggle their name label from any point along the line, not just the small badge. Tapping a pin now opens the preview with ALL media currently visible on the map, not just the one tapped; closing the preview returns the map to its view from before it zoomed into that cluster.','Android-Update: Nach dem \xd6ffnen des Installers beendet sich der alte Prozess jetzt selbst, statt in der alten Version zu bleiben. "Alles einpassen" behandelte eine bereits am Ziel befindliche Karte f\xe4lschlich als abgelehnt und zoomte grundlos auf die ganze Welt \u2014 behoben. Tracks zeigen ihr Namensschild jetzt bei Tipp auf einen beliebigen Punkt der Linie, nicht nur auf das kleine Abzeichen. Tippen auf einen Pin \xf6ffnet die Vorschau jetzt mit ALLEN aktuell auf der Karte sichtbaren Medien statt nur dem angetippten; beim Schlie\xdfen kehrt die Karte zur Ansicht vor dem Einzoomen in den Cluster zur\xfcck.')
-B.a2u=new A.aB("1.0.93",'"S\u0131\u011fd\u0131r" geni\u015f enlem/boylam yay\u0131l\u0131m\u0131nda (\xf6r. Amerika + Tayland + Avrupa) dar telefon ekran\u0131nda ortal\u0131yor ama kenarlardaki izleri d\u0131\u015far\u0131da b\u0131rak\u0131yordu \u2014 enlemi d\xfcnya s\u0131n\u0131r\u0131nda tutan zoom, boylam\u0131 s\u0131\u011fd\u0131rmak i\xe7in gerekenden daha yak\u0131n kal\u0131yordu. \u0130deal s\u0131\u011fd\u0131rma reddedilirse art\u0131k her noktay\u0131 kapsayan t\xfcm-d\xfcnya g\xf6r\xfcn\xfcm\xfcne d\xfc\u015f\xfcyor.','"Fit all" on a very wide spread (e.g. America + Thailand + Europe) centered on a narrow phone screen but left the edge tracks out of view \u2014 the zoom that kept latitude within world bounds stayed too close-in to also fit the longitude spread. When the ideal fit is rejected it now falls back to a whole-world view that always covers every point.','"Alles einpassen" bei sehr weiter Streuung (z. B. Amerika + Thailand + Europa) zentrierte auf einem schmalen Telefonbildschirm, lie\xdf aber die Tracks am Rand au\xdfen vor \u2014 der Zoom, der die Breite innerhalb der Weltgrenzen hielt, blieb zu nah, um auch die L\xe4ngengrad-Streuung einzupassen. Wird die ideale Einpassung abgelehnt, f\xe4llt es jetzt auf eine Weltansicht zur\xfcck, die immer jeden Punkt abdeckt.')
-B.a33=new A.aB("1.0.92","G\xfcncelleme: kurulumdan d\xf6n\xfcnce ayn\u0131 s\xfcr\xfcm\xfc tekrar tekrar \xf6nermiyordu; her zaman do\u011frudan en son APK (ara s\xfcr\xfcm yok).","Updates: no more re-prompting the same version after install; always jumps straight to the latest APK (skips intermediates).","Updates: dieselbe Version nach der Installation nicht erneut anbieten; immer direkt die neueste APK (Zwischenversionen \xfcberspringen).")
-B.a31=new A.aB("1.0.91","Zum / s\u0131\u011fd\u0131r ikonu: d\xfcnya-k\u0131s\u0131t\u0131 ideal zoom\u2019u reddedince harita hi\xe7 k\u0131p\u0131rdam\u0131yordu \u2014 art\u0131k en uygun zoom\u2019a d\xfc\u015f\xfcp yine s\u0131\u011fd\u0131r\u0131yor.","Fit/zoom icon: when the world-repeat guard rejected the ideal zoom the map did nothing \u2014 now climbs to the nearest allowed zoom and still fits.","Einpassen/Zoom: Wenn die Welt-Wiederholungsbegrenzung den Idealzoom ablehnte, bewegte sich die Karte nicht \u2014 jetzt zum n\xe4chsten erlaubten Zoom und trotzdem einpassen.")
-B.a2o=new A.aB("1.0.90","Uygulama ad\u0131 yeniden MediaAtlas oldu. \u0130z \xe7izgisindeki a\u015f\u0131r\u0131 ekran-\xfcst\xfc sadele\u015ftirme (2.5\u21920.4) da\u011f ge\xe7idi gibi virajl\u0131 yollarda k\xf6\u015feleri kesip yolu takip etmeyen kaba bir \xe7izgi b\u0131rak\u0131yordu \u2014 d\xfczeltildi. G\xf6r\xfcnt\xfcleyicide foto\u011fraf/video silme tu\u015fu eklendi. \u0130z rozetine t\u0131klay\u0131nca ismi bir etiket kutusunda g\xf6sterir, tekrar t\u0131klay\u0131nca gizler. Medya/iz/konum/t\xfcr a\xe7\u0131l\u0131r kutular\u0131 art\u0131k d\u0131\u015far\u0131ya t\u0131klay\u0131nca kapan\u0131yor.","App name is MediaAtlas again. Track lines had overly aggressive on-screen simplification (2.5\u21920.4) that cut corners on winding roads like mountain passes into a blocky line not following the road \u2014 fixed. Added a delete button in the media viewer. Tapping a track badge now shows its name in a label; tapping again hides it. The media/track/location/kind dropdown panels now close on an outside tap.","Der App-Name ist wieder MediaAtlas. Die Bildschirm-Vereinfachung der Track-Linien war zu aggressiv (2.5\u21920.4) und schnitt bei kurvenreichen Stra\xdfen wie Bergp\xe4ssen Ecken ab, sodass die Linie der Stra\xdfe nicht folgte \u2014 behoben. L\xf6sch-Button im Medienbetrachter hinzugef\xfcgt. Tippen auf ein Track-Abzeichen zeigt jetzt den Namen in einem Label; erneutes Tippen blendet ihn aus. Die Dropdown-Felder f\xfcr Medien/Tracks/Standort/Art schlie\xdfen sich jetzt bei einem Tipp au\xdferhalb.")
-B.a1Y=new A.aB("1.0.89",'"S\u0131\u011fd\u0131r" h\xe2l\xe2 d\xfcnya \xe7ap\u0131nda yay\u0131lan veriyi tam g\xf6steremiyordu: b\xfcy\xfck dolgu (\xf6zellikle \xfcst bo\u015fluk), d\xfcnya-tekrar\u0131n\u0131 \xf6nleyen k\u0131s\u0131tla \xe7ak\u0131\u015f\u0131p gereken uzakla\u015fmay\u0131 engelliyordu. S\u0131n\u0131rlar zaten d\xfcnya \xf6l\xe7e\u011fine yak\u0131nsa dolgu otomatik azal\u0131yor.','"Fit all" still couldn\'t fully show world-spanning data: the large padding (especially the top gap) conflicted with the world-repeat guard, blocking the zoom-out it needed. Padding now shrinks automatically when the bounds are already near world scale.','"Alles einpassen" zeigte weltweit verteilte Daten immer noch nicht vollst\xe4ndig: der gro\xdfe Abstand (besonders oben) kollidierte mit dem Schutz gegen Weltwiederholung und blockierte das n\xf6tige Herauszoomen. Abstand schrumpft jetzt automatisch, wenn die Grenzen schon Weltma\xdfstab haben.')
-B.a35=new A.aB("1.0.88","\"S\u0131\u011fd\u0131r\", d\xfcnya \xe7ap\u0131nda yay\u0131lan izleri (\xf6r. Amerika + Tayland + Avrupa) tam g\xf6steremiyordu \u2014 1.0.84'te d\xfcnya tekrar\u0131n\u0131 \xf6nlemek i\xe7in eklenen sabit minZoom, gereken d\xfc\u015f\xfck zoom'u engelliyordu. Kald\u0131r\u0131ld\u0131.",'"Fit all" couldn\'t show tracks spread across the whole world (e.g. America + Thailand + Europe) - the fixed minZoom added in 1.0.84 to stop the world repeating was blocking the lower zoom that fit needed. Removed.','"Alles einpassen" konnte weltweit verteilte Tracks (z. B. Amerika + Thailand + Europa) nicht vollst\xe4ndig zeigen \u2014 der in 1.0.84 gegen die Weltwiederholung hinzugef\xfcgte feste minZoom blockierte den daf\xfcr n\xf6tigen niedrigeren Zoom. Entfernt.')
-B.a21=new A.aB("1.0.87","\xc7ok say\u0131da iz a\xe7\u0131kken hepsi ayn\u0131 renkti \u2014 art\u0131k her iz farkl\u0131, birbirinden ay\u0131rt edilebilir bir renk al\u0131yor.","With many tracks visible, they all had the same color \u2014 each track now gets a distinct, easy-to-tell-apart color.","Bei vielen sichtbaren Tracks hatten alle dieselbe Farbe \u2014 jeder Track bekommt jetzt eine eigene, gut unterscheidbare Farbe.")
-B.a2K=new A.aB("1.0.86","\u0130z \xe7izimi \xe7ok kaba kal\u0131yordu: haritan\u0131n kendi katman\u0131, 30 iz a\xe7\u0131kken tavan\u0131 500 noktaya kadar d\xfc\u015f\xfcr\xfcyordu (eski kaba algoritmayla ayn\u0131 sonu\xe7). O ikinci s\u0131n\u0131rlama kald\u0131r\u0131ld\u0131 \u2014 RideAtlas gibi tek sadele\u015ftirme katman\u0131 kald\u0131.","Track lines were still very coarse: the map's own display layer was capping each track down to as low as 500 points when many tracks were visible at once (same result as the old crude algorithm). Removed that second cap \u2014 one simplification layer now, like RideAtlas.","Track-Linien blieben sehr grob: Die eigene Anzeigeebene der Karte begrenzte jeden Track bei vielen sichtbaren Tracks auf bis zu 500 Punkte (gleiches Ergebnis wie der alte grobe Algorithmus). Diese zweite Begrenzung entfernt \u2014 jetzt nur noch eine Vereinfachungsebene wie bei RideAtlas.")
-B.a2f=new A.aB("1.0.85",'iPhone\'da GPX/KML se\xe7iciyi a\xe7\u0131nca gereksiz "Foto\u011fraf Kitapl\u0131\u011f\u0131" / "Video \xc7ek" se\xe7enekleri \xe7\u0131k\u0131yordu \u2014 art\u0131k sadece dosya se\xe7ici geliyor.','Opening the GPX/KML picker on iPhone showed unnecessary "Photo Library" / "Take Photo or Video" options \u2014 now only the file browser opens.','Der GPX/KML-Dateiausw\xe4hler auf dem iPhone zeigte unn\xf6tige Optionen \u201eFotomediathek" / \u201eFoto oder Video aufnehmen" \u2014 jetzt \xf6ffnet sich nur die Dateiauswahl.')
-B.a3f=new A.aB("1.0.84","Haritay\u0131 \xe7ok k\xfc\xe7\xfclt\xfcnce d\xfcnya yan yana tekrar tekrar \xe7\u0131k\u0131yordu \u2014 art\u0131k tek d\xfcnyada kilitli.","Zooming the map way out repeated the world side by side \u2014 now locked to a single world view.","Beim starken Herauszoomen wiederholte sich die Welt nebeneinander \u2014 jetzt auf eine einzelne Weltansicht begrenzt.")
-B.a2Y=new A.aB("1.0.83","\u0130z \xe7izimi RideAtlas gibi k\xf6\u015fe koruyarak inceltiliyor (sabit indeks-ad\u0131m\u0131 k\xf6\u015feleri siliyordu); pan/zoom s\u0131ras\u0131nda yeniden \xe7izilmiyor (iz listesi de\u011fi\u015fmedik\xe7e).","Track lines now thin RideAtlas-style, keeping corners (fixed-step decimation was erasing them); no longer rebuilt during pan/zoom (only when the track set itself changes).","Track-Linien d\xfcnnen jetzt wie RideAtlas aus, Ecken bleiben erhalten (festes Indexraster l\xf6schte sie); kein Neuzeichnen bei Pan/Zoom (nur wenn sich die Track-Liste \xe4ndert).")
-B.a27=new A.aB("1.0.82","1.0.67\u20131.0.81 aras\u0131 geri al\u0131nd\u0131 (3D d\xfcnya, pin stilleri, ekran ortas\u0131 \u015ferit vb.) \u2014 yava\u015fl\u0131k ve gerek duyulmamas\u0131 nedeniyle 1.0.66 taban\u0131na d\xf6n\xfcld\xfc.","Reverted 1.0.67\u20131.0.81 (3D globe, pin styles, media strip, etc.) \u2014 rolled back to the 1.0.66 baseline due to slowness and no longer being needed.","1.0.67\u20131.0.81 zur\xfcckgesetzt (3D-Globus, Pin-Stile, Medienleiste usw.) \u2014 wegen Verlangsamung und Nichtbedarf auf 1.0.66-Basis zur\xfcckgekehrt.")
-B.a25=new A.aB("1.0.66","Harita pan/zoom kilitlenmesi: \u0131s\u0131 pinleri hareket s\u0131ras\u0131nda gizlenir; izler sadele\u015ftirildi.","Map pan/zoom freeze: hide heat pins while moving; lighter track polylines.","Karten-Pan/Zoom-Freeze: Heat-Pins beim Bewegen aus; leichtere Track-Linien.")
-B.a2I=new A.aB("1.0.65","Telefon tarama \xf6zeti: Konumlular\u0131 / Konumsuzlar\u0131 G\xf6ster; rapor a\xe7\u0131k kal\u0131r.","Phone scan report: Show Located / Show Missing; report stays open.","Telefon-Scan-Bericht: Mit / Ohne Standort zeigen; Bericht bleibt offen.")
-B.a2_=new A.aB("1.0.64","Telefonda GX012490 gibi GoPro b\xf6l\xfcm adlar\u0131 + .THM: GoPro ve derin GPMF GPS.","Phone GX012490-style GoPro chapter names: GoPro kind + deep GPMF GPS.","Telefon GX012490 GoPro-Kapitelnamen: GoPro-Art + tiefes GPMF-GPS.")
-B.a37=new A.aB("1.0.63","Web deploy d\xfczeltmesi; GPS arka planda harita a\xe7\u0131k; g\xfcncelleme metni sade; eski s\xfcr\xfcm kapan\u0131r.","Web deploy fix; map live during GPS retry; simpler update text; old app exits.","Web-Deploy-Fix; Karte bei GPS-Retry live; k\xfcrzerer Update-Text; alte App beendet.")
-B.a2b=new A.aB("1.0.62","\u0130z s\u0131ras\u0131 yaln\u0131zca GPX/KML rota zaman\u0131na g\xf6re; y\xfckleme tarihi kullan\u0131lmaz.","Track order uses GPX/KML route time only; import date ignored.","Track-Reihenfolge nur nach GPX/KML-Routenzeit; Importdatum ignoriert.")
-B.a2J=new A.aB("1.0.61","Eski yumu\u015fak \u0131s\u0131 haritas\u0131 geri; rota rozeti k\xfc\xe7\xfck ve lekelerin \xfcst\xfcnde.","Restored soft heat blobs; smaller route badge above heat markers.","Weiche Heat-Blobs zur\xfcck; kleineres Routen-Badge \xfcber Heat-Markern.")
-B.a2G=new A.aB("1.0.60","\u0130zler listesi: rota tarihine g\xf6re yeniden eskiye (GPX saati).","Tracks list: newest-to-oldest by route date (GPX time).","Track-Liste: nach Routendatum absteigend (GPX-Zeit).")
-B.a2e=new A.aB("1.0.59","Android DJI: galeri .SRT GPS + HEVC oynatma d\xfczeltmesi.","Android DJI: gallery .SRT GPS + HEVC playback fix.","Android DJI: Galerie-.SRT-GPS + HEVC-Wiedergabe.")
-B.a2C=new A.aB("1.0.58","Konumum d\xfczeltmesi; a\xe7\u0131l\u0131\u015fta hafif telefon taramas\u0131 + \xf6zet; \xabyeni medya bulundu\xbb.","My-location fix; startup light phone scan + summary; \xabnew media found\xbb copy.","Standort-Fix; leichter Start-Scan + Zusammenfassung; \xabneue Medien\xbb Text.")
-B.a26=new A.aB("1.0.57","\u0130zler listesi: en son kay\u0131t edilen \xfcstte.","Tracks list: newest registered first.","Track-Liste: neueste Registrierung oben.")
-B.a2E=new A.aB("1.0.56","G\xfcncelleme arka planda + uyar\u0131; harita k\xfcme \xf6nbelle\u011fi / iz sadele\u015ftirme (ANR).","Background update + banner; map cluster cache / track downsample (ANR).","Update im Hintergrund + Hinweis; Cluster-Cache / Track-Downsample (ANR).")
-B.a1Z=new A.aB("1.0.55","GPS yeniden dene arka planda + rapor; GX telefon videosu (yanl\u0131\u015f GoPro d\xfczeltmesi); tarama h\u0131zland\u0131.","GPS retry in background + report; GX phone videos (not false GoPro); faster scan.","GPS-Retry im Hintergrund + Bericht; GX-Handyvideos (kein falsches GoPro); schneller Scan.")
-B.a1T=new A.aB("1.0.54","G\xfcncelleme diyalo\u011fu: Sizin / G\xfcncel s\xfcr\xfcm; uzun a\xe7\u0131klama kald\u0131r\u0131ld\u0131.","Update dialog: Yours / Latest versions; drop long copy.","Update-Dialog: Ihre / Aktuelle Version; langer Text weg.")
-B.a3j=new A.aB("1.0.53","Birle\u015fik: uygulama i\xe7i video; h\u0131zl\u0131 telefon tarama; Tamam \xf6zeti; konumum; k\xfcmede yana kayd\u0131rma.","Combined: in-app video; fast phone scan; OK summary; my location; cluster swipe.","Kombi: In-App-Video; schneller Telefonscan; OK-Zusammenfassung; Standort; Cluster-Wischen.")
-B.a2p=new A.aB("1.0.52","T\xfcm telefon: kay\u0131tl\u0131 atla + GPS; \xf6zet Tamam; izler d\u0131\u015far\u0131 t\u0131k; GPX\u2260galeri; konumum butonu.","Whole phone skip+GPS; OK dialog; tracks outside-tap; GPX\u2260gallery; my-location button.","Telefon skip+GPS; OK-Dialog; Spuren Au\xdfentipp; GPX\u2260Galerie; Mein-Standort-Button.")
-B.a3m=new A.aB("1.0.51","Android: telefon videolar\u0131 content URI ile uygulama i\xe7inde; codec olmazsa sistem oynat\u0131c\u0131.","Android: play phone videos in-app via content URI; system player if codec fails.","Android: Telefonvideos per content URI in-App; Systemplayer bei Codec-Fehler.")
-B.a2v=new A.aB("1.0.50","\xc7oklu GPX; se\xe7ici already_active d\xfczeltmesi; izler haritada ad\u0131m ad\u0131m; yinelenen rota uyar\u0131s\u0131 1 sn.","Multi GPX; fix picker already_active; progressive map add; 1s duplicate toast.","Mehrere GPX; already_active behoben; schrittweise Karte; 1s Duplikat-Hinweis.")
-B.a23=new A.aB("1.0.49","Drive \u2260 Google Foto netle\u015ftirildi; OAuth yoksa k\u0131sa yard\u0131m; Foto i\xe7in T\xfcm telefon.","Clarify Drive \u2260 Google Photos; short OAuth help; use Whole phone for Photos.","Drive \u2260 Google Fotos klar; kurze OAuth-Hilfe; Fotos = Ganzes Telefon.")
-B.a2V=new A.aB("1.0.48","\u0130z \xfcst\xfc medya: 2.5 km + segment; zaman (\xb12s) ile GPS\u2019siz GoPro yerle\u015ftirilir.","On-track media: 2.5 km + segments; time (\xb12h) places GPS-less GoPros.","Medien auf Spur: 2,5 km + Segmente; Zeit (\xb12h) platziert GoPros ohne GPS.")
-B.a29=new A.aB("1.0.47","\u0130z kutusu=harita; T\xfcm\xfc yeterli; k\xfc\xe7\xfck net pinler; iz \xfczerindeki / gizle medya.","Track checkbox=map; All only; smaller pins; media on-track / hide filters.","Spur-Checkbox=Karte; nur Alle; kleinere Pins; Medien auf Spur / ausblenden.")
-B.a28=new A.aB("1.0.46","Harita kayd\u0131r/zoom: izler pan s\u0131ras\u0131nda yeniden \xe7izilmez (RideAtlas gibi ANR yok).","Map pan/zoom: tracks not rebuilt during gestures (no ANR, like RideAtlas).","Karte schwenken/zoomen: Spuren nicht neu gebaut (kein ANR, wie RideAtlas).")
-B.a2U=new A.aB("1.0.45","GPS yeniden dene: arka planda (ANR yok); GoPro dosya sonu GPMF; t\xfcr chip\u2019leriyle ayr\u0131 tara.","GPS retry: background (no ANR); GoPro end-of-file GPMF; per-kind via chips.","GPS-Retry: Hintergrund (kein ANR); GoPro GPMF am Dateiende; je Typ per Chip.")
-B.a1S=new A.aB("1.0.44","S\u0131\u011fd\u0131r: kuzey yukar\u0131 + tam ekran; izler k\xfc\xe7\xfck zoom\u2019da kal\u0131n \xe7izgi + rozet.","Fit-all: north-up + fill screen; tracks thick + badge at low zoom.","Einpassen: Norden oben; Spuren bei Zoom-out dick + Badge.")
-B.a2i=new A.aB("1.0.43","Yeniden tara \xe7ift ekleme yok: sabit telefon kayna\u011f\u0131 + asset id anahtar\u0131.","Rescan no longer doubles media: stable phone source + asset-id key.","Neu-Scan verdoppelt Medien nicht: stabile Telefon-Quelle + Asset-ID.")
-B.a2w=new A.aB("1.0.42","\u0130ptal tu\u015fu: dilimli okuma + s\u0131k kontrol \u2014 gecikme azal\u0131r; belirgin \u0130ptal butonu.","Cancel: chunked reads + frequent checks \u2014 less delay; clearer Cancel button.","Abbruch: st\xfcckweises Lesen + h\xe4ufige Checks \u2014 weniger Verz\xf6gerung.")
-B.a1V=new A.aB("1.0.41","GPS yeniden dene: denenmi\u015fleri atlar (ANR yok); yeniden tara yaln\u0131zca yenileri; iptal h\u0131zl\u0131; zorunlu g\xfcncelleme kapal\u0131.","GPS retry skips already-tried (no ANR); rescan only new; faster cancel; force-update off.","GPS-Retry \xfcberspringt Gepr\xfcfte (kein ANR); Neu-Scan nur neue; schneller Abbruch; Zwangsupdate aus.")
-B.a3h=new A.aB("1.0.40","Uzant\u0131s\u0131z Drive GPX\u2019leri tan\u0131r (iPhone+Android); i\xe7erikten parse.","Recognizes extensionless Drive GPX (iPhone+Android); parse by content.","Erkennt GPX ohne Endung (Drive) auf iPhone+Android; Inhalt-Parse.")
-B.a1W=new A.aB("1.0.39","GPX: Galeri de\u011fil Dosyalar; Android/iPhone medya butonlar\u0131 ayr\u0131ld\u0131; net hata metni.","GPX: Files not Gallery; Android/iPhone media buttons split; clearer errors.","GPX: Dateien statt Galerie; Android/iPhone-Medien getrennt; klare Fehler.")
-B.a2m=new A.aB("1.0.38","\u0130zler men\xfcs\xfc: \xe7oklu se\xe7im (biri/hepsi); b\xfcy\xfck GPX okuma + do\u011fru hata mesaj\u0131.","Tracks menu: multi-select (one/all); large GPX read + honest error messages.","Spur-Men\xfc: Mehrfachauswahl; gro\xdfe GPX-Dateien + klare Fehlermeldungen.")
-B.a3b=new A.aB("1.0.37","G\xfcncelleme ekran\u0131: tam ekran b\xfcy\xfck y\xfczde (RideAtlas/GPX tarz\u0131).","Update screen: full-screen large percent (RideAtlas/GPX style).","Update-Bildschirm: gro\xdfer Prozentwert im Vollbild (RideAtlas/GPX-Stil).")
-B.a3d=new A.aB("1.0.36","Tek tu\u015f g\xfcncelleme: ara s\xfcr\xfcm yok, do\u011frudan en son APK; indirmede y\xfczde g\xf6sterilir.","One-tap update: jump straight to latest APK (no intermediate versions); download shows %.","Ein-Tipp-Update: direkt neueste APK (keine Zwischenversionen); Download zeigt %.")
-B.a2B=new A.aB("1.0.35","Sabit indirme: android-latest/MedyaAtlas.apk; web ayn\u0131 adrese yaz\u0131l\u0131r (s\xfcr\xfcm klas\xf6r\xfc yok).","Stable download: android-latest/MedyaAtlas.apk; web overwrites same URL (no version folders).","Fester Download: android-latest/MedyaAtlas.apk; Web \xfcberschreibt dieselbe URL.")
-B.a2M=new A.aB("1.0.34","GPX se\xe7icide yaln\u0131zca Dosyalar (galeri/kamera yok); web videolar uygulama i\xe7inde oynar.","GPX picker shows Files only (no gallery/camera); web videos play in-app.","GPX-Auswahl nur Dateien (keine Galerie/Kamera); Web-Videos in der App.")
-B.a2D=new A.aB("1.0.33","GPX/KML se\xe7ici d\xfczeltmesi (\xf6zellikle iPhone Safari); dosya filtresi engeli kald\u0131r\u0131ld\u0131.","GPX/KML picker fix (esp. iPhone Safari); no longer blocked by file filters.","GPX/KML-Auswahl korrigiert (bes. iPhone Safari); Dateifilter blockiert nicht mehr.")
-B.a2c=new A.aB("1.0.32","GPX/KML/KMZ iz y\xfckleme; kaynaklar: Klas\xf6r, Galeri, T\xfcm telefon, Google Drive.","GPX/KML/KMZ track import; sources: Folder, Gallery, Whole phone, Google Drive.","GPX/KML/KMZ-Track-Import; Quellen: Ordner, Galerie, Ganzes Telefon, Google Drive.")
-B.a3g=new A.aB("1.0.31","Kaynaklar sade: Klas\xf6r/Galeri/Telefon; her kaynakta \xabyeniden tara\xbb.","Sources simplified: Folder/Gallery/Phone; sync on each source to rescan.","Quellen vereinfacht: Ordner/Galerie/Telefon; Sync pro Quelle zum erneuten Scannen.")
-B.a2a=new A.aB("1.0.30","G\xfcncelleme d\xf6ng\xfcs\xfc: uygulama art\u0131k cache d\u0131\u015f\u0131 /r/1.0.30/ yolundan a\xe7\u0131l\u0131r (28\u219429 tak\u0131lmas\u0131).","Update loop fix: app opens from cache-bust path /r/1.0.30/ (stops 28\u219429 bounce).","Update-Schleife: App startet \xfcber Cache-freien Pfad /r/1.0.30/.")
-B.a2P=new A.aB("1.0.29","iPhone g\xfcncelleme tak\u0131lmas\u0131: go.html temiz giri\u015f; Ana Ekran ikonunu silip Safari\u2019den go.html a\xe7\u0131n.","iPhone update stuck: clean go.html entry; delete Home Screen icon and open go.html in Safari.","iPhone-Update h\xe4ngt: sauberer go.html-Einstieg; Home-Screen-Icon l\xf6schen und go.html in Safari \xf6ffnen.")
-B.a3a=new A.aB("1.0.28","Zorunlu g\xfcncelleme iPhone\u2019da ger\xe7ekten yeniler: SW/cache temizlenir, eski main.dart.js tak\u0131lmaz.","Forced update really refreshes on iPhone: clears SW/cache so old main.dart.js cannot stick.","Zwangsupdate aktualisiert auf iPhone wirklich: SW/Cache wird geleert, altes main.dart.js bleibt nicht h\xe4ngen.")
-B.a2W=new A.aB("1.0.27","Web g\xfcncelleme: canl\u0131 version.json da kontrol edilir (yaln\u0131zca Pages deploy yetmez diye uyar\u0131 ka\xe7mas\u0131n).","Web updates: also checks live version.json so a Pages-only deploy still prompts.","Web-Updates: pr\xfcft auch live version.json, damit Pages-Deploy allein warnt.")
-B.a3l=new A.aB("1.0.26","\xd6l\xfc blob URL yok: sekmeyi kapat\u0131nca k\u0131r\u0131k ikon yerine \xabyeniden se\xe7in\xbb; blob indeksine yaz\u0131lmaz.","No dead blob URLs: after closing the tab you get \u201creselect\u201d, not a broken icon; blobs stay out of the index.","Keine toten Blob-URLs: nach Tab-Schlie\xdfung \u201eerneut ausw\xe4hlen\u201c statt kaputtem Icon; Blobs nicht im Index.")
-B.a2s=new A.aB("1.0.25","B\xfcy\xfck k\xfct\xfcphanede Galeri'den ekleme art\u0131k yava\u015flam\u0131yor.","Adding from Gallery no longer slows down as your library grows.","Hinzuf\xfcgen aus der Galerie wird bei gro\xdfer Bibliothek nicht mehr langsam.")
-B.a2H=new A.aB("1.0.24","\xabYeniden dene\xbb art\u0131k web/iPhone\u2019da da \xe7al\u0131\u015f\u0131yor \u2014 dosya se\xe7im oturumundan GPS okur.","\u201cRetry\u201d now works on web/iPhone too \u2014 reads GPS from the in-session file.","\u201eErneut versuchen\u201c funktioniert jetzt auch im Web/iPhone \u2014 liest GPS aus der Sitzungsdatei.")
-B.a2N=new A.aB("1.0.23","Web video: yava\u015f uygulama i\xe7i player yok \u2014 do\u011frudan Safari\u2019de a\xe7\u0131l\u0131r.","Web video: skip slow in-app player \u2014 opens in Safari immediately.","Web-Video: kein langsamer In-App-Player \u2014 sofort in Safari.")
-B.a2g=new A.aB("1.0.22","Web video se\xe7imi: OK sonras\u0131 dosya okunmaz; blob/GPS/\xf6nizleme ertelenir.","Web video pick: no file reads after OK; blob/GPS/preview deferred.","Web-Video: nach OK keine Dateilesung; Blob/GPS/Vorschau sp\xe4ter.")
-B.a2T=new A.aB("1.0.21","Tek video OK sonras\u0131 bekleme yok; \xabkopyalanmad\u0131\xbb yaz\u0131s\u0131 kald\u0131r\u0131ld\u0131.","No wait after OK for a single video; removed \u201cnot copied\u201d status text.","Kein Warten nach OK bei einem Video; \u201enicht kopiert\u201c-Text entfernt.")
-B.a3_=new A.aB("1.0.20","Web: OK sonras\u0131 an\u0131nda ekle; GPS arka planda (bekleme yok).","Web: add instantly after OK; GPS in background (no long wait).","Web: sofort nach OK hinzuf\xfcgen; GPS im Hintergrund.")
-B.a1Q=new A.aB("1.0.19","Dosya kopyas\u0131 yok: yaln\u0131zca indeks; eski Hive medya kopyalar\u0131 silindi.","No file copies: index only; cleared old Hive media copies.","Keine Dateikopien: nur Index; alte Hive-Medienkopien gel\xf6scht.")
-B.a2d=new A.aB("1.0.18","Web: \xe7oklu se\xe7im donmas\u0131 azalt\u0131ld\u0131; HEIC \xf6nizleme; GoPro HEVC i\xe7in Safari\u2019de a\xe7.","Web: faster multi-select; HEIC thumbs; open GoPro HEVC in Safari.","Web: schnellere Mehrfachauswahl; HEIC-Vorschau; GoPro-HEVC in Safari.")
-B.a2X=new A.aB("1.0.17","GPS\u2019siz medya listesi \xfcst \xe7ubu\u011fun arkas\u0131nda kalm\u0131yor; ba\u015fl\u0131k alt\u0131nda a\xe7\u0131k liste.","No-GPS media list no longer hides behind the top bar; clear list below header.","Medien ohne GPS nicht mehr hinter der Leiste; klare Liste unter dem Header.")
-B.a30=new A.aB("1.0.16","iPhone: Favori/galeri se\xe7imi Safari\u2019de i\xe7eri al\u0131n\u0131r; Se\xe7\u2192i\u015faretle\u2192Ekle (video oynatmadan).","iPhone: Favorites/gallery selection imports on Safari; Select\u2192tap\u2192Add (no video play).","iPhone: Favoriten/Galerie-Auswahl in Safari; Ausw\xe4hlen\u2192tippen\u2192Hinzuf\xfcgen.")
-B.a2A=new A.aB("1.0.15","iPhone web: \xf6nizleme, foto/video oynatma ve GPS okuma (blob + Hive bayt).","iPhone web: preview, photo/video playback and GPS (blob + Hive bytes).","iPhone-Web: Vorschau, Foto/Video-Wiedergabe und GPS (Blob + Hive).")
-B.a1N=new A.aB("1.0.14","Favoriler (t\xfcm\xfc) Android/iOS uygulamas\u0131nda; web\u2019de \xe7oklu se\xe7im rehberi.","Add all Favorites on Android/iOS app; guided multi-select on web.","Alle Favoriten in der Android/iOS-App; Mehrfachauswahl-Hilfe im Web.")
-B.a1R=new A.aB("1.0.13","Haritada \u0131s\u0131 lekesi; t\u0131klan\u0131nca dairesel foto pin + tarihe g\xf6re medya paneli.","Heat blobs on the map; tap shows circular photo pin + date-grouped media panel.","Heat-Blobs auf der Karte; Tippen zeigt Foto-Pin + nach Datum gruppierte Medien.")
-B.a1X=new A.aB("1.0.12","Ana Ekrana/Desktop\u2019a Ekle i\xe7in k\xf6k apple-touch-icon (eski Flutter ikonu kalkar).","Root apple-touch-icon for Add to Home/Desktop (removes old Flutter icon).","Root-apple-touch-icon f\xfcr \u201eZum Home/Desktop\u201c (altes Flutter-Icon weg).")
-B.a2F=new A.aB("1.0.11","MedyaAtlas marka ikonu (web/iPhone); web\u2019de g\xfcncelleme kontrol\xfc + sayfa yenileme.","MedyaAtlas brand icons for web/iPhone; web update check + page reload.","MedyaAtlas-Markensymbol f\xfcr Web/iPhone; Web-Updatepr\xfcfung + Seitenreload.")
-B.a2R=new A.aB("1.0.10","iPhone web \xf6nbelle\u011fi temizlendi; GitHub Pages\u2019te g\xfcncel Flutter s\xfcr\xfcm\xfc.","Cleared iPhone web cache; GitHub Pages serves the current Flutter build.","iPhone-Web-Cache geleert; GitHub Pages liefert den aktuellen Flutter-Build.")
-B.a34=new A.aB("1.0.9","\u0130ptal alt tarama \xe7ubu\u011funda; b\xfcy\xfck diskte DCIM/GoPro/DJI \xf6nce ve GPS okuma; iPhone i\xe7in web (dosya se\xe7ici).","Cancel on bottom scan bar; prioritize DCIM/GoPro/DJI + GPS on large disks; web for iPhone file pick.","Abbruch in der unteren Scan-Leiste; DCIM/GoPro/DJI zuerst + GPS; Web f\xfcr iPhone-Dateiauswahl.")
-B.a22=new A.aB("1.0.8","SD kart Android/data izin hatas\u0131 atlan\u0131r; tarama DCIM ve di\u011fer klas\xf6rlerde devam eder.","Skip SD Android/data permission errors; scan continues in DCIM and other folders.","SD Android/data-Berechtigungsfehler \xfcberspringen; Scan in DCIM u. a. weiter.")
-B.a24=new A.aB("1.0.7","SD / harici disk taramas\u0131 h\u0131zland\u0131; UI kilitlenmesi azalt\u0131ld\u0131. GPS derin tarama \u201cyeniden dene\u201d ile.","Faster SD/external disk scanning; less UI freeze. Deep GPS via retry missing.","Schnellerer SD-/Externspeicher-Scan; weniger UI-Einfrieren. Tiefes GPS \xfcber erneutes Pr\xfcfen.")
-B.a32=new A.aB("1.0.6","2 s\xfcr\xfcm geride kalan cihazlarda zorunlu g\xfcncelleme; aksi halde uygulama kullan\u0131lamaz.","Force update when two or more versions behind; otherwise the app cannot be used.","Zwangsupdate bei zwei oder mehr Versionen R\xfcckstand; sonst ist die App nicht nutzbar.")
-B.a2h=new A.aB("1.0.5","Release derlemesi d\xfczeltildi (video_thumbnail kald\u0131r\u0131ld\u0131); g\xfcncelleme 1.0.x\u2019e \xe7\u0131kar. K\xfc\xe7\xfck hata d\xfczeltmeleri.","Fixed release build (removed video_thumbnail); updates reach 1.0.x. Minor bug fixes.","Release-Build behoben (video_thumbnail entfernt); Updates erreichen 1.0.x. Kleine Fehlerkorrekturen.")
-B.a36=new A.aB("1.0.4","Videolar telefonda d\xfc\u011fmesiz otomatik oynar; gerekirse telefon oynat\u0131c\u0131s\u0131 a\xe7\u0131l\u0131r. K\xfc\xe7\xfck hata d\xfczeltmeleri.","Videos auto-play on phone without a play button; falls back to the phone player if needed. Minor bug fixes.","Videos starten auf dem Telefon automatisch ohne Play-Button; sonst Telefon-Player. Kleine Fehlerkorrekturen.")
-B.a3i=new A.aB("1.0.3","Telefonda GoPro/DJI i\xe7in \u201cTelefonda oynat\u201d; Windows ifadesi kald\u0131r\u0131ld\u0131. K\xfc\xe7\xfck hata d\xfczeltmeleri.","Phone playback label for GoPro/DJI on Android; removed Windows wording. Minor bug fixes.","Wiedergabe auf dem Telefon f\xfcr GoPro/DJI unter Android; Windows-Text entfernt. Kleine Fehlerkorrekturen.")
-B.a2k=new A.aB("1.0.2","SD kart / harici disk tarama; disk \xe7\u0131k\u0131nca pinler gizlenir, tak\u0131l\u0131nca geri gelir. K\xfc\xe7\xfck hata d\xfczeltmeleri.","Scan SD card / external disk; pins hide when removed and return on remount. Minor bug fixes.","SD-Karte / externe Festplatte scannen; Pins ausblenden beim Entfernen, zur\xfcck beim erneuten Anschlie\xdfen. Kleine Fehlerkorrekturen.")
-B.a2L=new A.aB("1.0.1","GoPro GPMF ve DJI SRT/konum okuma; Android\u2019de GoPro/DJI video oynatma. K\xfc\xe7\xfck hata d\xfczeltmeleri.","GoPro GPMF and DJI SRT/location reading; GoPro/DJI playback on Android. Minor bug fixes.","GoPro-GPMF- und DJI-SRT/Standortlesung; GoPro/DJI-Wiedergabe auf Android. Kleine Fehlerkorrekturen.")
-B.a2x=new A.aB("1.0.0","Video \u0131zgaras\u0131nda ilk kare \xf6nizleme; ayarlarda s\xfcr\xfcm ge\xe7mi\u015fi; geli\u015ftiren ad\u0131 sabit kredi. K\xfc\xe7\xfck hata d\xfczeltmeleri.","First-frame video thumbnails in the grid; version history in settings; fixed developer credit. Minor bug fixes.","Erste-Frame-Vorschaubilder f\xfcr Videos; Versionsverlauf in den Einstellungen; fester Entwicklername. Kleine Fehlerkorrekturen.")
-B.a3e=new A.aB("0.8.0","Marka odakl\u0131 aray\xfcz; T\xfcrk\xe7e / \u0130ngilizce / Almanca; yard\u0131m; harita t\xfcrleri; ayarlar.","Brand-focused UI; Turkish / English / German; help; map layers; settings.","Markenorientierte Oberfl\xe4che; T\xfcrkisch / Englisch / Deutsch; Hilfe; Kartenebenen; Einstellungen.")
-B.a2O=new A.aB("0.7.9","Harita odakl\u0131 ana ekran; a\xe7\u0131l\u0131\u015fta otomatik g\xfcncelleme kontrol\xfc.","Map-first home screen; automatic update check on launch.","Kartenorientierter Startbildschirm; automatische Update-Pr\xfcfung beim Start.")
-B.a39=new A.aB("0.7.8","Sabit APK imzas\u0131 \u2014 g\xfcncelleme i\xe7in uygulamay\u0131 silmeye gerek yok.","Stable APK signing \u2014 updates without uninstalling.","Stabile APK-Signatur \u2014 Updates ohne Neuinstallation.")
-B.a2n=new A.aB("0.7.6","T\xfcm telefon medya taramas\u0131; GPS konum okuma iyile\u015ftirmeleri.","Full-phone media scan; GPS location reading improvements.","Vollst\xe4ndiger Telefon-Medienscan; verbesserte GPS-Standortlesung.")
-B.a2z=new A.aB("0.7.3","Uygulama i\xe7i GitHub Releases g\xfcncellemesi (Android + Windows).","In-app updates from GitHub Releases (Android + Windows).","In-App-Updates \xfcber GitHub Releases (Android + Windows).")
-B.a2j=new A.aB("0.7.1","Windows zip s\xfcr\xfcm\xfc ve indirme ba\u011flant\u0131lar\u0131.","Windows zip release and download links.","Windows-Zip-Release und Download-Links.")
-B.N3=s([B.a2r,B.a2S,B.a1P,B.a38,B.a2t,B.a2Q,B.a20,B.a3k,B.a1O,B.a2y,B.a3c,B.a1U,B.a2Z,B.a2q,B.a2l,B.a2u,B.a33,B.a31,B.a2o,B.a1Y,B.a35,B.a21,B.a2K,B.a2f,B.a3f,B.a2Y,B.a27,B.a25,B.a2I,B.a2_,B.a37,B.a2b,B.a2J,B.a2G,B.a2e,B.a2C,B.a26,B.a2E,B.a1Z,B.a1T,B.a3j,B.a2p,B.a3m,B.a2v,B.a23,B.a2V,B.a29,B.a28,B.a2U,B.a1S,B.a2i,B.a2w,B.a1V,B.a3h,B.a1W,B.a2m,B.a3b,B.a3d,B.a2B,B.a2M,B.a2D,B.a2c,B.a3g,B.a2a,B.a2P,B.a3a,B.a2W,B.a3l,B.a2s,B.a2H,B.a2N,B.a2g,B.a2T,B.a3_,B.a1Q,B.a2d,B.a2X,B.a30,B.a2A,B.a1N,B.a1R,B.a1X,B.a2F,B.a2R,B.a34,B.a22,B.a24,B.a32,B.a2h,B.a36,B.a3i,B.a2k,B.a2L,B.a2x,B.a3e,B.a2O,B.a39,B.a2n,B.a2z,B.a2j],A.al("E<aB>"))
+B.N1=s([B.Lf,B.Mk,B.Lv],t.zg)
+B.N2=s([45,95,45,20,45,90,45,45,45],t.n)
+B.N3=s([120,120,20,45,20,15,20,120,120],t.n)
 B.AX=new A.ak(0,0)
 B.SB=new A.ak(0,1)
 B.SE=new A.ak(1,0)
@@ -119525,7 +119526,7 @@ B.lZ=new A.j(8589935092)
 B.m_=new A.j(8589935094)
 B.OL=new A.ajq("longPress")
 B.eB=new A.dg(B.a7,B.u)
-B.a5k=new A.y4(1,null,B.eB)
+B.a5l=new A.y4(1,null,B.eB)
 B.Q=new A.D(0,0,0,0)
 B.OM=new A.lL(B.h,B.Q,B.Q,B.Q)
 B.aa=new A.pC(0,"start")
@@ -120113,7 +120114,7 @@ B.me=new A.c7(B.aW,[],A.al("c7<n,@>"))
 B.x_=new A.c7(B.aW,[],A.al("c7<HT,@>"))
 B.Pp=new A.c7(B.aW,[],A.al("c7<hs,dm>"))
 B.wX=new A.c7(B.aW,[],A.al("c7<hs,tr<dm>>"))
-B.a5l=new A.c7(B.aW,[],A.al("c7<k,im>"))
+B.a5m=new A.c7(B.aW,[],A.al("c7<k,im>"))
 B.KN=s([42,null,null,8589935146],t.Z)
 B.KO=s([43,null,null,8589935147],t.Z)
 B.KP=s([45,null,null,8589935149],t.Z)
@@ -120129,57 +120130,57 @@ B.L0=s([54,null,null,8589935158],t.Z)
 B.L1=s([55,null,null,8589935159],t.Z)
 B.L2=s([56,null,null,8589935160],t.Z)
 B.L4=s([57,null,null,8589935161],t.Z)
-B.LZ=s([8589934852,8589934852,8589934853,null],t.Z)
+B.M_=s([8589934852,8589934852,8589934853,null],t.Z)
 B.KC=s([4294967555,null,4294967555,null],t.Z)
 B.KD=s([4294968065,null,null,8589935154],t.Z)
 B.KE=s([4294968066,null,null,8589935156],t.Z)
 B.KF=s([4294968067,null,null,8589935158],t.Z)
 B.KG=s([4294968068,null,null,8589935160],t.Z)
 B.KL=s([4294968321,null,null,8589935157],t.Z)
-B.M_=s([8589934848,8589934848,8589934849,null],t.Z)
+B.M0=s([8589934848,8589934848,8589934849,null],t.Z)
 B.KB=s([4294967423,null,null,8589935150],t.Z)
 B.KH=s([4294968069,null,null,8589935153],t.Z)
 B.KA=s([4294967309,null,null,8589935117],t.Z)
 B.KI=s([4294968070,null,null,8589935159],t.Z)
 B.KM=s([4294968327,null,null,8589935152],t.Z)
-B.M0=s([8589934854,8589934854,8589934855,null],t.Z)
+B.M1=s([8589934854,8589934854,8589934855,null],t.Z)
 B.KJ=s([4294968071,null,null,8589935155],t.Z)
 B.KK=s([4294968072,null,null,8589935161],t.Z)
-B.M1=s([8589934850,8589934850,8589934851,null],t.Z)
-B.x1=new A.bJ(["*",B.KN,"+",B.KO,"-",B.KP,".",B.KQ,"/",B.KR,"0",B.KS,"1",B.KT,"2",B.KW,"3",B.KY,"4",B.KZ,"5",B.L_,"6",B.L0,"7",B.L1,"8",B.L2,"9",B.L4,"Alt",B.LZ,"AltGraph",B.KC,"ArrowDown",B.KD,"ArrowLeft",B.KE,"ArrowRight",B.KF,"ArrowUp",B.KG,"Clear",B.KL,"Control",B.M_,"Delete",B.KB,"End",B.KH,"Enter",B.KA,"Home",B.KI,"Insert",B.KM,"Meta",B.M0,"PageDown",B.KJ,"PageUp",B.KK,"Shift",B.M1],A.al("bJ<n,K<k?>>"))
+B.M2=s([8589934850,8589934850,8589934851,null],t.Z)
+B.x1=new A.bJ(["*",B.KN,"+",B.KO,"-",B.KP,".",B.KQ,"/",B.KR,"0",B.KS,"1",B.KT,"2",B.KW,"3",B.KY,"4",B.KZ,"5",B.L_,"6",B.L0,"7",B.L1,"8",B.L2,"9",B.L4,"Alt",B.M_,"AltGraph",B.KC,"ArrowDown",B.KD,"ArrowLeft",B.KE,"ArrowRight",B.KF,"ArrowUp",B.KG,"Clear",B.KL,"Control",B.M0,"Delete",B.KB,"End",B.KH,"Enter",B.KA,"Home",B.KI,"Insert",B.KM,"Meta",B.M1,"PageDown",B.KJ,"PageUp",B.KK,"Shift",B.M2],A.al("bJ<n,K<k?>>"))
 B.L3=s([B.r_,null,null,B.wG],t.L)
-B.MF=s([B.ws,null,null,B.wH],t.L)
+B.MG=s([B.ws,null,null,B.wH],t.L)
 B.LE=s([B.wt,null,null,B.wI],t.L)
-B.M4=s([B.wu,null,null,B.dw],t.L)
+B.M5=s([B.wu,null,null,B.dw],t.L)
 B.Kq=s([B.wv,null,null,B.wJ],t.L)
-B.MZ=s([B.ww,null,null,B.m1],t.L)
-B.MR=s([B.wx,null,null,B.fI],t.L)
+B.N_=s([B.ww,null,null,B.m1],t.L)
+B.MS=s([B.wx,null,null,B.fI],t.L)
 B.Ld=s([B.wy,null,null,B.dx],t.L)
 B.N7=s([B.wz,null,null,B.fJ],t.L)
-B.MQ=s([B.wA,null,null,B.dy],t.L)
+B.MR=s([B.wA,null,null,B.dy],t.L)
 B.L9=s([B.wB,null,null,B.m2],t.L)
 B.Kx=s([B.wC,null,null,B.dz],t.L)
 B.Lp=s([B.wD,null,null,B.fK],t.L)
-B.MG=s([B.wE,null,null,B.dA],t.L)
-B.MI=s([B.wF,null,null,B.fL],t.L)
+B.MH=s([B.wE,null,null,B.dA],t.L)
+B.MJ=s([B.wF,null,null,B.fL],t.L)
 B.Lg=s([B.fG,B.fG,B.iG,null],t.L)
-B.N_=s([B.iD,null,B.iD,null],t.L)
+B.N0=s([B.iD,null,B.iD,null],t.L)
 B.LK=s([B.cd,null,null,B.dx],t.L)
 B.LL=s([B.c2,null,null,B.dy],t.L)
 B.LM=s([B.c3,null,null,B.dz],t.L)
 B.N4=s([B.ce,null,null,B.dA],t.L)
-B.MO=s([B.lX,null,null,B.m2],t.L)
+B.MP=s([B.lX,null,null,B.m2],t.L)
 B.Lh=s([B.ee,B.ee,B.fF,null],t.L)
-B.Mf=s([B.b2,null,null,B.dw],t.L)
+B.Mg=s([B.b2,null,null,B.dw],t.L)
 B.LN=s([B.dt,null,null,B.fI],t.L)
 B.L8=s([B.iC,null,null,B.m0],t.L)
 B.LO=s([B.du,null,null,B.fK],t.L)
-B.MP=s([B.fE,null,null,B.m1],t.L)
+B.MQ=s([B.fE,null,null,B.m1],t.L)
 B.Li=s([B.fH,B.fH,B.iH,null],t.L)
 B.LP=s([B.fC,null,null,B.fJ],t.L)
-B.Mk=s([B.fD,null,null,B.fL],t.L)
+B.Ml=s([B.fD,null,null,B.fL],t.L)
 B.Lj=s([B.cR,B.cR,B.dv,null],t.L)
-B.Pr=new A.bJ(["*",B.L3,"+",B.MF,"-",B.LE,".",B.M4,"/",B.Kq,"0",B.MZ,"1",B.MR,"2",B.Ld,"3",B.N7,"4",B.MQ,"5",B.L9,"6",B.Kx,"7",B.Lp,"8",B.MG,"9",B.MI,"Alt",B.Lg,"AltGraph",B.N_,"ArrowDown",B.LK,"ArrowLeft",B.LL,"ArrowRight",B.LM,"ArrowUp",B.N4,"Clear",B.MO,"Control",B.Lh,"Delete",B.Mf,"End",B.LN,"Enter",B.L8,"Home",B.LO,"Insert",B.MP,"Meta",B.Li,"PageDown",B.LP,"PageUp",B.Mk,"Shift",B.Lj],A.al("bJ<n,K<j?>>"))
+B.Pr=new A.bJ(["*",B.L3,"+",B.MG,"-",B.LE,".",B.M5,"/",B.Kq,"0",B.N_,"1",B.MS,"2",B.Ld,"3",B.N7,"4",B.MR,"5",B.L9,"6",B.Kx,"7",B.Lp,"8",B.MH,"9",B.MJ,"Alt",B.Lg,"AltGraph",B.N0,"ArrowDown",B.LK,"ArrowLeft",B.LL,"ArrowRight",B.LM,"ArrowUp",B.N4,"Clear",B.MP,"Control",B.Lh,"Delete",B.Mg,"End",B.LN,"Enter",B.L8,"Home",B.LO,"Insert",B.MQ,"Meta",B.Li,"PageDown",B.LP,"PageUp",B.Ml,"Shift",B.Lj],A.al("bJ<n,K<j?>>"))
 B.Ps=new A.bJ([1,"sRGB",2,"Adobe RGB",65535,"Uncalibrated"],t.g)
 B.Pt=new A.bJ([1,"Film Scanner",2,"Reflection Print Scanner",3,"Digital Camera"],t.g)
 B.Pu=new A.bJ([1,"Not Absolute",2,"Pixels/Inch",3,"Pixels/Centimeter"],t.g)
@@ -120190,12 +120191,12 @@ B.Pw=new A.bJ([1,"Horizontal (normal)",2,"Mirrored horizontal",3,"Rotated 180",4
 B.Px=new A.bJ([0,"Standard",1,"Landscape",2,"Portrait",3,"Night]"],t.g)
 B.Q5={"zh-Hant":0,"zh-TW":1,"zh-MO":2,"zh-HK":3,ja:4,ko:5,zh:6,"zh-Hans":7,"zh-CN":8}
 B.lP=s(["Noto Sans TC"],t.s)
-B.M7=s(["Noto Sans HK","Noto Sans TC"],t.s)
+B.M8=s(["Noto Sans HK","Noto Sans TC"],t.s)
 B.L6=s(["Noto Sans JP"],t.s)
 B.Ky=s(["Noto Sans KR"],t.s)
 B.qH=s(["Noto Sans SC"],t.s)
 B.Nb=s(["Noto Sans SC","Noto Sans TC"],t.s)
-B.iQ=new A.c7(B.Q5,[B.lP,B.lP,B.lP,B.M7,B.L6,B.Ky,B.qH,B.qH,B.Nb],t.VJ)
+B.iQ=new A.c7(B.Q5,[B.lP,B.lP,B.lP,B.M8,B.L6,B.Ky,B.qH,B.qH,B.Nb],t.VJ)
 B.Q_={Abort:0,Again:1,AltLeft:2,AltRight:3,ArrowDown:4,ArrowLeft:5,ArrowRight:6,ArrowUp:7,AudioVolumeDown:8,AudioVolumeMute:9,AudioVolumeUp:10,Backquote:11,Backslash:12,Backspace:13,BracketLeft:14,BracketRight:15,BrightnessDown:16,BrightnessUp:17,BrowserBack:18,BrowserFavorites:19,BrowserForward:20,BrowserHome:21,BrowserRefresh:22,BrowserSearch:23,BrowserStop:24,CapsLock:25,Comma:26,ContextMenu:27,ControlLeft:28,ControlRight:29,Convert:30,Copy:31,Cut:32,Delete:33,Digit0:34,Digit1:35,Digit2:36,Digit3:37,Digit4:38,Digit5:39,Digit6:40,Digit7:41,Digit8:42,Digit9:43,DisplayToggleIntExt:44,Eject:45,End:46,Enter:47,Equal:48,Escape:49,Esc:50,F1:51,F10:52,F11:53,F12:54,F13:55,F14:56,F15:57,F16:58,F17:59,F18:60,F19:61,F2:62,F20:63,F21:64,F22:65,F23:66,F24:67,F3:68,F4:69,F5:70,F6:71,F7:72,F8:73,F9:74,Find:75,Fn:76,FnLock:77,GameButton1:78,GameButton10:79,GameButton11:80,GameButton12:81,GameButton13:82,GameButton14:83,GameButton15:84,GameButton16:85,GameButton2:86,GameButton3:87,GameButton4:88,GameButton5:89,GameButton6:90,GameButton7:91,GameButton8:92,GameButton9:93,GameButtonA:94,GameButtonB:95,GameButtonC:96,GameButtonLeft1:97,GameButtonLeft2:98,GameButtonMode:99,GameButtonRight1:100,GameButtonRight2:101,GameButtonSelect:102,GameButtonStart:103,GameButtonThumbLeft:104,GameButtonThumbRight:105,GameButtonX:106,GameButtonY:107,GameButtonZ:108,Help:109,Home:110,Hyper:111,Insert:112,IntlBackslash:113,IntlRo:114,IntlYen:115,KanaMode:116,KeyA:117,KeyB:118,KeyC:119,KeyD:120,KeyE:121,KeyF:122,KeyG:123,KeyH:124,KeyI:125,KeyJ:126,KeyK:127,KeyL:128,KeyM:129,KeyN:130,KeyO:131,KeyP:132,KeyQ:133,KeyR:134,KeyS:135,KeyT:136,KeyU:137,KeyV:138,KeyW:139,KeyX:140,KeyY:141,KeyZ:142,KeyboardLayoutSelect:143,Lang1:144,Lang2:145,Lang3:146,Lang4:147,Lang5:148,LaunchApp1:149,LaunchApp2:150,LaunchAssistant:151,LaunchControlPanel:152,LaunchMail:153,LaunchScreenSaver:154,MailForward:155,MailReply:156,MailSend:157,MediaFastForward:158,MediaPause:159,MediaPlay:160,MediaPlayPause:161,MediaRecord:162,MediaRewind:163,MediaSelect:164,MediaStop:165,MediaTrackNext:166,MediaTrackPrevious:167,MetaLeft:168,MetaRight:169,MicrophoneMuteToggle:170,Minus:171,NonConvert:172,NumLock:173,Numpad0:174,Numpad1:175,Numpad2:176,Numpad3:177,Numpad4:178,Numpad5:179,Numpad6:180,Numpad7:181,Numpad8:182,Numpad9:183,NumpadAdd:184,NumpadBackspace:185,NumpadClear:186,NumpadClearEntry:187,NumpadComma:188,NumpadDecimal:189,NumpadDivide:190,NumpadEnter:191,NumpadEqual:192,NumpadMemoryAdd:193,NumpadMemoryClear:194,NumpadMemoryRecall:195,NumpadMemoryStore:196,NumpadMemorySubtract:197,NumpadMultiply:198,NumpadParenLeft:199,NumpadParenRight:200,NumpadSubtract:201,Open:202,PageDown:203,PageUp:204,Paste:205,Pause:206,Period:207,Power:208,PrintScreen:209,PrivacyScreenToggle:210,Props:211,Quote:212,Resume:213,ScrollLock:214,Select:215,SelectTask:216,Semicolon:217,ShiftLeft:218,ShiftRight:219,ShowAllWindows:220,Slash:221,Sleep:222,Space:223,Super:224,Suspend:225,Tab:226,Turbo:227,Undo:228,WakeUp:229,ZoomToggle:230}
 B.A1=new A.C(458907)
 B.zI=new A.C(458873)
@@ -120598,7 +120599,7 @@ B.QY=new A.ue(1,null)
 B.QZ=new A.Uh(0,"portrait")
 B.R_=new A.Uh(1,"landscape")
 B.R0=new A.FD(null)
-B.a5m=new A.Um(0,"start")
+B.a5n=new A.Um(0,"start")
 B.R1=new A.Um(1,"end")
 B.xo=new A.aon(0,"max")
 B.R2=new A.Uo(0,"nearestOverlay")
@@ -120606,7 +120607,7 @@ B.R3=new A.Uo(1,"rootOverlay")
 B.R6=new A.FI(null)
 B.cS=new A.Uv(0,"fill")
 B.aG=new A.Uv(1,"stroke")
-B.a5n=new A.aoF(3,"free")
+B.a5o=new A.aoF(3,"free")
 B.R7=new A.pL(1/0)
 B.F=new A.Uz(0,"nonZero")
 B.R8=new A.Uz(1,"evenOdd")
@@ -120711,7 +120712,7 @@ B.B2=new A.asm(0,"englishLike")
 B.eE=new A.H3(0,"idle")
 B.mN=new A.H3(1,"forward")
 B.mO=new A.H3(2,"reverse")
-B.a5q=new A.uF(0,"explicit")
+B.a5r=new A.uF(0,"explicit")
 B.cx=new A.uF(1,"keepVisibleAtEnd")
 B.cy=new A.uF(2,"keepVisibleAtStart")
 B.B6=new A.z_(0,"left")
@@ -120812,9 +120813,9 @@ B.Us=new A.dG(B.PZ,105,t.fF)
 B.G6=new A.O(0.23529411764705882,0,0,0,B.i)
 B.Qi=new A.h(0,4)
 B.E0=new A.eD(0.5,B.dQ,B.G6,B.Qi,10)
-B.Mg=s([B.E0],t.sq)
+B.Mh=s([B.E0],t.sq)
 B.Te=new A.m6(B.kj,B.u)
-B.Ut=new A.iu(null,null,null,B.Mg,B.Te)
+B.Ut=new A.iu(null,null,null,B.Mh,B.Te)
 B.Uu=new A.ay(B.fE,!1,!0,!1,!1,B.o)
 B.BB=new A.ay(B.lV,!1,!1,!1,!0,B.o)
 B.Uv=new A.ay(B.qU,!0,!1,!1,!1,B.o)
@@ -120978,7 +120979,7 @@ B.Cf=new A.mc(B.n,null,B.aj,null,null,B.aj,B.ai,null)
 B.Cg=new A.mc(B.n,null,B.aj,null,null,B.ai,B.aj,null)
 B.Wb=new A.HW(null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.nk=new A.avP("tap")
-B.a5r=new A.avR(0,"dontCare")
+B.a5s=new A.avR(0,"dontCare")
 B.r=new A.qj(0,"alphabetic")
 B.a0=new A.qj(1,"ideographic")
 B.Wc=new A.I6(null)
@@ -121328,7 +121329,7 @@ B.Cv=new A.dC("Galeri (foto/video)",null,null,null,null,null,null)
 B.a0i=new A.dC("Sonra",null,null,null,null,null,null)
 B.a0j=new A.dC("T\xfcm medya",null,null,null,null,null,null)
 B.a0k=new A.dC("GPS yok",null,null,null,null,null,null)
-B.a5s=new A.awB(0,"system")
+B.a5t=new A.awB(0,"system")
 B.Qy=new A.h(0.056,0.024)
 B.QP=new A.h(0.108,0.3085)
 B.Qv=new A.h(0.198,0.541)
@@ -121475,28 +121476,28 @@ B.CL=new A.qv(B.h,0,B.t,B.h)
 B.nB=new A.qv(B.h,1,B.t,B.h)
 B.bq=new A.hY(B.h)
 B.cX=new A.axN(1,"down")
-B.a3n=new A.Yb(null)
-B.a3o=new A.qx(0,"initialized")
-B.a3p=new A.qx(1,"completed")
-B.a3q=new A.qx(2,"bufferingUpdate")
-B.a3r=new A.qx(3,"bufferingStart")
-B.a3s=new A.qx(4,"bufferingEnd")
+B.a3o=new A.Yb(null)
+B.a3p=new A.qx(0,"initialized")
+B.a3q=new A.qx(1,"completed")
+B.a3r=new A.qx(2,"bufferingUpdate")
+B.a3s=new A.qx(3,"bufferingStart")
+B.a3t=new A.qx(4,"bufferingEnd")
 B.CM=new A.qx(5,"isPlayingStateUpdate")
-B.a3t=new A.vb(B.t,B.t,B.ko,B.t,B.qL,!1,!1,!1,1,1,null,!1,B.S,0,!1)
-B.a5t=new A.ay4(0,"textureView")
+B.a3u=new A.vb(B.t,B.t,B.ko,B.t,B.qL,!1,!1,!1,1,1,null,!1,B.S,0,!1)
+B.a5u=new A.ay4(0,"textureView")
 B.CN=new A.IQ(0,"undefined")
 B.CO=new A.IQ(1,"forward")
-B.a3u=new A.IQ(2,"backward")
-B.a3v=new A.Yg(0,"unfocused")
+B.a3v=new A.IQ(2,"backward")
+B.a3w=new A.Yg(0,"unfocused")
 B.nC=new A.Yg(1,"focused")
 B.eK=new A.oc(0,0)
-B.a3y=new A.oc(-2,-2)
-B.a3z=new A.ayp(0,"never")
+B.a3z=new A.oc(-2,-2)
+B.a3A=new A.ayp(0,"never")
 B.eL=new A.bQ(0,t.Lk)
 B.jB=new A.bQ(18,t.Lk)
 B.jC=new A.bQ(24,t.Lk)
 B.b7=new A.bQ(B.y,t.De)
-B.a3A=new A.bQ(B.y,t.rc)
+B.a3B=new A.bQ(B.y,t.rc)
 B.Vx=new A.J(1/0,1/0)
 B.cY=new A.bQ(B.Vx,t.W7)
 B.jD=new A.bQ(B.i3,t.mD)
@@ -121513,34 +121514,34 @@ B.jI=new A.vd(0,"hit")
 B.jJ=new A.vd(1,"visible")
 B.jK=new A.vd(2,"invisible")
 B.cj=new A.qC(0,"start")
-B.a3C=new A.qC(1,"end")
+B.a3D=new A.qC(1,"end")
 B.CQ=new A.qC(2,"center")
-B.a3D=new A.qC(3,"spaceBetween")
-B.a3E=new A.qC(4,"spaceAround")
-B.a3F=new A.qC(5,"spaceEvenly")
+B.a3E=new A.qC(3,"spaceBetween")
+B.a3F=new A.qC(4,"spaceAround")
+B.a3G=new A.qC(5,"spaceEvenly")
 B.eM=new A.IX(0,"start")
-B.a3G=new A.IX(1,"end")
+B.a3H=new A.IX(1,"end")
 B.CR=new A.IX(2,"center")
 B.eN=new A.IY(0,"none")
 B.CS=new A.IY(1,"zipCrypto")
 B.CT=new A.IY(2,"aes")
 B.aS=new A.zX(0,"forward")
 B.jL=new A.zX(1,"reverse")
-B.a3H=new A.Jk(0,"checkbox")
-B.a3I=new A.Jk(1,"radio")
-B.a3J=new A.Jk(2,"toggle")
-B.a3K=new A.aAJ(0,"material")
-B.a5v=new A.aAK(0,"material")
+B.a3I=new A.Jk(0,"checkbox")
+B.a3J=new A.Jk(1,"radio")
+B.a3K=new A.Jk(2,"toggle")
+B.a3L=new A.aAJ(0,"material")
+B.a5w=new A.aAK(0,"material")
 B.d0=new A.aAN(0,"flat")
 B.d_=new A.aAO(0,"flat")
-B.a3L=new A.Jl(B.f2)
-B.a3M=new A.Jl(B.or)
-B.a3N=new A.Jl(B.ot)
-B.a5w=new A.aBk(0,"plain")
+B.a3M=new A.Jl(B.f2)
+B.a3N=new A.Jl(B.or)
+B.a3O=new A.Jl(B.ot)
+B.a5x=new A.aBk(0,"plain")
 B.Gk=new A.O(0.01568627450980392,0,0,0,B.i)
 B.Ks=s([B.Gk,B.y],t.t_)
-B.a3O=new A.kX(B.Ks)
-B.a3P=new A.kX(null)
+B.a3P=new A.kX(B.Ks)
+B.a3Q=new A.kX(null)
 B.nE=new A.vm(0,"backButton")
 B.nF=new A.vm(1,"nextButton")
 B.eO=new A.a_J(0,"horizontal")
@@ -121554,28 +121555,28 @@ B.eQ=new A.JJ(2,"accepted")
 B.a6=new A.vr(0,"initial")
 B.hg=new A.vr(1,"active")
 B.CZ=new A.vr(2,"inactive")
-B.a3V=new A.vr(3,"failed")
+B.a3W=new A.vr(3,"failed")
 B.D_=new A.vr(4,"defunct")
-B.a41=new A.a0c(0,"filled")
-B.a42=new A.a0c(1,"tonal")
+B.a42=new A.a0c(0,"filled")
+B.a43=new A.a0c(1,"tonal")
 B.d1=new A.vs(0,"camera")
-B.a43=new A.vs(1,"controller")
+B.a44=new A.vs(1,"controller")
 B.nI=new A.vt(0,"ready")
 B.jM=new A.vt(1,"possible")
 B.D0=new A.vt(2,"accepted")
 B.jN=new A.vt(3,"started")
-B.a44=new A.vt(4,"peaked")
+B.a45=new A.vt(4,"peaked")
 B.hh=new A.K7(0,"pan")
 B.jO=new A.K7(1,"scale")
-B.a45=new A.K7(2,"rotate")
+B.a46=new A.K7(2,"rotate")
 B.jP=new A.Ak(0,"idle")
-B.a46=new A.Ak(1,"absorb")
+B.a47=new A.Ak(1,"absorb")
 B.jQ=new A.Ak(2,"pull")
 B.D1=new A.Ak(3,"recede")
 B.dM=new A.qM(0,"pressed")
 B.eR=new A.qM(1,"hover")
 B.D2=new A.qM(2,"focus")
-B.a47=new A.aGE(0,"standard")
+B.a48=new A.aGE(0,"standard")
 B.ah=new A.vA(0,"minWidth")
 B.Z=new A.vA(1,"maxWidth")
 B.aA=new A.vA(2,"minHeight")
@@ -121583,11 +121584,11 @@ B.ar=new A.vA(3,"maxHeight")
 B.aH=new A.jh(1)
 B.d4=new A.dN(0,"size")
 B.D3=new A.dN(1,"width")
-B.a4j=new A.dN(11,"viewPadding")
+B.a4k=new A.dN(11,"viewPadding")
 B.D4=new A.dN(13,"accessibleNavigation")
-B.a4k=new A.dN(14,"invertColors")
+B.a4l=new A.dN(14,"invertColors")
 B.D5=new A.dN(15,"highContrast")
-B.a4l=new A.dN(17,"disableAnimations")
+B.a4m=new A.dN(17,"disableAnimations")
 B.nJ=new A.dN(19,"boldText")
 B.D6=new A.dN(2,"height")
 B.jR=new A.dN(21,"navigationMode")
@@ -121595,63 +121596,63 @@ B.jS=new A.dN(22,"gestureSettings")
 B.jT=new A.dN(25,"lineHeightScaleFactorOverride")
 B.jU=new A.dN(26,"letterSpacingOverride")
 B.jV=new A.dN(27,"wordSpacingOverride")
-B.a4m=new A.dN(29,"displayCornerRadii")
-B.a4n=new A.dN(3,"orientation")
+B.a4n=new A.dN(29,"displayCornerRadii")
+B.a4o=new A.dN(3,"orientation")
 B.cl=new A.dN(4,"devicePixelRatio")
 B.bs=new A.dN(6,"textScaler")
 B.jW=new A.dN(7,"platformBrightness")
 B.bU=new A.dN(8,"padding")
 B.hi=new A.dN(9,"viewInsets")
 B.D7=new A.qR(1/0,1/0,1/0,1/0,1/0,1/0)
-B.a4o=new A.qS(0,"isCurrent")
-B.a4p=new A.qS(5,"opaque")
-B.a4q=new A.dO(B.eh,B.ec)
+B.a4p=new A.qS(0,"isCurrent")
+B.a4q=new A.qS(5,"opaque")
+B.a4r=new A.dO(B.eh,B.ec)
 B.iu=new A.tH(1,"left")
-B.a4r=new A.dO(B.eh,B.iu)
+B.a4s=new A.dO(B.eh,B.iu)
 B.iv=new A.tH(2,"right")
-B.a4s=new A.dO(B.eh,B.iv)
-B.a4t=new A.dO(B.eh,B.cu)
-B.a4u=new A.dO(B.ei,B.ec)
-B.a4v=new A.dO(B.ei,B.iu)
-B.a4w=new A.dO(B.ei,B.iv)
-B.a4x=new A.dO(B.ei,B.cu)
-B.a4y=new A.dO(B.ej,B.ec)
-B.a4z=new A.dO(B.ej,B.iu)
-B.a4A=new A.dO(B.ej,B.iv)
-B.a4B=new A.dO(B.ej,B.cu)
-B.a4C=new A.dO(B.ek,B.ec)
-B.a4D=new A.dO(B.ek,B.iu)
-B.a4E=new A.dO(B.ek,B.iv)
-B.a4F=new A.dO(B.ek,B.cu)
-B.a4G=new A.dO(B.mi,B.cu)
-B.a4H=new A.dO(B.mj,B.cu)
-B.a4I=new A.dO(B.mk,B.cu)
-B.a4J=new A.dO(B.ml,B.cu)
-B.a4K=new A.a1V(null)
-B.a4L=new A.a1Z(null)
-B.a4M=new A.a20(null)
-B.a4P=new A.AM(250)
+B.a4t=new A.dO(B.eh,B.iv)
+B.a4u=new A.dO(B.eh,B.cu)
+B.a4v=new A.dO(B.ei,B.ec)
+B.a4w=new A.dO(B.ei,B.iu)
+B.a4x=new A.dO(B.ei,B.iv)
+B.a4y=new A.dO(B.ei,B.cu)
+B.a4z=new A.dO(B.ej,B.ec)
+B.a4A=new A.dO(B.ej,B.iu)
+B.a4B=new A.dO(B.ej,B.iv)
+B.a4C=new A.dO(B.ej,B.cu)
+B.a4D=new A.dO(B.ek,B.ec)
+B.a4E=new A.dO(B.ek,B.iu)
+B.a4F=new A.dO(B.ek,B.iv)
+B.a4G=new A.dO(B.ek,B.cu)
+B.a4H=new A.dO(B.mi,B.cu)
+B.a4I=new A.dO(B.mj,B.cu)
+B.a4J=new A.dO(B.mk,B.cu)
+B.a4K=new A.dO(B.ml,B.cu)
+B.a4L=new A.a1V(null)
+B.a4M=new A.a1Z(null)
+B.a4N=new A.a20(null)
+B.a4Q=new A.AM(250)
 B.D8=new A.oq(0,"idle")
-B.a4Q=new A.oq(1,"start")
-B.a4R=new A.oq(2,"update")
+B.a4R=new A.oq(1,"start")
+B.a4S=new A.oq(2,"update")
 B.D9=new A.oq(3,"commit")
-B.a4S=new A.oq(4,"cancel")
+B.a4T=new A.oq(4,"cancel")
 B.Da=new A.fK(0,"staging")
 B.jX=new A.fK(1,"add")
-B.a4T=new A.fK(10,"remove")
-B.a4U=new A.fK(11,"popping")
-B.a4V=new A.fK(12,"removing")
+B.a4U=new A.fK(10,"remove")
+B.a4V=new A.fK(11,"popping")
+B.a4W=new A.fK(12,"removing")
 B.jY=new A.fK(13,"dispose")
-B.a4W=new A.fK(14,"disposing")
+B.a4X=new A.fK(14,"disposing")
 B.jZ=new A.fK(15,"disposed")
-B.a4X=new A.fK(2,"adding")
+B.a4Y=new A.fK(2,"adding")
 B.nK=new A.fK(3,"push")
 B.Db=new A.fK(4,"pushReplace")
 B.Dc=new A.fK(5,"pushing")
-B.a4Y=new A.fK(6,"replace")
+B.a4Z=new A.fK(6,"replace")
 B.hj=new A.fK(7,"idle")
 B.nL=new A.fK(8,"pop")
-B.a4Z=new A.fK(9,"complete")
+B.a5_=new A.fK(9,"complete")
 B.k_=new A.iC(0,"body")
 B.k0=new A.iC(1,"appBar")
 B.nN=new A.iC(10,"endDrawer")
@@ -121669,21 +121670,21 @@ B.hl=new A.AW(1,"possible")
 B.De=new A.AW(2,"accepted")
 B.k6=new A.AW(3,"started")
 B.Vn=new A.J(100,0)
-B.a5_=new A.os(B.Vn,B.aD,B.ew,null,null)
-B.a50=new A.os(B.S,B.aD,B.ew,null,null)
+B.a50=new A.os(B.Vn,B.aD,B.ew,null,null)
+B.a51=new A.os(B.S,B.aD,B.ew,null,null)
 B.Df=new A.B4(0,"first")
-B.a51=new A.B4(1,"middle")
+B.a52=new A.B4(1,"middle")
 B.Dg=new A.B4(2,"last")
 B.nR=new A.B4(3,"only")
-B.a52=new A.My(B.pg,B.i0)
+B.a53=new A.My(B.pg,B.i0)
 B.k7=new A.MG(0,"leading")
 B.k8=new A.MG(1,"middle")
 B.k9=new A.MG(2,"trailing")
 B.nS=new A.MJ(0,"all")
 B.ka=new A.MJ(1,"onTracks")
 B.nT=new A.MJ(2,"hidden")
-B.a53=new A.a5Y(0,"minimize")
-B.a54=new A.a5Y(1,"maximize")
+B.a54=new A.a5Y(0,"minimize")
+B.a55=new A.a5Y(1,"maximize")
 B.cI=new A.a6J(A.bnD(),"WidgetStateMouseCursor(adaptiveClickable)")})();(function staticFields(){$.aUs=null
 $.aNM=null
 $.bo=A.k6("canvasKit")
@@ -122040,7 +122041,7 @@ s($,"buf","b7X",()=>new A.a_2())
 s($,"btq","b7w",()=>A.fo(B.fQ,B.h,t.o))
 s($,"btj","aRy",()=>A.fo(B.h,B.Qx,t.o))
 s($,"bt4","b7h",()=>A.fo(B.em,B.h,t.o))
-r($,"brW","b6w",()=>new A.QH(B.a3P,B.a3O))
+r($,"brW","b6w",()=>new A.QH(B.a3Q,B.a3P))
 s($,"bug","b7Y",()=>new A.Qv())
 r($,"bun","b81",()=>$.b7Z().n(0,"windowing"))
 s($,"bui","b7Z",()=>A.du(A.b("".split(","),t.s),t.N))
@@ -122111,7 +122112,7 @@ s($,"bp7","b4Q",()=>B.I.gjl().qW(B.b_.gjl(),t.X))
 s($,"buE","b86",()=>new A.apr())
 s($,"bqB","aWd",()=>new A.aq7(A.b([],A.al("E<~(nL)>")),A.w(t.v3,t.W)))
 s($,"bqA","b5I",()=>{var q=t.v3
-return A.P([B.a4z,A.cG([B.et],q),B.a4A,A.cG([B.ev],q),B.a4B,A.cG([B.et,B.ev],q),B.a4y,A.cG([B.et],q),B.a4v,A.cG([B.es],q),B.a4w,A.cG([B.fU],q),B.a4x,A.cG([B.es,B.fU],q),B.a4u,A.cG([B.es],q),B.a4r,A.cG([B.er],q),B.a4s,A.cG([B.fT],q),B.a4t,A.cG([B.er,B.fT],q),B.a4q,A.cG([B.er],q),B.a4D,A.cG([B.eu],q),B.a4E,A.cG([B.fV],q),B.a4F,A.cG([B.eu,B.fV],q),B.a4C,A.cG([B.eu],q),B.a4G,A.cG([B.dB],q),B.a4H,A.cG([B.iW],q),B.a4I,A.cG([B.iV],q),B.a4J,A.cG([B.fS],q)],A.al("dO"),A.al("bE<C>"))})
+return A.P([B.a4A,A.cG([B.et],q),B.a4B,A.cG([B.ev],q),B.a4C,A.cG([B.et,B.ev],q),B.a4z,A.cG([B.et],q),B.a4w,A.cG([B.es],q),B.a4x,A.cG([B.fU],q),B.a4y,A.cG([B.es,B.fU],q),B.a4v,A.cG([B.es],q),B.a4s,A.cG([B.er],q),B.a4t,A.cG([B.fT],q),B.a4u,A.cG([B.er,B.fT],q),B.a4r,A.cG([B.er],q),B.a4E,A.cG([B.eu],q),B.a4F,A.cG([B.fV],q),B.a4G,A.cG([B.eu,B.fV],q),B.a4D,A.cG([B.eu],q),B.a4H,A.cG([B.dB],q),B.a4I,A.cG([B.iW],q),B.a4J,A.cG([B.iV],q),B.a4K,A.cG([B.fS],q)],A.al("dO"),A.al("bE<C>"))})
 s($,"bqz","aWc",()=>A.P([B.et,B.fG,B.ev,B.iG,B.es,B.cR,B.fU,B.dv,B.er,B.ee,B.fT,B.fF,B.eu,B.fH,B.fV,B.iH,B.dB,B.fB,B.iW,B.iE,B.iV,B.iF],t.v3,t.W))
 s($,"bqy","b5H",()=>{var q=A.w(t.v3,t.W)
 q.l(0,B.fS,B.lW)
@@ -122285,7 +122286,7 @@ q.l(0,B.jh,B.p)
 q.l(0,B.jg,B.p)
 return q})
 r($,"bs4","aWp",()=>{A.aV5()
-return new A.a1Y(B.a4M,B.a6)})
+return new A.a1Y(B.a4N,B.a6)})
 s($,"bqg","l8",()=>A.Rv(t.uK))
 s($,"bs1","b6B",()=>A.e0(16667,0,0))
 s($,"bsd","aWq",()=>A.X9(1,0.98,389.09929536000004))
@@ -122338,7 +122339,7 @@ s($,"bp2","aW4",()=>new A.N())
 r($,"bc2","bnI",()=>{var q=new A.amU()
 q.w8($.aW4())
 return q})
-s($,"bul","b80",()=>new A.QA("en_US",B.Lt,B.Nc,B.qO,B.qO,B.qx,B.qx,B.lM,B.lM,B.qA,B.qA,B.qC,B.qC,B.qN,B.qN,B.LR,B.N6,B.Lo))
+s($,"bul","b80",()=>new A.QA("en_US",B.Lt,B.Nc,B.qO,B.qO,B.qx,B.qx,B.lM,B.lM,B.qA,B.qA,B.qC,B.qC,B.qN,B.qN,B.LS,B.N6,B.Lo))
 r($,"buC","aWT",()=>{var q=",",p="\xa0",o="%",n="0",m="+",l="-",k="E",j="\u2030",i="\u221e",h="NaN",g="#,##0.###",f="#E0",e="#,##0%",d="\xa4#,##0.00",c=".",b="\u200e+",a="\u200e-",a0="\u0644\u064a\u0633\xa0\u0631\u0642\u0645\u064b\u0627",a1="\u200f#,##0.00\xa0\xa4;\u200f-#,##0.00\xa0\xa4",a2="#,##,##0.###",a3="#,##,##0%",a4="\xa4\xa0#,##,##0.00",a5="INR",a6="#,##0.00\xa0\xa4",a7="#,##0\xa0%",a8="EUR",a9="USD",b0="\xa4\xa0#,##0.00",b1="\xa4\xa0#,##0.00;\xa4-#,##0.00",b2="CHF",b3="\xa4#,##,##0.00",b4="\u2212",b5="\xd710^",b6="[#E0]",b7="\u200f#,##0.00\xa0\u200f\xa4;\u200f-#,##0.00\xa0\u200f\xa4",b8="#,##0.00\xa0\xa4;-#,##0.00\xa0\xa4"
 return A.P(["af",A.at(d,g,q,"ZAR",k,p,i,l,"af",h,o,e,j,m,f,n),"am",A.at(d,g,c,"ETB",k,q,i,l,"am","\u1260\u1241\u1325\u122d\xa0\u120a\u1308\u1208\u133d\xa0\u12e8\u121b\u12ed\u127d\u120d",o,e,j,m,f,n),"ar",A.at(a1,g,c,"EGP",k,q,i,a,"ar",a0,"\u200e%\u200e",e,j,b,f,n),"ar_DZ",A.at(a1,g,q,"DZD",k,c,i,a,"ar_DZ",a0,"\u200e%\u200e",e,j,b,f,n),"ar_EG",A.at("\u200f#,##0.00\xa0\xa4",g,"\u066b","EGP","\u0623\u0633","\u066c",i,"\u061c-","ar_EG",a0,"\u066a\u061c",e,"\u0609","\u061c+",f,"\u0660"),"as",A.at(a4,a2,c,a5,k,q,i,l,"as",h,o,a3,j,m,f,"\u09e6"),"az",A.at(a6,g,q,"AZN",k,c,i,l,"az",h,o,e,j,m,f,n),"be",A.at(a6,g,q,"BYN",k,p,i,l,"be",h,o,a7,j,m,f,n),"bg",A.at(a6,g,q,a8,k,p,i,l,"bg",h,o,e,j,m,f,n),"bm",A.at(d,g,c,"XOF",k,q,i,l,"bm",h,o,e,j,m,f,n),"bn",A.at("#,##,##0.00\xa4",a2,c,"BDT",k,q,i,l,"bn",h,o,e,j,m,f,"\u09e6"),"br",A.at(a6,g,q,a8,k,p,i,l,"br",h,o,a7,j,m,f,n),"bs",A.at(a6,g,q,"BAM",k,c,i,l,"bs",h,o,e,j,m,f,n),"ca",A.at(a6,g,q,a8,k,c,i,l,"ca",h,o,a7,j,m,f,n),"chr",A.at(d,g,c,a9,k,q,i,l,"chr",h,o,e,j,m,f,n),"cs",A.at(a6,g,q,"CZK",k,p,i,l,"cs",h,o,a7,j,m,f,n),"cy",A.at(d,g,c,"GBP",k,q,i,l,"cy",h,o,e,j,m,f,n),"da",A.at(a6,g,q,"DKK",k,c,i,l,"da",h,o,a7,j,m,f,n),"de",A.at(a6,g,q,a8,k,c,i,l,"de",h,o,a7,j,m,f,n),"de_AT",A.at(b0,g,q,a8,k,p,i,l,"de_AT",h,o,a7,j,m,f,n),"de_CH",A.at(b1,g,c,b2,k,"'",i,l,"de_CH",h,o,e,j,m,f,n),"el",A.at(a6,g,q,a8,"e",c,i,l,"el",h,o,e,j,m,f,n),"en",A.at(d,g,c,a9,k,q,i,l,"en",h,o,e,j,m,f,n),"en_AU",A.at(d,g,c,"AUD","e",q,i,l,"en_AU",h,o,e,j,m,f,n),"en_CA",A.at(d,g,c,"CAD",k,q,i,l,"en_CA",h,o,e,j,m,f,n),"en_GB",A.at(d,g,c,"GBP",k,q,i,l,"en_GB",h,o,e,j,m,f,n),"en_IE",A.at(d,g,c,a8,k,q,i,l,"en_IE",h,o,e,j,m,f,n),"en_IN",A.at(b3,a2,c,a5,k,q,i,l,"en_IN",h,o,a3,j,m,f,n),"en_MY",A.at(d,g,c,"MYR",k,q,i,l,"en_MY",h,o,e,j,m,f,n),"en_NZ",A.at(d,g,c,"NZD",k,q,i,l,"en_NZ",h,o,e,j,m,f,n),"en_SG",A.at(d,g,c,"SGD",k,q,i,l,"en_SG",h,o,e,j,m,f,n),"en_US",A.at(d,g,c,a9,k,q,i,l,"en_US",h,o,e,j,m,f,n),"en_ZA",A.at(d,g,q,"ZAR",k,p,i,l,"en_ZA",h,o,e,j,m,f,n),"es",A.at(a6,g,q,a8,k,c,i,l,"es",h,o,a7,j,m,f,n),"es_419",A.at(d,g,c,"MXN",k,q,i,l,"es_419",h,o,e,j,m,f,n),"es_ES",A.at(a6,g,q,a8,k,c,i,l,"es_ES",h,o,a7,j,m,f,n),"es_MX",A.at(d,g,c,"MXN",k,q,i,l,"es_MX",h,o,e,j,m,f,n),"es_US",A.at(d,g,c,a9,k,q,i,l,"es_US",h,o,e,j,m,f,n),"et",A.at(a6,g,q,a8,b5,p,i,b4,"et",h,o,e,j,m,f,n),"eu",A.at(a6,g,q,a8,k,c,i,b4,"eu",h,o,"%\xa0#,##0",j,m,f,n),"fa",A.at("\u200e\xa4#,##0.00",g,"\u066b","IRR","\xd7\u06f1\u06f0^","\u066c",i,"\u200e\u2212","fa","\u0646\u0627\u0639\u062f\u062f","\u066a",e,"\u0609",b,f,"\u06f0"),"fi",A.at(a6,g,q,a8,k,p,i,b4,"fi","ep\xe4luku",o,a7,j,m,f,n),"fil",A.at(d,g,c,"PHP",k,q,i,l,"fil",h,o,e,j,m,f,n),"fr",A.at(a6,g,q,a8,k,"\u202f",i,l,"fr",h,o,a7,j,m,f,n),"fr_CA",A.at(a6,g,q,"CAD",k,p,i,l,"fr_CA",h,o,a7,j,m,f,n),"fr_CH",A.at(a6,g,q,b2,k,"\u202f",i,l,"fr_CH",h,o,e,j,m,f,n),"fur",A.at(b0,g,q,a8,k,c,i,l,"fur",h,o,e,j,m,f,n),"ga",A.at(d,g,c,a8,k,q,i,l,"ga","Nuimh",o,e,j,m,f,n),"gl",A.at(a6,g,q,a8,k,c,i,l,"gl",h,o,a7,j,m,f,n),"gsw",A.at(a6,g,c,b2,k,"'",i,b4,"gsw",h,o,a7,j,m,f,n),"gu",A.at(b3,a2,c,a5,k,q,i,l,"gu",h,o,a3,j,m,b6,n),"haw",A.at(d,g,c,a9,k,q,i,l,"haw",h,o,e,j,m,f,n),"he",A.at(b7,g,c,"ILS",k,q,i,a,"he",h,o,e,j,b,f,n),"hi",A.at(b3,a2,c,a5,k,q,i,l,"hi",h,o,a3,j,m,b6,n),"hr",A.at(a6,g,q,a8,k,c,i,b4,"hr",h,o,a7,j,m,f,n),"hu",A.at(a6,g,q,"HUF",k,p,i,l,"hu",h,o,e,j,m,f,n),"hy",A.at(a6,g,q,"AMD",k,p,i,l,"hy","\u0548\u0579\u0539",o,e,j,m,f,n),"id",A.at(d,g,q,"IDR",k,c,i,l,"id",h,o,e,j,m,f,n),"in",A.at(d,g,q,"IDR",k,c,i,l,"in",h,o,e,j,m,f,n),"is",A.at(a6,g,q,"ISK",k,c,i,l,"is",h,o,e,j,m,f,n),"it",A.at(a6,g,q,a8,k,c,i,l,"it",h,o,e,j,m,f,n),"it_CH",A.at(b1,g,c,b2,k,"'",i,l,"it_CH",h,o,e,j,m,f,n),"iw",A.at(b7,g,c,"ILS",k,q,i,a,"iw",h,o,e,j,b,f,n),"ja",A.at(d,g,c,"JPY",k,q,i,l,"ja",h,o,e,j,m,f,n),"ka",A.at(a6,g,q,"GEL",k,p,i,l,"ka","\u10d0\u10e0\xa0\u10d0\u10e0\u10d8\u10e1\xa0\u10e0\u10d8\u10ea\u10ee\u10d5\u10d8",o,e,j,m,f,n),"kk",A.at(a6,g,q,"KZT",k,p,i,l,"kk","\u0441\u0430\u043d\xa0\u0435\u043c\u0435\u0441",o,e,j,m,f,n),"km",A.at("#,##0.00\xa4",g,c,"KHR",k,q,i,l,"km",h,o,e,j,m,f,n),"kn",A.at(d,g,c,a5,k,q,i,l,"kn",h,o,e,j,m,f,n),"ko",A.at(d,g,c,"KRW",k,q,i,l,"ko",h,o,e,j,m,f,n),"ky",A.at(a6,g,q,"KGS",k,p,i,l,"ky","\u0441\u0430\u043d\xa0\u044d\u043c\u0435\u0441",o,e,j,m,f,n),"ln",A.at(a6,g,q,"CDF",k,c,i,l,"ln",h,o,e,j,m,f,n),"lo",A.at("\xa4#,##0.00;\xa4-#,##0.00",g,q,"LAK",k,c,i,l,"lo","\u0e9a\u0ecd\u0ec8\u200b\u0ec1\u0ea1\u0ec8\u0e99\u200b\u0ec2\u0e95\u200b\u0ec0\u0ea5\u0e81",o,e,j,m,"#",n),"lt",A.at(a6,g,q,a8,b5,p,i,b4,"lt",h,o,a7,j,m,f,n),"lv",A.at(a6,g,q,a8,k,p,i,l,"lv","NS",o,e,j,m,f,n),"mg",A.at(d,g,c,"MGA",k,q,i,l,"mg",h,o,e,j,m,f,n),"mk",A.at(a6,g,q,"MKD",k,c,i,l,"mk",h,o,a7,j,m,f,n),"ml",A.at(d,a2,c,a5,k,q,i,l,"ml",h,o,e,j,m,f,n),"mn",A.at(b0,g,c,"MNT",k,q,i,l,"mn",h,o,e,j,m,f,n),"mr",A.at(d,a2,c,a5,k,q,i,l,"mr",h,o,e,j,m,b6,"\u0966"),"ms",A.at(d,g,c,"MYR",k,q,i,l,"ms",h,o,e,j,m,f,n),"mt",A.at(d,g,c,a8,k,q,i,l,"mt",h,o,e,j,m,f,n),"my",A.at(a6,g,c,"MMK",k,q,i,l,"my","\u1002\u100f\u1014\u103a\u1038\u1019\u101f\u102f\u1010\u103a\u101e\u1031\u102c",o,e,j,m,f,"\u1040"),"nb",A.at(b8,g,q,"NOK",k,p,i,b4,"nb",h,o,a7,j,m,f,n),"ne",A.at(a4,a2,c,"NPR",k,q,i,l,"ne",h,o,a3,j,m,f,"\u0966"),"nl",A.at("\xa4\xa0#,##0.00;\xa4\xa0-#,##0.00",g,q,a8,k,c,i,l,"nl",h,o,e,j,m,f,n),"no",A.at(b8,g,q,"NOK",k,p,i,b4,"no",h,o,a7,j,m,f,n),"no_NO",A.at(b8,g,q,"NOK",k,p,i,b4,"no_NO",h,o,a7,j,m,f,n),"nyn",A.at(d,g,c,"UGX",k,q,i,l,"nyn",h,o,e,j,m,f,n),"or",A.at(d,a2,c,a5,k,q,i,l,"or",h,o,e,j,m,f,n),"pa",A.at(b3,a2,c,a5,k,q,i,l,"pa",h,o,a3,j,m,b6,n),"pl",A.at(a6,g,q,"PLN",k,p,i,l,"pl",h,o,e,j,m,f,n),"ps",A.at("\xa4#,##0.00;(\xa4#,##0.00)",g,"\u066b","AFN","\xd7\u06f1\u06f0^","\u066c",i,"\u200e-\u200e","ps",h,"\u066a",e,"\u0609","\u200e+\u200e",f,"\u06f0"),"pt",A.at(b0,g,q,"BRL",k,c,i,l,"pt",h,o,e,j,m,f,n),"pt_BR",A.at(b0,g,q,"BRL",k,c,i,l,"pt_BR",h,o,e,j,m,f,n),"pt_PT",A.at(a6,g,q,a8,k,p,i,l,"pt_PT",h,o,e,j,m,f,n),"ro",A.at(a6,g,q,"RON",k,c,i,l,"ro",h,o,a7,j,m,f,n),"ru",A.at(a6,g,q,"RUB",k,p,i,l,"ru","\u043d\u0435\xa0\u0447\u0438\u0441\u043b\u043e",o,a7,j,m,f,n),"si",A.at(d,g,c,"LKR",k,q,i,l,"si",h,o,e,j,m,"#",n),"sk",A.at(a6,g,q,a8,"e",p,i,l,"sk",h,o,a7,j,m,f,n),"sl",A.at(a6,g,q,a8,"e",c,i,b4,"sl",h,o,a7,j,m,f,n),"sq",A.at(a6,g,q,"ALL",k,p,i,l,"sq",h,o,e,j,m,f,n),"sr",A.at(a6,g,q,"RSD",k,c,i,l,"sr",h,o,e,j,m,f,n),"sr_Latn",A.at(a6,g,q,"RSD",k,c,i,l,"sr_Latn",h,o,e,j,m,f,n),"sv",A.at(a6,g,q,"SEK",b5,p,i,b4,"sv",h,o,a7,j,m,f,n),"sw",A.at(b0,g,c,"TZS",k,q,i,l,"sw",h,o,e,j,m,f,n),"ta",A.at(b3,a2,c,a5,k,q,i,l,"ta",h,o,a3,j,m,f,n),"te",A.at(b3,a2,c,a5,k,q,i,l,"te",h,o,e,j,m,f,n),"th",A.at(d,g,c,"THB",k,q,i,l,"th",h,o,e,j,m,f,n),"tl",A.at(d,g,c,"PHP",k,q,i,l,"tl",h,o,e,j,m,f,n),"tr",A.at(d,g,q,"TRY",k,c,i,l,"tr",h,o,"%#,##0",j,m,f,n),"uk",A.at(a6,g,q,"UAH","\u0415",p,i,l,"uk",h,o,e,j,m,f,n),"ur",A.at(d,g,c,"PKR",k,q,i,a,"ur",h,o,e,j,b,f,n),"uz",A.at(a6,g,q,"UZS",k,p,i,l,"uz","son\xa0emas",o,e,j,m,f,n),"vi",A.at(a6,g,q,"VND",k,c,i,l,"vi",h,o,e,j,m,f,n),"zh",A.at(d,g,c,"CNY",k,q,i,l,"zh",h,o,e,j,m,f,n),"zh_CN",A.at(d,g,c,"CNY",k,q,i,l,"zh_CN",h,o,e,j,m,f,n),"zh_HK",A.at(d,g,c,"HKD",k,q,i,l,"zh_HK","\u975e\u6578\u503c",o,e,j,m,f,n),"zh_TW",A.at(d,g,c,"TWD",k,q,i,l,"zh_TW","\u975e\u6578\u503c",o,e,j,m,f,n),"zu",A.at(d,g,c,"ZAR",k,q,i,l,"zu",h,o,e,j,m,f,n)],t.N,A.al("yk"))})
 r($,"bsH","aRt",()=>A.b0r("initializeDateFormatting(<locale>)",$.b80(),A.al("QA")))
@@ -122434,7 +122435,7 @@ e=[400*h/(h+27.13),400*g/(g+27.13),400*f/(f+27.13)]
 return new A.ayc(k,(40*e[0]+20*e[1]+e[2])/20*j,j,j,b,1,q,l,A.Bu(l,0.25),1.48+p)})
 s($,"bqf","aW9",()=>{var q=t.N
 return new A.F6(A.b([],t.A1),A.b([],A.al("E<fh>")),A.w(q,t.F),A.w(q,q),A.w(q,t.y),$.aA())})
-s($,"brd","aWh",()=>new A.Ix(A.b([],t.cz),B.Mw,$.aA()))
+s($,"brd","aWh",()=>new A.Ix(A.b([],t.cz),B.Mx,$.aA()))
 s($,"bs2","b6C",()=>A.aSR(B.Kg,B.Kh))
 s($,"bs3","b6D",()=>new A.Qk($.b6C()))
 s($,"bnQ","aVV",()=>new A.fP(B.kg,B.mc,$.aA()))
