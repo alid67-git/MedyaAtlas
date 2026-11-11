@@ -23,6 +23,15 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.108',
+    tr: '1.0.107 derleme düzeltmesi: web’de eksik import; Android Gradle 9.3.1 '
+        '(Flutter minimum). iPhone klasör/disk taraması bu sürümle yayında.',
+    en: '1.0.107 build fix: missing web import; Android Gradle 9.3.1 (Flutter '
+        'minimum). iPhone folder/disk scan ships in this release.',
+    de: '1.0.107 Build-Fix: fehlender Web-Import; Android Gradle 9.3.1 '
+        '(Flutter-Minimum). iPhone Ordner/Disk-Scan in dieser Version live.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.107',
     tr: 'iPhone (Safari / Ana Ekran): Kaynaklar’a «Klasör / disk (Dosyalar)» '
         'eklendi — iOS 18.4+ Dosyalar seçicisiyle harici HDD/USB klasörü ve '
