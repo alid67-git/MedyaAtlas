@@ -23,6 +23,15 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.109',
+    tr: 'Android derleme: AGP 9.1.1 + Gradle 9.5 (Flutter 3.50 minimum). '
+        'Web 1.0.108’deki iPhone klasör/disk taraması aynı.',
+    en: 'Android build: AGP 9.1.1 + Gradle 9.5 (Flutter 3.50 minimum). '
+        'Same iPhone folder/disk scan as web 1.0.108.',
+    de: 'Android-Build: AGP 9.1.1 + Gradle 9.5 (Flutter-3.50-Minimum). '
+        'Gleicher iPhone Ordner/Disk-Scan wie Web 1.0.108.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.108',
     tr: '1.0.107 derleme düzeltmesi: web’de eksik import; Android Gradle 9.3.1 '
         '(Flutter minimum). iPhone klasör/disk taraması bu sürümle yayında.',
