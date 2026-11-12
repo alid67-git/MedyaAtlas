@@ -259,19 +259,17 @@ Future<FolderPickResult> _fromFileList(
   bool Function()? isCancelled,
 }) async {
   final items = <FolderMediaRef>[];
-  final tracks = <PickedTrackFile>[];
+  final trackFiles = <web.File>[];
   var folderName = directory ? 'klasör' : 'Seçilen medya';
   final total = list.length;
 
+  // 1. geçiş: yalnızca medya — blob URL (içerik okuma yok). Hızlı.
   for (var i = 0; i < total; i++) {
-    if (isCancelled?.call() == true) {
-      break;
-    }
-    // UI nefesi + İptal — her 20 dosyada bir.
-    if (i % 20 == 0) {
+    if (isCancelled?.call() == true) break;
+    if (i % 8 == 0) {
       onProgress?.call(
         items.length,
-        'Ayrıştırma ${i + 1}/$total · medya ${items.length} · iz ${tracks.length}',
+        'Medya listesi ${i + 1}/$total · ${items.length} hazır (önizleme=blob)',
       );
       await Future<void>.delayed(Duration.zero);
       if (isCancelled?.call() == true) break;
@@ -316,7 +314,22 @@ Future<FolderPickResult> _fromFileList(
       continue;
     }
 
-    if (!_looksLikeTrackName(name)) continue;
+    if (_looksLikeTrackName(name)) {
+      trackFiles.add(file);
+    }
+  }
+
+  // 2. geçiş: GPX/KML (az dosya) — medya bittikten sonra.
+  final tracks = <PickedTrackFile>[];
+  for (var t = 0; t < trackFiles.length; t++) {
+    if (isCancelled?.call() == true) break;
+    onProgress?.call(
+      items.length,
+      'İz okunuyor ${t + 1}/${trackFiles.length}…',
+    );
+    await Future<void>.delayed(Duration.zero);
+    final file = trackFiles[t];
+    final name = file.name.trim().isEmpty ? 'track_$t.gpx' : file.name;
     final bytes = await _readWholeFile(file);
     if (bytes == null || bytes.isEmpty) continue;
     final kind = detectTrackFormat(fileName: name, bytes: bytes);
