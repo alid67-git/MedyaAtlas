@@ -13,19 +13,27 @@ import 'web_media_session.dart';
 
 export 'folder_types.dart';
 
-/// Klasör seçimi: `webkitdirectory` → Dosyalar uygulaması (iOS 18.4+ harici
-/// disk / USB-C HDD dahil). Alt klasörler FileList + webkitRelativePath ile gelir.
-/// Eski iOS’ta iptal/boş dönünce Apple web’de ikinci seçici açılmaz.
+/// Klasör seçimi: `webkitdirectory` → Dosyalar (iOS 18.4+ harici disk dahil).
+///
+/// Önemli: Klasör seçildikten sonra Safari tüm alt ağacı native tarafta
+/// listeler; 750GB kökte bu uzun sürer ve web’e ilerleme gelmez. Bu yüzden
+/// [onProgress] ile durum metni + [isCancelled] ile anında iptal desteklenir.
 Future<FolderPickResult?> pickMediaFolder({
   void Function(int found, String currentPath)? onProgress,
   bool Function()? isCancelled,
 }) async {
-  final folder = await _pickWithInput(directory: true);
+  final folder = await _pickWithInput(
+    directory: true,
+    onProgress: onProgress,
+    isCancelled: isCancelled,
+  );
   if (folder != null && folder.hasAnything) return folder;
-  if (folder != null) return folder; // boş klasör seçildi
-  // iPhone: kullanıcı iptal etti veya klasör API yok — foto seçiciye düşme.
+  if (folder != null) return folder;
   if (hostIsAppleWeb) return null;
-  return pickMultipleMediaFiles();
+  return pickMultipleMediaFiles(
+    onProgress: onProgress,
+    isCancelled: isCancelled,
+  );
 }
 
 Future<FolderPickResult?> pickExternalVolume({
@@ -45,22 +53,32 @@ Future<FolderPickResult> scanMediaDirectory(
 }
 
 /// Galeri / Favoriler: yalnızca çoklu dosya (klasör yok).
-Future<FolderPickResult?> pickMultipleMediaFiles() =>
-    _pickWithInput(directory: false);
+Future<FolderPickResult?> pickMultipleMediaFiles({
+  void Function(int found, String currentPath)? onProgress,
+  bool Function()? isCancelled,
+}) =>
+    _pickWithInput(
+      directory: false,
+      onProgress: onProgress,
+      isCancelled: isCancelled,
+    );
 
 bool _looksLikeTrackName(String name) {
   final lower = name.toLowerCase();
+  // Büyük diskte .xml içerik koklama yapma — binlerce config okunur.
   return lower.endsWith('.gpx') ||
       lower.endsWith('.kml') ||
-      lower.endsWith('.kmz') ||
-      lower.endsWith('.xml');
+      lower.endsWith('.kmz');
 }
 
-Future<FolderPickResult?> _pickWithInput({required bool directory}) async {
+Future<FolderPickResult?> _pickWithInput({
+  required bool directory,
+  void Function(int found, String currentPath)? onProgress,
+  bool Function()? isCancelled,
+}) async {
   final input = web.HTMLInputElement()
     ..type = 'file'
     ..multiple = true;
-  // Klasör modunda accept daraltma: Safari tüm alt dosyaları (GPX dahil) getirsin.
   if (directory) {
     input.removeAttribute('accept');
     input.setAttribute('webkitdirectory', '');
@@ -79,8 +97,13 @@ Future<FolderPickResult?> _pickWithInput({required bool directory}) async {
     ..zIndex = '-1';
 
   final done = Completer<FolderPickResult?>();
+  Timer? cancelPoll;
+  Timer? waitTick;
+  var waitSecs = 0;
 
   void finish(FolderPickResult? value) {
+    cancelPoll?.cancel();
+    waitTick?.cancel();
     if (!done.isCompleted) done.complete(value);
   }
 
@@ -90,13 +113,33 @@ Future<FolderPickResult?> _pickWithInput({required bool directory}) async {
     } catch (_) {}
   }
 
+  bool cancelled() => isCancelled?.call() == true;
+
   Future<void> handleFileList(web.FileList? list) async {
+    if (cancelled()) {
+      finish(null);
+      return;
+    }
     if (list == null || list.length == 0) {
       finish(null);
       return;
     }
+    onProgress?.call(
+      0,
+      'Liste alındı (${list.length} dosya) — medya ayrıştırılıyor…',
+    );
     try {
-      finish(await _fromFileList(list, directory: directory));
+      final result = await _fromFileList(
+        list,
+        directory: directory,
+        onProgress: onProgress,
+        isCancelled: isCancelled,
+      );
+      if (cancelled()) {
+        finish(null);
+        return;
+      }
+      finish(result);
     } catch (_) {
       finish(null);
     }
@@ -115,19 +158,48 @@ Future<FolderPickResult?> _pickWithInput({required bool directory}) async {
     }.toJS,
   );
 
+  // İptal: native Dosyalar UI’sini kapatamayız ama Completer’ı hemen bitiririz.
+  cancelPoll = Timer.periodic(const Duration(milliseconds: 200), (_) {
+    if (done.isCompleted) {
+      cancelPoll?.cancel();
+      return;
+    }
+    if (cancelled()) {
+      finish(null);
+    }
+  });
+
+  // Büyük diskte Safari FileList’i geç üretir — 2sn’de vazgeçme.
+  // Odak dönünce dosya gelene / iptale kadar bekle; adım metni güncelle.
   var focusArmed = false;
   void onFocus(web.Event _) {
     if (!focusArmed || done.isCompleted) return;
-    // Kısa bekleme — iptal tespiti; seçimde change zaten bitmiş olur.
-    // Not: büyük klasörlerde change gecikebilir; 2s'ye kadar bekle.
-    Future<void>.delayed(const Duration(milliseconds: 2000), () {
-      if (done.isCompleted) return;
+    waitTick?.cancel();
+    waitSecs = 0;
+    waitTick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (done.isCompleted) {
+        waitTick?.cancel();
+        return;
+      }
+      if (cancelled()) {
+        finish(null);
+        return;
+      }
       final list = input.files;
       if (list != null && list.length > 0) {
+        waitTick?.cancel();
         handleFileList(list);
         return;
       }
-      finish(null);
+      waitSecs++;
+      if (directory) {
+        onProgress?.call(
+          0,
+          waitSecs < 8
+              ? 'iOS klasörü listeliyor… (${waitSecs}sn) — kök değil, DCIM/GoPro seçin'
+              : 'Hâlâ listeleniyor… (${waitSecs}sn) · 750GB kök çok yavaş · İptal veya küçük klasör',
+        );
+      }
     });
   }
 
@@ -138,13 +210,21 @@ Future<FolderPickResult?> _pickWithInput({required bool directory}) async {
     focusArmed = true;
   });
 
+  if (directory) {
+    onProgress?.call(
+      0,
+      'Dosyalar: küçük klasör seçin (DCIM / GoPro) — tüm disk kökü çok uzun sürer',
+    );
+  }
+
   input.click();
 
   try {
     return await done.future;
   } finally {
+    cancelPoll?.cancel();
+    waitTick?.cancel();
     web.window.removeEventListener('focus', jsOnFocus);
-    // File referansları webSession’da kalsın — input’u geç sil.
     Future<void>.delayed(const Duration(seconds: 2), cleanup);
   }
 }
@@ -175,12 +255,28 @@ Future<Uint8List?> _readWholeFile(web.File file) async {
 Future<FolderPickResult> _fromFileList(
   web.FileList list, {
   required bool directory,
+  void Function(int found, String currentPath)? onProgress,
+  bool Function()? isCancelled,
 }) async {
   final items = <FolderMediaRef>[];
   final tracks = <PickedTrackFile>[];
   var folderName = directory ? 'klasör' : 'Seçilen medya';
+  final total = list.length;
 
-  for (var i = 0; i < list.length; i++) {
+  for (var i = 0; i < total; i++) {
+    if (isCancelled?.call() == true) {
+      break;
+    }
+    // UI nefesi + İptal — her 20 dosyada bir.
+    if (i % 20 == 0) {
+      onProgress?.call(
+        items.length,
+        'Ayrıştırma ${i + 1}/$total · medya ${items.length} · iz ${tracks.length}',
+      );
+      await Future<void>.delayed(Duration.zero);
+      if (isCancelled?.call() == true) break;
+    }
+
     final file = list.item(i);
     if (file == null) continue;
     final relative = file.webkitRelativePath;
@@ -220,16 +316,7 @@ Future<FolderPickResult> _fromFileList(
       continue;
     }
 
-    // Klasördeki route dosyaları — uzantı veya (xml) içerik.
-    if (!directory && !_looksLikeTrackName(name)) continue;
-    if (directory &&
-        !_looksLikeTrackName(name) &&
-        !mime.contains('gpx') &&
-        !mime.contains('kml') &&
-        mime != 'application/xml' &&
-        mime != 'text/xml') {
-      continue;
-    }
+    if (!_looksLikeTrackName(name)) continue;
     final bytes = await _readWholeFile(file);
     if (bytes == null || bytes.isEmpty) continue;
     final kind = detectTrackFormat(fileName: name, bytes: bytes);

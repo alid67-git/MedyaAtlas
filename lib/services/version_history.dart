@@ -23,6 +23,18 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.110',
+    tr: 'iPhone klasör tarama: adım durumu (iOS listeliyor → ayrıştırma → ekleme), '
+        'İptal artık hemen işler; tüm disk kökü yerine DCIM/GoPro uyarısı. '
+        '750GB kök seçince Safari native listeleme uzun sürer — alt klasör seçin.',
+    en: 'iPhone folder scan: step status (iOS listing → parse → add), Cancel '
+        'responds immediately; warn to pick DCIM/GoPro not the whole disk root. '
+        'A 750GB root makes Safari’s native listing very slow — pick a subfolder.',
+    de: 'iPhone-Ordnerscan: Schrittstatus (iOS listet → parsen → hinzufügen), '
+        'Abbrechen reagiert sofort; Warnung DCIM/GoPro statt ganzer Disk-Wurzel. '
+        '750GB-Wurzel macht natives Safari-Listing sehr langsam — Unterordner wählen.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.109',
     tr: 'Android derleme: AGP 9.1.1 + Gradle 9.5 (Flutter 3.50 minimum). '
         'Web 1.0.108’deki iPhone klasör/disk taraması aynı.',
