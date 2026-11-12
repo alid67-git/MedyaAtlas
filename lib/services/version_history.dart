@@ -23,6 +23,18 @@ class VersionHistoryEntry {
 
 const versionHistory = <VersionHistoryEntry>[
   VersionHistoryEntry(
+    version: '1.0.111',
+    tr: 'Web/iPhone klasör ekleme artık hızlı: dosya içeriği ve GPS okunmaz, '
+        'yalnızca blob önizleme + indeks; GPS sonra «Yeniden dene». '
+        'Önceki yol her dosyada head okuduğu için büyük disklerde çok yavaştı.',
+    en: 'Web/iPhone folder add is now fast: no per-file content/GPS reads — '
+        'blob preview + index only; GPS later via Retry. The old path read '
+        'file heads for every item and crawled on large disks.',
+    de: 'Web/iPhone-Ordner-Import jetzt schnell: kein Inhalt/GPS pro Datei — '
+        'nur Blob-Vorschau + Index; GPS später über Erneut versuchen. Der alte '
+        'Pfad las bei großen Disks jeden Dateikopf.',
+  ),
+  VersionHistoryEntry(
     version: '1.0.110',
     tr: 'iPhone klasör tarama: adım durumu (iOS listeliyor → ayrıştırma → ekleme), '
         'İptal artık hemen işler; tüm disk kökü yerine DCIM/GoPro uyarısı. '

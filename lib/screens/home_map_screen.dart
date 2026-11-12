@@ -558,14 +558,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  /// Web: OK sonrası anında indeksle (head/GPS/önizleme yok).
+  /// Web: OK sonrası anında indeksle (head/GPS/önizleme çıkarımı yok).
+  /// Blob URL pin için yeterli; GPS sonra «Yeniden dene».
   Future<int> _ingestWebQuick(
     List<FolderMediaRef> files, {
     required MediaSource source,
   }) async {
     final repo = context.read<MediaRepository>();
+    // findByIndex O(n) — büyük klasörde O(n²) olmasın diye kaynak indeksi.
+    final byKey = <String, LibraryMedia>{};
+    for (final m in repo.items) {
+      if (m.sourceId != source.id) continue;
+      byKey['${m.relativePath}|${m.sizeBytes}'] = m;
+    }
     var added = 0;
-    for (var i = 0; i < files.length; i++) {
+    final total = files.length;
+    for (var i = 0; i < total; i++) {
       if (_cancel) break;
       final file = files[i];
       final phoneLib = _isPhoneBulkSource(source);
@@ -573,12 +581,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           detectKind(file.name, phoneLibrary: phoneLib) ??
           (file.isVideo ? MediaKind.video : MediaKind.photo);
       final rel = file.relativePath ?? file.name;
+      final key = '$rel|${file.size}';
       try {
-        final existing = repo.findByIndex(
-          sourceId: source.id,
-          relativePath: rel,
-          size: file.size,
-        );
+        final existing = byKey[key];
         if (existing != null) {
           if (file.localPath != null &&
               file.localPath!.isNotEmpty &&
@@ -590,27 +595,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             );
           }
           added++;
-          continue;
+        } else {
+          final created = await repo.add(
+            name: file.name,
+            kind: kind,
+            sourceId: source.id,
+            relativePath: rel,
+            localPath: file.localPath,
+            sizeBytes: file.size,
+            takenAt: file.lastModified,
+            persist: false,
+            notify: false,
+          );
+          byKey[key] = created;
+          added++;
         }
-        await repo.add(
-          name: file.name,
-          kind: kind,
-          sourceId: source.id,
-          relativePath: rel,
-          localPath: file.localPath,
-          sizeBytes: file.size,
-          takenAt: file.lastModified,
-          persist: false,
-          notify: false,
-        );
-        added++;
       } catch (_) {}
-      if (i % 8 == 7) {
+      // Sık nefes — büyük klasörde durum + İptal.
+      if (i % 4 == 3 || i == total - 1) {
         await Future<void>.delayed(Duration.zero);
-        if (mounted) {
+        if (mounted && !_cancel) {
           setState(
             () => _status =
-                '${source.label}: ${i + 1}/${files.length} ekleniyor…',
+                '${source.label}: ${i + 1}/$total hızlı ekleniyor (önizleme=blob, GPS yok)…',
           );
         }
       }
@@ -870,7 +877,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _kindMenu = null;
         _tracksOpen = false;
         _status =
-            '2/3 ${picked!.items.length} medya · ${picked.trackFiles.length} iz — ekleniyor…';
+            '2/3 ${picked!.items.length} medya · ${picked.trackFiles.length} iz — hızlı ekleniyor…';
       });
     }
 
@@ -885,7 +892,36 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       return;
     }
     if (picked.items.isNotEmpty) {
-      await _ingestPick(picked, alreadyBusy: true);
+      if (kIsWeb) {
+        // Web klasör: Galeri gibi — dosya içeriği / GPS / önizleme çıkarımı YOK.
+        // Blob URL yeterli; harita pin’i tarayıcıda küçültülmüş gösterir.
+        // (Eski _ingestPick her dosyada head okuyordu → 750GB klasörde dakikalar.)
+        final repo = context.read<MediaRepository>();
+        final source = await repo.ensureSource(
+          id: 'folder_web_${picked.folderName}',
+          label: picked.folderName,
+        );
+        if (!mounted || _cancel) {
+          if (mounted) {
+            setState(() {
+              _endBusy();
+              _status = 'Tarama iptal edildi.';
+            });
+          }
+          return;
+        }
+        final added = await _ingestWebQuick(picked.items, source: source);
+        if (!mounted) return;
+        setState(() {
+          _endBusy();
+          _kinds.addAll(MediaKind.values);
+          _status =
+              '"${source.label}": $added medya eklendi (hızlı — GPS için Yeniden dene)';
+        });
+        _fitVisible();
+      } else {
+        await _ingestPick(picked, alreadyBusy: true);
+      }
     } else if (mounted) {
       setState(_endBusy);
     }
