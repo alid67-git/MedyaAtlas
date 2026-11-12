@@ -791,21 +791,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     try {
       // Safari/iPhone: input.click() ilk await/setState’ten önce olmalı
       // (Dosyalar / harici disk klasör seçicisi jesti kırılmasın).
+      void onFolderProgress(int n, String msg) {
+        if (!mounted || _cancel) return;
+        setState(() {
+          _status = msg.isNotEmpty
+              ? msg
+              : 'Klasör taranıyor… $n medya';
+        });
+      }
+
       final Future<FolderPickResult?> pickFuture;
       if (kIsWeb) {
         pickFuture = pickMediaFolder(
-          onProgress: (n, _) {
-            if (mounted && !_cancel) {
-              setState(() => _status = 'Klasör taranıyor… $n medya');
-            }
-          },
+          onProgress: onFolderProgress,
           isCancelled: () => _cancel,
         );
         if (mounted) {
           setState(() {
             _beginBusy();
             _status = hostIsAppleWeb
-                ? 'Dosyalar: klasör / disk seçin…'
+                ? '1/3 Dosyalar: DCIM veya GoPro klasörü seçin (tüm disk kökü değil)'
                 : 'Klasör listeleniyor…';
           });
         }
@@ -817,23 +822,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           });
         }
         pickFuture = pickMediaFolder(
-          onProgress: (n, _) {
-            if (mounted && !_cancel) {
-              setState(() => _status = 'Klasör taranıyor… $n medya');
-            }
-          },
+          onProgress: onFolderProgress,
           isCancelled: () => _cancel,
         );
       }
       picked = await pickFuture;
+      // İptal Completer’ı hemen null döndürür — burada bitir.
       if (_cancel && mounted) {
-        if (picked == null || !picked.hasAnything) {
-          setState(() {
-            _endBusy();
-            _status = 'Tarama iptal edildi.';
-          });
-          return;
-        }
+        setState(() {
+          _endBusy();
+          _status = 'Tarama iptal edildi.';
+        });
+        return;
       }
     } catch (e) {
       if (!mounted) return;
@@ -849,7 +849,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _endBusy();
         if (hostIsAppleWeb) {
           _status =
-              'Klasör seçilmedi. iOS 18.4+ gerekir: Dosyalar → harici disk / klasör.';
+              'Klasör seçilmedi / iptal. İpucu: tüm 750GB kökü değil, '
+              'DCIM veya GoPro alt klasörünü seçin (iOS 18.4+).';
         }
       });
       return;
@@ -868,16 +869,27 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _sourcesOpen = false;
         _kindMenu = null;
         _tracksOpen = false;
+        _status =
+            '2/3 ${picked!.items.length} medya · ${picked.trackFiles.length} iz — ekleniyor…';
       });
     }
 
     final tracks = picked.trackFiles;
+    if (_cancel) {
+      if (mounted) {
+        setState(() {
+          _endBusy();
+          _status = 'Tarama iptal edildi.';
+        });
+      }
+      return;
+    }
     if (picked.items.isNotEmpty) {
       await _ingestPick(picked, alreadyBusy: true);
     } else if (mounted) {
       setState(_endBusy);
     }
-    if (!mounted) return;
+    if (!mounted || _cancel) return;
     if (tracks.isNotEmpty) {
       await _addPickedTracks(
         TrackPickResult(files: tracks),
@@ -3275,7 +3287,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 onPressed: () {
                   _cancel = true;
                   if (mounted) {
-                    setState(() => _status = 'İptal ediliyor…');
+                    setState(() => _status = 'İptal ediliyor… (hemen)');
                   }
                 },
                 style: FilledButton.styleFrom(
@@ -3518,9 +3530,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               'Drive = drive.google.com dosyaları (Fotoğraflar değil). '
               'GPX: üstteki rota (İzler) ikonu.'
         : (hostIsAppleWeb || hostIsIOS)
-        ? 'Harici disk / klasör: «Klasör / disk (Dosyalar)» '
-              '(iOS 18.4+, alt klasörler + GPX). '
-              'Ayrıca Galeri veya Drive. Google Foto bulutu ayrıdır.'
+        ? 'Harici disk: «Klasör / disk (Dosyalar)» — tüm disk kökünü değil '
+              'DCIM / GoPro / Camera alt klasörünü seçin (iOS 18.4+). '
+              'Kök seçmek (yüzlerce GB) Safari’de uzun sürer. GPX klasörden gelir.'
         : (_isDesktop
               ? 'Medya: Klasör veya Drive dosyaları. GPX: rota ikonu.'
               : 'Medya: Galeri veya Drive dosyaları. GPX: rota ikonu.');
